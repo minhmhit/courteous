@@ -25,6 +25,11 @@ const Navbar = () => {
   const { user, logout } = useAuthStore();
   const { totalItems, fetchCart } = useCartStore();
 
+  // Debug log
+  useEffect(() => {
+    console.log("Navbar user state:", user);
+  }, [user]);
+
   // Fetch cart khi component mount
   useEffect(() => {
     if (user) {

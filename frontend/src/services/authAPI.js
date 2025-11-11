@@ -14,11 +14,19 @@ const authAPI = {
       headers: { "Content-Type": "application/x-www-form-urlencoded" },
     });
 
+    console.log("Login response:", response); // Debug log
+
     // Lưu token vào localStorage
     if (response.token) {
       localStorage.setItem("token", response.token);
       if (response.user) {
         localStorage.setItem("user", JSON.stringify(response.user));
+      }
+    } else if (response.data?.token) {
+      // Trường hợp response có nested data
+      localStorage.setItem("token", response.data.token);
+      if (response.data.user) {
+        localStorage.setItem("user", JSON.stringify(response.data.user));
       }
     }
 

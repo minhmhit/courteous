@@ -27,9 +27,24 @@ const useAuthStore = create((set, get) => ({
     set({ isLoading: true, error: null });
     try {
       const response = await authAPI.login(credentials);
+
+      console.log("Store received response:", response); // Debug log
+
+      // Handle both response structures: { token, user } or { data: { token, user } }
+      const token = response.token || response.data?.token;
+      const user = response.user || response.data?.user;
+
+      // Đảm bảo lưu vào localStorage
+      if (token) {
+        localStorage.setItem("token", token);
+      }
+      if (user) {
+        localStorage.setItem("user", JSON.stringify(user));
+      }
+
       set({
-        user: response.user,
-        token: response.token,
+        user: user,
+        token: token,
         isAuthenticated: true,
         isLoading: false,
       });
@@ -41,9 +56,7 @@ const useAuthStore = create((set, get) => ({
       });
       throw error;
     }
-  },
-
-  // Đăng ký
+  }, // Đăng ký
   register: async (userData) => {
     set({ isLoading: true, error: null });
     try {
