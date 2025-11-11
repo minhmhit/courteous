@@ -8,6 +8,7 @@ import useAuthStore from "./stores/useAuthStore";
 // Components
 import ToastContainer from "./components/ui/Toast";
 import ProtectedRoute from "./components/ProtectedRoute";
+import CustomerLayout from "./components/customer/CustomerLayout";
 
 // Pages - Customer
 import HomePage from "./pages/customer/HomePage";
@@ -47,38 +48,42 @@ function App() {
       <BrowserRouter>
         <ToastContainer />
         <Routes>
-          {/* Public Routes */}
-          <Route path="/" element={<HomePage />} />
-          <Route path="/products" element={<ProductsPage />} />
-          <Route path="/products/:id" element={<ProductDetailPage />} />
+          {/* Auth Routes (no layout) */}
           <Route path="/login" element={<LoginPage />} />
           <Route path="/register" element={<RegisterPage />} />
 
-          {/* Protected Customer Routes */}
-          <Route
-            path="/cart"
-            element={
-              <ProtectedRoute>
-                <CartPage />
-              </ProtectedRoute>
-            }
-          />
-          <Route
-            path="/checkout"
-            element={
-              <ProtectedRoute>
-                <CheckoutPage />
-              </ProtectedRoute>
-            }
-          />
-          <Route
-            path="/profile"
-            element={
-              <ProtectedRoute>
-                <ProfilePage />
-              </ProtectedRoute>
-            }
-          />
+          {/* Customer Routes with Navbar & Footer */}
+          <Route element={<CustomerLayout />}>
+            <Route path="/" element={<HomePage />} />
+            <Route path="/products" element={<ProductsPage />} />
+            <Route path="/products/:id" element={<ProductDetailPage />} />
+
+            {/* Protected Customer Routes */}
+            <Route
+              path="/cart"
+              element={
+                <ProtectedRoute>
+                  <CartPage />
+                </ProtectedRoute>
+              }
+            />
+            <Route
+              path="/checkout"
+              element={
+                <ProtectedRoute>
+                  <CheckoutPage />
+                </ProtectedRoute>
+              }
+            />
+            <Route
+              path="/profile"
+              element={
+                <ProtectedRoute>
+                  <ProfilePage />
+                </ProtectedRoute>
+              }
+            />
+          </Route>
 
           {/* Admin Routes */}
           <Route
