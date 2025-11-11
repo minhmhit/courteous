@@ -67,27 +67,34 @@ const CheckoutPage = () => {
       return;
     }
 
+    if (!items || items.length === 0) {
+      toast.error("Giỏ hàng trống");
+      return;
+    }
+
     setIsSubmitting(true);
 
     try {
-      // Prepare order data
+      console.log("📦 Checkout - Cart items:", items); // Debug log
+
+      // Prepare order data theo format backend
+      // Backend expects: { cartItems: [{ cartItemId, productId, quantity }], couponId }
       const orderData = {
-        customerName: formData.fullName,
-        customerPhone: formData.phone,
-        customerEmail: formData.email,
-        shippingAddress: `${formData.address}, ${formData.district}, ${formData.city}`,
-        paymentMethod: formData.paymentMethod,
-        note: formData.note,
-        items: items.map((item) => ({
-          productId: item.productId,
+        cartItems: items.map((item) => ({
+          cartItemId: item.id || item.cartItemId,
+          productId: item.productId || item.product_id,
           quantity: item.quantity,
-          price: item.price,
         })),
-        totalAmount: totalPrice,
+        // couponId: null, // Optional - thêm nếu có coupon
       };
 
+      console.log("📤 Sending order data:", orderData); // Debug log
+
       const response = await orderAPI.createOrder(orderData);
-      const newOrderId = response.data?.id || response.id;
+      console.log("✅ Order response:", response); // Debug log
+
+      const newOrderId =
+        response.data?.id || response.data?.orderId || response.id;
 
       setOrderId(newOrderId);
       setOrderSuccess(true);
@@ -100,8 +107,13 @@ const CheckoutPage = () => {
         navigate(`/profile/orders`);
       }, 3000);
     } catch (error) {
-      console.error("Lỗi khi đặt hàng:", error);
-      toast.error("Không thể đặt hàng. Vui lòng thử lại");
+      console.error("❌ Lỗi khi đặt hàng:", error);
+      console.error("Error response:", error.response?.data);
+      toast.error(
+        error.response?.data?.message ||
+          error.message ||
+          "Không thể đặt hàng. Vui lòng thử lại"
+      );
     } finally {
       setIsSubmitting(false);
     }

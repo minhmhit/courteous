@@ -27,6 +27,7 @@ import AdminLayout from "./pages/admin/AdminLayout";
 import DashboardPage from "./pages/admin/DashboardPage";
 import AdminProductsPage from "./pages/admin/AdminProductsPage";
 import AdminOrdersPage from "./pages/admin/AdminOrdersPage";
+import AdminUsersPage from "./pages/admin/AdminUsersPage";
 
 // Create React Query client
 const queryClient = new QueryClient({
@@ -116,6 +117,7 @@ function App() {
             <Route path="dashboard" element={<DashboardPage />} />
             <Route path="products" element={<AdminProductsPage />} />
             <Route path="orders" element={<AdminOrdersPage />} />
+            <Route path="users" element={<AdminUsersPage />} />
           </Route>
 
           {/* 404 */}
