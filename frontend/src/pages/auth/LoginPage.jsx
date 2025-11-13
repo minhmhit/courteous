@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { useNavigate, Link } from "react-router-dom";
+import { useNavigate, Link, useLocation } from "react-router-dom";
 import { Coffee } from "lucide-react";
 import useAuthStore from "../../stores/useAuthStore";
 import useToastStore from "../../stores/useToastStore";
@@ -8,6 +8,7 @@ import Button from "../../components/ui/Button";
 
 const LoginPage = () => {
   const navigate = useNavigate();
+  const location = useLocation();
   const { login, isLoading } = useAuthStore();
   const toast = useToastStore();
 
@@ -26,9 +27,27 @@ const LoginPage = () => {
   const handleSubmit = async (e) => {
     e.preventDefault();
     try {
-      await login(formData);
+      const response = await login(formData);
       toast.success("Đăng nhập thành công!");
-      navigate("/");
+
+      // Lấy roleId từ response
+      const user = response.user || response.data?.user;
+      const roleId = user?.roleId || user?.role_id || user?.role;
+
+      // Kiểm tra nếu có trang redirect trước đó (từ ProtectedRoute)
+      const from = location.state?.from?.pathname || null;
+
+      // Logic redirect:
+      // 1. Nếu có trang trước đó (user cố vào trang cần login) -> redirect về đó
+      // 2. Nếu role là enterprise (1,3,4,5) -> /admin
+      // 3. Nếu role là customer (2) -> / (homepage)
+      if (from) {
+        navigate(from, { replace: true });
+      } else if ([1, 3, 4, 5].includes(roleId)) {
+        navigate("/admin");
+      } else {
+        navigate("/");
+      }
     } catch (error) {
       toast.error(error.message || "Đăng nhập thất bại");
     }

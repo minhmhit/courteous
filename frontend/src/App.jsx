@@ -74,10 +74,11 @@ function App() {
             <Route path="/shipping-policy" element={<PolicyPage />} />
 
             {/* Protected Customer Routes */}
+            {/* Cart & Checkout - Customer & Admin Only */}
             <Route
               path="/cart"
               element={
-                <ProtectedRoute>
+                <ProtectedRoute allowedRoles={[1, 2]}>
                   <CartPage />
                 </ProtectedRoute>
               }
@@ -85,11 +86,13 @@ function App() {
             <Route
               path="/checkout"
               element={
-                <ProtectedRoute>
+                <ProtectedRoute allowedRoles={[1, 2]}>
                   <CheckoutPage />
                 </ProtectedRoute>
               }
             />
+
+            {/* Profile - All authenticated users */}
             <Route
               path="/profile"
               element={
@@ -98,10 +101,12 @@ function App() {
                 </ProtectedRoute>
               }
             />
+
+            {/* Order History - Customer & Admin Only */}
             <Route
               path="/profile/orders"
               element={
-                <ProtectedRoute>
+                <ProtectedRoute allowedRoles={[1, 2]}>
                   <OrderHistoryPage />
                 </ProtectedRoute>
               }
@@ -109,7 +114,7 @@ function App() {
             <Route
               path="/orders/:id"
               element={
-                <ProtectedRoute>
+                <ProtectedRoute allowedRoles={[1, 2]}>
                   <OrderDetailPage />
                 </ProtectedRoute>
               }
@@ -120,21 +125,96 @@ function App() {
           <Route
             path="/admin"
             element={
-              <ProtectedRoute requiredRole={1}>
+              <ProtectedRoute allowedRoles={[1, 3, 4, 5]}>
                 <AdminLayout />
               </ProtectedRoute>
             }
           >
             <Route index element={<Navigate to="/admin/dashboard" replace />} />
-            <Route path="dashboard" element={<DashboardPage />} />
-            <Route path="products" element={<AdminProductsPage />} />
-            <Route path="orders" element={<AdminOrdersPage />} />
-            <Route path="users" element={<AdminUsersPage />} />
-            <Route path="categories" element={<AdminCategoriesPage />} />
-            <Route path="warehouse" element={<AdminWarehousePage />} />
-            <Route path="hrm" element={<AdminHRMPage />} />
-            <Route path="analytics" element={<AdminAnalyticsPage />} />
-            <Route path="settings" element={<AdminSettingsPage />} />
+
+            {/* Dashboard & Analytics - Admin Only */}
+            <Route
+              path="dashboard"
+              element={
+                <ProtectedRoute allowedRoles={[1]}>
+                  <DashboardPage />
+                </ProtectedRoute>
+              }
+            />
+            <Route
+              path="analytics"
+              element={
+                <ProtectedRoute allowedRoles={[1]}>
+                  <AdminAnalyticsPage />
+                </ProtectedRoute>
+              }
+            />
+
+            {/* Products & Categories - Admin & Warehouse */}
+            <Route
+              path="products"
+              element={
+                <ProtectedRoute allowedRoles={[1, 3]}>
+                  <AdminProductsPage />
+                </ProtectedRoute>
+              }
+            />
+            <Route
+              path="categories"
+              element={
+                <ProtectedRoute allowedRoles={[1, 3]}>
+                  <AdminCategoriesPage />
+                </ProtectedRoute>
+              }
+            />
+
+            {/* Warehouse - Admin & Warehouse */}
+            <Route
+              path="warehouse"
+              element={
+                <ProtectedRoute allowedRoles={[1, 3]}>
+                  <AdminWarehousePage />
+                </ProtectedRoute>
+              }
+            />
+
+            {/* Orders - Admin & Sales */}
+            <Route
+              path="orders"
+              element={
+                <ProtectedRoute allowedRoles={[1, 4]}>
+                  <AdminOrdersPage />
+                </ProtectedRoute>
+              }
+            />
+
+            {/* Users & HRM - Admin & HRM */}
+            <Route
+              path="users"
+              element={
+                <ProtectedRoute allowedRoles={[1, 5]}>
+                  <AdminUsersPage />
+                </ProtectedRoute>
+              }
+            />
+            <Route
+              path="hrm"
+              element={
+                <ProtectedRoute allowedRoles={[1, 5]}>
+                  <AdminHRMPage />
+                </ProtectedRoute>
+              }
+            />
+
+            {/* Settings - Admin Only */}
+            <Route
+              path="settings"
+              element={
+                <ProtectedRoute allowedRoles={[1]}>
+                  <AdminSettingsPage />
+                </ProtectedRoute>
+              }
+            />
           </Route>
 
           {/* 404 */}

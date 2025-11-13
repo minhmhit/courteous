@@ -17,17 +17,87 @@ import useAuthStore from "../../stores/useAuthStore";
 const AdminLayout = () => {
   const { user, logout } = useAuthStore();
 
-  const menuItems = [
-    { icon: LayoutDashboard, label: "Dashboard", path: "/admin/dashboard" },
-    { icon: TrendingUp, label: "Phân tích", path: "/admin/analytics" },
-    { icon: Package, label: "Sản phẩm", path: "/admin/products" },
-    { icon: FolderOpen, label: "Danh mục", path: "/admin/categories" },
-    { icon: ShoppingCart, label: "Đơn hàng", path: "/admin/orders" },
-    { icon: Warehouse, label: "Kho hàng", path: "/admin/warehouse" },
-    { icon: Users, label: "Khách hàng", path: "/admin/users" },
-    { icon: UserCog, label: "Nhân sự (HRM)", path: "/admin/hrm" },
-    { icon: Settings, label: "Cài đặt", path: "/admin/settings" },
+  // Lấy roleId từ user
+  const userRole = user?.roleId || user?.role_id || user?.role;
+
+  // Định nghĩa menu items với allowedRoles
+  const allMenuItems = [
+    {
+      icon: LayoutDashboard,
+      label: "Dashboard",
+      path: "/admin/dashboard",
+      allowedRoles: [1], // Admin only
+    },
+    {
+      icon: TrendingUp,
+      label: "Phân tích",
+      path: "/admin/analytics",
+      allowedRoles: [1], // Admin only
+    },
+    {
+      icon: Package,
+      label: "Sản phẩm",
+      path: "/admin/products",
+      allowedRoles: [1, 3], // Admin & Warehouse
+    },
+    {
+      icon: FolderOpen,
+      label: "Danh mục",
+      path: "/admin/categories",
+      allowedRoles: [1, 3], // Admin & Warehouse
+    },
+    {
+      icon: ShoppingCart,
+      label: "Đơn hàng",
+      path: "/admin/orders",
+      allowedRoles: [1, 4], // Admin & Sales
+    },
+    {
+      icon: Warehouse,
+      label: "Kho hàng",
+      path: "/admin/warehouse",
+      allowedRoles: [1, 3], // Admin & Warehouse
+    },
+    {
+      icon: Users,
+      label: "Khách hàng",
+      path: "/admin/users",
+      allowedRoles: [1, 5], // Admin & HRM
+    },
+    {
+      icon: UserCog,
+      label: "Nhân sự (HRM)",
+      path: "/admin/hrm",
+      allowedRoles: [1, 5], // Admin & HRM
+    },
+    {
+      icon: Settings,
+      label: "Cài đặt",
+      path: "/admin/settings",
+      allowedRoles: [1], // Admin only
+    },
   ];
+
+  // Lọc menu items theo role
+  const menuItems = allMenuItems.filter((item) =>
+    item.allowedRoles.includes(userRole)
+  );
+
+  // Get role name
+  const getRoleName = (roleId) => {
+    const roles = {
+      1: { name: "Admin", color: "bg-red-100 text-red-800" },
+      2: { name: "Customer", color: "bg-blue-100 text-blue-800" },
+      3: { name: "Warehouse", color: "bg-green-100 text-green-800" },
+      4: { name: "Sales", color: "bg-purple-100 text-purple-800" },
+      5: { name: "HRM", color: "bg-yellow-100 text-yellow-800" },
+    };
+    return (
+      roles[roleId] || { name: "Unknown", color: "bg-gray-100 text-gray-800" }
+    );
+  };
+
+  const roleInfo = getRoleName(userRole);
 
   return (
     <div className="flex h-screen bg-gray-100">
@@ -35,7 +105,14 @@ const AdminLayout = () => {
       <div className="w-64 bg-white shadow-lg">
         <div className="p-6 border-b">
           <h1 className="text-2xl font-bold text-coffee-600">Admin Panel</h1>
-          <p className="text-sm text-gray-600 mt-1">{user?.name}</p>
+          <p className="text-sm text-gray-600 mt-1">
+            {user?.name || user?.username}
+          </p>
+          <span
+            className={`inline-block mt-2 px-3 py-1 text-xs font-semibold rounded-full ${roleInfo.color}`}
+          >
+            {roleInfo.name}
+          </span>
         </div>
 
         <nav className="p-4">

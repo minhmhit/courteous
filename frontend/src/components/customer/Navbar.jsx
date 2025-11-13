@@ -25,6 +25,10 @@ const Navbar = () => {
   const { user, logout } = useAuthStore();
   const { totalItems, fetchCart } = useCartStore();
 
+  // Lấy roleId từ user
+  const roleId = user?.roleId || user?.role_id || user?.role;
+  const isEnterpriseUser = [1, 3, 4, 5].includes(roleId); // Admin, Warehouse, Sales, HRM
+
   // Debug log
   useEffect(() => {
     console.log("Navbar user state:", user);
@@ -57,7 +61,8 @@ const Navbar = () => {
   const handleLogout = () => {
     logout();
     setIsUserMenuOpen(false);
-    navigate("/login");
+    localStorage.clear();
+    navigate("/");
   };
 
   return (
@@ -167,7 +172,7 @@ const Navbar = () => {
                         <Package className="w-4 h-4 text-gray-600" />
                         <span className="text-sm text-gray-700">Đơn hàng</span>
                       </Link>
-                      {user.role === "admin" && (
+                      {isEnterpriseUser && (
                         <Link
                           to="/admin"
                           onClick={() => setIsUserMenuOpen(false)}
@@ -265,7 +270,7 @@ const Navbar = () => {
                   >
                     Đơn hàng
                   </Link>
-                  {user.role === "admin" && (
+                  {isEnterpriseUser && (
                     <Link
                       to="/admin"
                       onClick={() => setIsMobileMenuOpen(false)}

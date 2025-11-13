@@ -42,10 +42,6 @@ const AdminWarehousePage = () => {
   });
   const [adjustQuantity, setAdjustQuantity] = useState("");
 
-  useEffect(() => {
-    fetchAllData();
-  }, [activeTab]);
-
   const fetchAllData = async () => {
     setIsLoading(true);
     try {
@@ -57,15 +53,37 @@ const AdminWarehousePage = () => {
           supplierAPI.getAllSuppliers().catch(() => ({ data: [] })),
         ]);
 
-      setInventory(inventoryRes.data || []);
-      setImports(importsRes.data || []);
-      setProducts(productsRes.data || []);
-      setSuppliers(suppliersRes.data || []);
+      // Đảm bảo luôn là array
+      const inventoryData = Array.isArray(inventoryRes.data)
+        ? inventoryRes.data
+        : inventoryRes.data?.inventory || inventoryRes.inventory || [];
+
+      const importsData = Array.isArray(importsRes.data)
+        ? importsRes.data
+        : importsRes.data?.imports || importsRes.imports || [];
+
+      const productsData = Array.isArray(productsRes.data)
+        ? productsRes.data
+        : productsRes.data?.products || productsRes.products || [];
+
+      const suppliersData = Array.isArray(suppliersRes.data)
+        ? suppliersRes.data
+        : suppliersRes.data?.suppliers || suppliersRes.suppliers || [];
+
+      setInventory(inventoryData);
+      setImports(importsData);
+      setProducts(productsData);
+      setSuppliers(suppliersData);
 
       // Fetch low stock
       if (activeTab === "low-stock") {
-        const lowStockRes = await inventoryAPI.getLowStockProducts(20);
-        setLowStockProducts(lowStockRes.data || []);
+        const lowStockRes = await inventoryAPI
+          .getLowStockProducts(20)
+          .catch(() => ({ data: [] }));
+        const lowStockData = Array.isArray(lowStockRes.data)
+          ? lowStockRes.data
+          : lowStockRes.data?.products || lowStockRes.products || [];
+        setLowStockProducts(lowStockData);
       }
     } catch (error) {
       console.error("Error fetching warehouse data:", error);
@@ -74,6 +92,11 @@ const AdminWarehousePage = () => {
       setIsLoading(false);
     }
   };
+
+  useEffect(() => {
+    fetchAllData();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [activeTab]);
 
   const handleOpenImportModal = () => {
     setImportFormData({
@@ -195,11 +218,13 @@ const AdminWarehousePage = () => {
   };
 
   const getProductName = (productId) => {
+    if (!Array.isArray(products)) return "N/A";
     const product = products.find((p) => p.id === productId);
     return product?.name || "N/A";
   };
 
   const getSupplierName = (supplierId) => {
+    if (!Array.isArray(suppliers)) return "N/A";
     const supplier = suppliers.find((s) => s.id === supplierId);
     return supplier?.name || "N/A";
   };
@@ -211,15 +236,19 @@ const AdminWarehousePage = () => {
     );
   };
 
-  const filteredInventory = inventory.filter((item) => {
-    const productName = getProductName(item.productId);
-    return productName.toLowerCase().includes(searchTerm.toLowerCase());
-  });
+  const filteredInventory = Array.isArray(inventory)
+    ? inventory.filter((item) => {
+        const productName = getProductName(item.productId);
+        return productName.toLowerCase().includes(searchTerm.toLowerCase());
+      })
+    : [];
 
-  const filteredImports = imports.filter((item) => {
-    const supplierName = getSupplierName(item.supplierId);
-    return supplierName.toLowerCase().includes(searchTerm.toLowerCase());
-  });
+  const filteredImports = Array.isArray(imports)
+    ? imports.filter((item) => {
+        const supplierName = getSupplierName(item.supplierId);
+        return supplierName.toLowerCase().includes(searchTerm.toLowerCase());
+      })
+    : [];
 
   return (
     <div className="space-y-6">
