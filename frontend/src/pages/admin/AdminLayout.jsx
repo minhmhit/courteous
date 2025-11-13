@@ -7,6 +7,10 @@ import {
   Users,
   Settings,
   LogOut,
+  FolderOpen,
+  Warehouse,
+  UserCog,
+  TrendingUp,
 } from "lucide-react";
 import useAuthStore from "../../stores/useAuthStore";
 
@@ -15,9 +19,13 @@ const AdminLayout = () => {
 
   const menuItems = [
     { icon: LayoutDashboard, label: "Dashboard", path: "/admin/dashboard" },
+    { icon: TrendingUp, label: "Phân tích", path: "/admin/analytics" },
     { icon: Package, label: "Sản phẩm", path: "/admin/products" },
+    { icon: FolderOpen, label: "Danh mục", path: "/admin/categories" },
     { icon: ShoppingCart, label: "Đơn hàng", path: "/admin/orders" },
-    { icon: Users, label: "Người dùng", path: "/admin/users" },
+    { icon: Warehouse, label: "Kho hàng", path: "/admin/warehouse" },
+    { icon: Users, label: "Khách hàng", path: "/admin/users" },
+    { icon: UserCog, label: "Nhân sự (HRM)", path: "/admin/hrm" },
     { icon: Settings, label: "Cài đặt", path: "/admin/settings" },
   ];
 

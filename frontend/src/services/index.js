@@ -5,6 +5,8 @@ import cartAPI from "./cartAPI";
 import orderAPI from "./orderAPI";
 import categoryAPI from "./categoryAPI";
 import supplierAPI from "./supplierAPI";
+import inventoryAPI from "./inventoryAPI";
+import importAPI from "./importAPI";
 
 export {
   authAPI,
@@ -14,6 +16,8 @@ export {
   orderAPI,
   categoryAPI,
   supplierAPI,
+  inventoryAPI,
+  importAPI,
 };
 
 export default {
@@ -24,4 +28,6 @@ export default {
   order: orderAPI,
   category: categoryAPI,
   supplier: supplierAPI,
+  inventory: inventoryAPI,
+  import: importAPI,
 };

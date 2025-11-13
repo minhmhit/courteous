@@ -9,11 +9,13 @@ import {
   XCircle,
   Clock,
   Filter,
+  Download,
 } from "lucide-react";
 import { orderAPI } from "../../services";
 import useToastStore from "../../stores/useToastStore";
 import Button from "../../components/ui/Button";
 import Input from "../../components/ui/Input";
+import { exportToCsv } from "../../utils/exportCSV";
 
 const AdminOrdersPage = () => {
   const toast = useToastStore();
@@ -64,6 +66,18 @@ const AdminOrdersPage = () => {
       console.error("Error fetching order detail:", error);
       toast.error("Không thể tải chi tiết đơn hàng");
     }
+  };
+
+  const handleExportCSV = () => {
+    const csvData = filteredOrders.map((order) => ({
+      "Mã Đơn": order.id,
+      "Thời Gian": formatDate(order.createdAt || order.created_at),
+      "Tổng Tiền": order.totalAmount || order.total_amount,
+      "Trạng Thái": getStatusInfo(order.status)?.label || order.status,
+      "Người Dùng": order.userId || order.user_id,
+    }));
+    exportToCsv("danh-sach-don-hang.csv", csvData);
+    toast.success("Đã xuất file CSV thành công!");
   };
 
   const formatPrice = (price) => {
@@ -196,9 +210,17 @@ const AdminOrdersPage = () => {
   return (
     <div className="space-y-6">
       {/* Header */}
-      <div>
-        <h1 className="text-3xl font-bold text-gray-900">Quản Lý Đơn Hàng</h1>
-        <p className="text-gray-600 mt-1">Theo dõi và xử lý tất cả đơn hàng</p>
+      <div className="flex justify-between items-center">
+        <div>
+          <h1 className="text-3xl font-bold text-gray-900">Quản Lý Đơn Hàng</h1>
+          <p className="text-gray-600 mt-1">
+            Theo dõi và xử lý tất cả đơn hàng
+          </p>
+        </div>
+        <Button onClick={handleExportCSV} variant="secondary">
+          <Download className="w-5 h-5 mr-2" />
+          Xuất CSV
+        </Button>
       </div>
 
       {/* Status Filter Tabs */}

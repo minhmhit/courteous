@@ -28,6 +28,11 @@ import DashboardPage from "./pages/admin/DashboardPage";
 import AdminProductsPage from "./pages/admin/AdminProductsPage";
 import AdminOrdersPage from "./pages/admin/AdminOrdersPage";
 import AdminUsersPage from "./pages/admin/AdminUsersPage";
+import AdminCategoriesPage from "./pages/admin/AdminCategoriesPage";
+import AdminSettingsPage from "./pages/admin/AdminSettingsPage";
+import AdminWarehousePage from "./pages/admin/AdminWarehousePage";
+import AdminHRMPage from "./pages/admin/AdminHRMPage";
+import AdminAnalyticsPage from "./pages/admin/AdminAnalyticsPage";
 
 // Create React Query client
 const queryClient = new QueryClient({
@@ -118,6 +123,11 @@ function App() {
             <Route path="products" element={<AdminProductsPage />} />
             <Route path="orders" element={<AdminOrdersPage />} />
             <Route path="users" element={<AdminUsersPage />} />
+            <Route path="categories" element={<AdminCategoriesPage />} />
+            <Route path="warehouse" element={<AdminWarehousePage />} />
+            <Route path="hrm" element={<AdminHRMPage />} />
+            <Route path="analytics" element={<AdminAnalyticsPage />} />
+            <Route path="settings" element={<AdminSettingsPage />} />
           </Route>
 
           {/* 404 */}

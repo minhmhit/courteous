@@ -170,6 +170,18 @@ const AdminProductsPage = () => {
     }
   };
 
+  const handleExportCSV = () => {
+    const csvData = filteredProducts.map((product) => ({
+      "Mã SP": product.id,
+      "Tên Sản Phẩm": product.name,
+      "Danh Mục": getCategoryName(product.categoryId),
+      Giá: product.price,
+      "Mô Tả": product.description || "",
+    }));
+    exportToCsv("danh-sach-san-pham.csv", csvData);
+    toast.success("Đã xuất file CSV thành công!");
+  };
+
   const formatPrice = (price) => {
     return new Intl.NumberFormat("vi-VN", {
       style: "currency",
@@ -194,10 +206,16 @@ const AdminProductsPage = () => {
           <h1 className="text-3xl font-bold text-gray-900">Quản Lý Sản Phẩm</h1>
           <p className="text-gray-600 mt-1">Quản lý toàn bộ sản phẩm cà phê</p>
         </div>
-        <Button onClick={() => handleOpenModal()} variant="primary">
-          <Plus className="w-5 h-5 mr-2" />
-          Thêm Sản Phẩm
-        </Button>
+        <div className="flex gap-3">
+          <Button onClick={handleExportCSV} variant="secondary">
+            <Download className="w-5 h-5 mr-2" />
+            Xuất CSV
+          </Button>
+          <Button onClick={() => handleOpenModal()} variant="primary">
+            <Plus className="w-5 h-5 mr-2" />
+            Thêm Sản Phẩm
+          </Button>
+        </div>
       </div>
 
       {/* Search */}
