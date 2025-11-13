@@ -28,7 +28,6 @@ const useAuthStore = create((set, get) => ({
     try {
       const response = await authAPI.login(credentials);
 
-      console.log("Store received response:", response); // Debug log
 
       // Handle both response structures: { token, user } or { data: { token, user } }
       const token = response.token || response.data?.token;

@@ -34,6 +34,9 @@ import AdminSettingsPage from "./pages/admin/AdminSettingsPage";
 import AdminWarehousePage from "./pages/admin/AdminWarehousePage";
 import AdminHRMPage from "./pages/admin/AdminHRMPage";
 import AdminAnalyticsPage from "./pages/admin/AdminAnalyticsPage";
+import WarehouseDashboardPage from "./pages/admin/WarehouseDashboardPage";
+import SalesDashboardPage from "./pages/admin/SalesDashboardPage";
+import HRMDashboardPage from "./pages/admin/HRMDashboardPage";
 
 // Create React Query client
 const queryClient = new QueryClient({
@@ -131,6 +134,32 @@ function App() {
             }
           >
             <Route index element={<Navigate to="/admin/dashboard" replace />} />
+
+            {/* Role-Specific Dashboards */}
+            <Route
+              path="warehouse-dashboard"
+              element={
+                <ProtectedRoute allowedRoles={[1, 3]}>
+                  <WarehouseDashboardPage />
+                </ProtectedRoute>
+              }
+            />
+            <Route
+              path="sales-dashboard"
+              element={
+                <ProtectedRoute allowedRoles={[1, 4]}>
+                  <SalesDashboardPage />
+                </ProtectedRoute>
+              }
+            />
+            <Route
+              path="hrm-dashboard"
+              element={
+                <ProtectedRoute allowedRoles={[1, 5]}>
+                  <HRMDashboardPage />
+                </ProtectedRoute>
+              }
+            />
 
             {/* Dashboard & Analytics - Admin Only */}
             <Route

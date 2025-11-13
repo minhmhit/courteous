@@ -586,7 +586,7 @@ const AdminWarehousePage = () => {
                         required
                       >
                         <option value="">-- Chọn nhà cung cấp --</option>
-                        {suppliers.map((supplier) => (
+                        {suppliers?.data.map((supplier) => (
                           <option key={supplier.id} value={supplier.id}>
                             {supplier.name}
                           </option>

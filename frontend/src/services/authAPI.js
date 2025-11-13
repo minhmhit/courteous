@@ -14,7 +14,6 @@ const authAPI = {
       headers: { "Content-Type": "application/x-www-form-urlencoded" },
     });
 
-    console.log("Login response:", response); // Debug log
 
     // Lưu token vào localStorage
     if (response.token) {

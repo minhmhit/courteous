@@ -1,5 +1,6 @@
-import { Outlet } from "react-router-dom";
+import { Outlet, useNavigate } from "react-router-dom";
 import { Link } from "react-router-dom";
+import { useEffect } from "react";
 import {
   LayoutDashboard,
   Package,
@@ -16,17 +17,55 @@ import useAuthStore from "../../stores/useAuthStore";
 
 const AdminLayout = () => {
   const { user, logout } = useAuthStore();
+  const navigate = useNavigate();
 
   // Lấy roleId từ user
   const userRole = user?.roleId || user?.role_id || user?.role;
+
+  // Redirect to role-specific dashboard when accessing /admin
+  useEffect(() => {
+    // Only redirect if on exactly /admin (not sub-routes)
+    if (
+      window.location.pathname === "/admin" ||
+      window.location.pathname === "/admin/"
+    ) {
+      if (userRole === 3) {
+        navigate("/admin/warehouse-dashboard", { replace: true });
+      } else if (userRole === 4) {
+        navigate("/admin/sales-dashboard", { replace: true });
+      } else if (userRole === 5) {
+        navigate("/admin/hrm-dashboard", { replace: true });
+      } else if (userRole === 1) {
+        navigate("/admin/dashboard", { replace: true });
+      }
+    }
+  }, [userRole, navigate]);
 
   // Định nghĩa menu items với allowedRoles
   const allMenuItems = [
     {
       icon: LayoutDashboard,
-      label: "Dashboard",
+      label: "Dashboard Admin",
       path: "/admin/dashboard",
       allowedRoles: [1], // Admin only
+    },
+    {
+      icon: LayoutDashboard,
+      label: "Dashboard Kho",
+      path: "/admin/warehouse-dashboard",
+      allowedRoles: [3], // Warehouse only
+    },
+    {
+      icon: LayoutDashboard,
+      label: "Dashboard Bán Hàng",
+      path: "/admin/sales-dashboard",
+      allowedRoles: [4], // Sales only
+    },
+    {
+      icon: LayoutDashboard,
+      label: "Dashboard Nhân Sự",
+      path: "/admin/hrm-dashboard",
+      allowedRoles: [5], // HRM only
     },
     {
       icon: TrendingUp,

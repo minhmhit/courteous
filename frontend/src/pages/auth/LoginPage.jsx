@@ -39,14 +39,24 @@ const LoginPage = () => {
 
       // Logic redirect:
       // 1. Nếu có trang trước đó (user cố vào trang cần login) -> redirect về đó
-      // 2. Nếu role là enterprise (1,3,4,5) -> /admin
-      // 3. Nếu role là customer (2) -> / (homepage)
+      // 2. Redirect theo role-specific dashboard:
+      //    - Role 1 (Admin) -> /admin/dashboard
+      //    - Role 3 (Warehouse) -> /admin/warehouse-dashboard
+      //    - Role 4 (Sales) -> /admin/sales-dashboard
+      //    - Role 5 (HRM) -> /admin/hrm-dashboard
+      //    - Role 2 (Customer) -> / (homepage)
       if (from) {
         navigate(from, { replace: true });
-      } else if ([1, 3, 4, 5].includes(roleId)) {
-        navigate("/admin");
+      } else if (roleId === 1) {
+        navigate("/admin/dashboard", { replace: true });
+      } else if (roleId === 3) {
+        navigate("/admin/warehouse-dashboard", { replace: true });
+      } else if (roleId === 4) {
+        navigate("/admin/sales-dashboard", { replace: true });
+      } else if (roleId === 5) {
+        navigate("/admin/hrm-dashboard", { replace: true });
       } else {
-        navigate("/");
+        navigate("/", { replace: true });
       }
     } catch (error) {
       toast.error(error.message || "Đăng nhập thất bại");
