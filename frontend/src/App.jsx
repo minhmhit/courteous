@@ -19,6 +19,7 @@ import CheckoutPage from "./pages/customer/CheckoutPage";
 import ProfilePage from "./pages/customer/ProfilePage";
 import OrderHistoryPage from "./pages/customer/OrderHistoryPage";
 import OrderDetailPage from "./pages/customer/OrderDetailPage";
+import PolicyPage from "./pages/customer/PolicyPage";
 import LoginPage from "./pages/auth/LoginPage";
 import RegisterPage from "./pages/auth/RegisterPage";
 
@@ -65,6 +66,12 @@ function App() {
             <Route path="/" element={<HomePage />} />
             <Route path="/products" element={<ProductsPage />} />
             <Route path="/products/:id" element={<ProductDetailPage />} />
+
+            {/* Policy Routes */}
+            <Route path="/privacy-policy" element={<PolicyPage />} />
+            <Route path="/terms-of-service" element={<PolicyPage />} />
+            <Route path="/return-policy" element={<PolicyPage />} />
+            <Route path="/shipping-policy" element={<PolicyPage />} />
 
             {/* Protected Customer Routes */}
             <Route

@@ -42,15 +42,49 @@ const HomePage = () => {
         setFeaturedProducts(products.slice(0, 4));
         setPromotionProducts(products.slice(4, 8));
 
-        // Filter active coupons
-        const coupons = couponsRes.data || [];
+        // Normalize / Filter active coupons
+        // The backend may return: { data: [...]} or { coupons: [...], pagination: {...} }
+        const couponsData =
+          (couponsRes &&
+            (couponsRes.data?.coupons ||
+              couponsRes.data ||
+              couponsRes.coupons)) ||
+          [];
+        // Ensure it's an array
+        const coupons = Array.isArray(couponsData) ? couponsData : [];
+        // Normalize and filter
         const now = new Date();
         const active = coupons.filter((coupon) => {
-          const endDate = new Date(coupon.endDate || coupon.end_date);
-          return (
-            endDate > now &&
-            (coupon.usageLimit || 999) > (coupon.usedCount || 0)
-          );
+          // possible date fields: validUntil, valid_until, endDate, end_date
+          const endRaw =
+            coupon.validUntil ||
+            coupon.valid_until ||
+            coupon.endDate ||
+            coupon.end_date ||
+            coupon.validTo ||
+            coupon.valid_to;
+          const startRaw =
+            coupon.validFrom ||
+            coupon.valid_from ||
+            coupon.startDate ||
+            coupon.start_date;
+          const endDate = endRaw ? new Date(endRaw) : null;
+          const startDate = startRaw ? new Date(startRaw) : null;
+
+          // usage fields may be named differently
+          const usageLimit =
+            coupon.usageLimit ||
+            coupon.usage_limit ||
+            coupon.limit ||
+            coupon.quota;
+          const usedCount =
+            coupon.usedCount || coupon.used_count || coupon.used || 0;
+
+          const withinStart = !startDate || startDate <= now;
+          const beforeEnd = !endDate || endDate > now;
+          const hasUsage = (usageLimit || 999) > (usedCount || 0);
+
+          return withinStart && beforeEnd && hasUsage;
         });
         setActiveCoupons(active.slice(0, 3));
       } catch (error) {
@@ -269,14 +303,25 @@ const HomePage = () => {
                   </div>
                   <h3 className="text-xl font-bold text-gray-900 mb-2">
                     Giảm{" "}
-                    {coupon.discountPercentage || coupon.discount_percentage}%
+                    {coupon.discountPercent ||
+                      coupon.discountPercentage ||
+                      coupon.discount_percentage}
+                    %
                   </h3>
                   <p className="text-gray-600 text-sm mb-4">
                     {coupon.description || "Áp dụng cho tất cả sản phẩm"}
                   </p>
                   <div className="text-xs text-gray-500">
                     Còn lại:{" "}
-                    {(coupon.usageLimit || 999) - (coupon.usedCount || 0)} lượt
+                    {(coupon.usageLimit ||
+                      coupon.usage_limit ||
+                      coupon.limit ||
+                      999) -
+                      (coupon.usedCount ||
+                        coupon.used_count ||
+                        coupon.used ||
+                        0)}{" "}
+                    lượt
                   </div>
                 </motion.div>
               ))}
