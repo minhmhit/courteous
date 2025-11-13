@@ -94,12 +94,10 @@ const HomePage = () => {
         products={featuredProducts}
         isLoading={isLoading}
       />
-      <CTASection />
       <PromotionsSection coupons={activeCoupons} products={promotionProducts} />
-      <AboutSection />
-      <ReviewsSection />
+      <CTASection />
       <HowToOrderSection />
-      <ContactSection />
+      <ReviewsSection />
       <PolicyLinksSection />
     </div>
   );

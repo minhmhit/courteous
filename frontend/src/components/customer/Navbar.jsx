@@ -92,27 +92,45 @@ const Navbar = () => {
           {/* Search Bar - Desktop */}
           <form
             onSubmit={handleSearch}
-            className="hidden md:flex items-center flex-1 max-w-md mx-8"
+            className="hidden md:flex items-center flex-1 max-w-xs mx-6"
           >
             <div className="relative w-full">
               <input
                 type="text"
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
-                placeholder="Tìm kiếm cà phê..."
-                className="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-coffee-500 focus:border-transparent"
+                placeholder="Tìm kiếm..."
+                className="w-full pl-9 pr-3 py-1.5 text-sm border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-coffee-500 focus:border-transparent"
               />
-              <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-400" />
+              <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
             </div>
           </form>
 
           {/* Desktop Menu */}
           <div className="hidden md:flex items-center gap-6">
             <Link
+              to="/"
+              className="text-gray-700 hover:text-coffee-600 font-medium transition-colors"
+            >
+              Trang chủ
+            </Link>
+            <Link
               to="/products"
               className="text-gray-700 hover:text-coffee-600 font-medium transition-colors"
             >
               Sản phẩm
+            </Link>
+            <Link
+              to="/policy/about"
+              className="text-gray-700 hover:text-coffee-600 font-medium transition-colors"
+            >
+              Về chúng tôi
+            </Link>
+            <Link
+              to="/policy/contact"
+              className="text-gray-700 hover:text-coffee-600 font-medium transition-colors"
+            >
+              Liên hệ
             </Link>
 
             {/* Cart */}
@@ -241,11 +259,32 @@ const Navbar = () => {
               className="md:hidden mt-4 pb-4 border-t border-gray-200 pt-4"
             >
               <Link
+                to="/"
+                onClick={() => setIsMobileMenuOpen(false)}
+                className="block py-2 text-gray-700 hover:text-coffee-600 font-medium"
+              >
+                Trang chủ
+              </Link>
+              <Link
                 to="/products"
                 onClick={() => setIsMobileMenuOpen(false)}
                 className="block py-2 text-gray-700 hover:text-coffee-600 font-medium"
               >
                 Sản phẩm
+              </Link>
+              <Link
+                to="/policy/about"
+                onClick={() => setIsMobileMenuOpen(false)}
+                className="block py-2 text-gray-700 hover:text-coffee-600 font-medium"
+              >
+                Về chúng tôi
+              </Link>
+              <Link
+                to="/policy/contact"
+                onClick={() => setIsMobileMenuOpen(false)}
+                className="block py-2 text-gray-700 hover:text-coffee-600 font-medium"
+              >
+                Liên hệ
               </Link>
               <Link
                 to="/cart"

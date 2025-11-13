@@ -13,6 +13,7 @@ import { userAPI } from "../../services";
 import useToastStore from "../../stores/useToastStore";
 import Input from "../../components/ui/Input";
 import Button from "../../components/ui/Button";
+import { formatDate } from "../../utils/formatDate";
 
 const AdminUsersPage = () => {
   const toast = useToastStore();
@@ -51,14 +52,6 @@ const AdminUsersPage = () => {
       console.error("Error updating user status:", error);
       toast.error("Không thể cập nhật trạng thái người dùng");
     }
-  };
-
-  const formatDate = (dateString) => {
-    return new Date(dateString).toLocaleDateString("vi-VN", {
-      year: "numeric",
-      month: "2-digit",
-      day: "2-digit",
-    });
   };
 
   const getRoleName = (roleId) => {

@@ -22,6 +22,7 @@ import {
 } from "recharts";
 import { orderAPI, productAPI } from "../../services";
 import useToastStore from "../../stores/useToastStore";
+import { formatDate, formatCurrency } from "../../utils/formatDate";
 
 const SalesDashboardPage = () => {
   const toast = useToastStore();
@@ -109,21 +110,6 @@ const SalesDashboardPage = () => {
   useEffect(() => {
     fetchDashboardData();
   }, [fetchDashboardData]);
-
-  const formatCurrency = (amount) => {
-    return new Intl.NumberFormat("vi-VN", {
-      style: "currency",
-      currency: "VND",
-    }).format(amount);
-  };
-
-  const formatDate = (dateString) => {
-    return new Date(dateString).toLocaleDateString("vi-VN", {
-      day: "2-digit",
-      month: "2-digit",
-      year: "numeric",
-    });
-  };
 
   const getStatusBadge = (status) => {
     const statusMap = {

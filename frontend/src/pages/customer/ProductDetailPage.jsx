@@ -17,6 +17,7 @@ import Button from "../../components/ui/Button";
 import { productAPI } from "../../services";
 import useCartStore from "../../stores/useCartStore";
 import useToastStore from "../../stores/useToastStore";
+import { formatCurrency } from "../../utils/formatDate";
 
 const ProductDetailPage = () => {
   const { id } = useParams();
@@ -76,13 +77,6 @@ const ProductDetailPage = () => {
     } catch (error) {
       toast.error("Không thể thực hiện");
     }
-  };
-
-  const formatPrice = (price) => {
-    return new Intl.NumberFormat("vi-VN", {
-      style: "currency",
-      currency: "VND",
-    }).format(price);
   };
 
   if (isLoading) {
@@ -213,11 +207,11 @@ const ProductDetailPage = () => {
             <div className="mb-6">
               <div className="flex items-baseline gap-3">
                 <span className="text-4xl font-bold text-coffee-600">
-                  {formatPrice(product.price)}
+                  {formatCurrency(product.price)}
                 </span>
                 {product.originalPrice && (
                   <span className="text-xl text-gray-400 line-through">
-                    {formatPrice(product.originalPrice)}
+                    {formatCurrency(product.originalPrice)}
                   </span>
                 )}
               </div>

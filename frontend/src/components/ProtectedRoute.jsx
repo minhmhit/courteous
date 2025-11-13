@@ -50,8 +50,13 @@ const ProtectedRoute = ({
   const { isAuthenticated, user } = useAuthStore();
   const location = useLocation();
 
+  // Fallback: Kiểm tra localStorage nếu store chưa initialize
+  const token = localStorage.getItem("token");
+  const storedUser = localStorage.getItem("user");
+  const actuallyAuthenticated = isAuthenticated || (token && storedUser);
+
   // 1. Kiểm tra đăng nhập
-  if (!isAuthenticated) {
+  if (!actuallyAuthenticated) {
     // Lưu location để redirect sau khi login
     return <Navigate to="/login" state={{ from: location }} replace />;
   }
@@ -61,8 +66,17 @@ const ProtectedRoute = ({
     return children;
   }
 
-  // 3. Lấy roleId từ user
-  const userRole = user?.roleId;
+  // 3. Lấy roleId từ user (ưu tiên từ store, fallback từ localStorage)
+  let userRole = user?.roleId;
+
+  if (!userRole && storedUser) {
+    try {
+      const parsedUser = JSON.parse(storedUser);
+      userRole = parsedUser?.roleId || parsedUser?.role_id || parsedUser?.role;
+    } catch (e) {
+      console.error("Failed to parse stored user:", e);
+    }
+  }
   // 4. Admin bypass (Role 1 có thể truy cập mọi trang)
   if (adminBypass && userRole === 1) {
     return children;

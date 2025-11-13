@@ -6,6 +6,7 @@ import useCartStore from "../../stores/useCartStore";
 import useToastStore from "../../stores/useToastStore";
 import Button from "../../components/ui/Button";
 import SkeletonLoader from "../../components/ui/SkeletonLoader";
+import { formatCurrency } from "../../utils/formatDate";
 
 const CartPage = () => {
   const navigate = useNavigate();
@@ -23,13 +24,6 @@ const CartPage = () => {
   useEffect(() => {
     fetchCart();
   }, [fetchCart]);
-
-  const formatPrice = (price) => {
-    return new Intl.NumberFormat("vi-VN", {
-      style: "currency",
-      currency: "VND",
-    }).format(price);
-  };
 
   const handleUpdateQuantity = async (cartItemId, newQuantity) => {
     if (newQuantity < 1) return;
@@ -153,10 +147,10 @@ const CartPage = () => {
                       {/* Price */}
                       <div className="text-right">
                         <p className="text-xl font-bold text-coffee-600">
-                          {formatPrice(item.price * item.quantity)}
+                          {formatCurrency(item.unitPrice * item.quantity)}
                         </p>
                         <p className="text-sm text-gray-500">
-                          {formatPrice(item.price)} / sản phẩm
+                          {formatCurrency(item.unitPrice)} / sản phẩm
                         </p>
                       </div>
                     </div>
@@ -184,7 +178,7 @@ const CartPage = () => {
               <div className="space-y-3 mb-6">
                 <div className="flex justify-between text-gray-600">
                   <span>Tạm tính ({totalItems} sản phẩm)</span>
-                  <span>{formatPrice(totalPrice)}</span>
+                  <span>{formatCurrency(totalPrice)}</span>
                 </div>
                 <div className="flex justify-between text-gray-600">
                   <span>Phí vận chuyển</span>
@@ -194,7 +188,7 @@ const CartPage = () => {
                   <div className="flex justify-between text-lg font-bold text-gray-900">
                     <span>Tổng cộng</span>
                     <span className="text-coffee-600">
-                      {formatPrice(totalPrice)}
+                      {formatCurrency(totalPrice)}
                     </span>
                   </div>
                 </div>

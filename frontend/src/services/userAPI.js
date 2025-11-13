@@ -20,7 +20,7 @@ const userAPI = {
 
   // Update user profile
   updateProfile: async (profileData) => {
-    return await axiosInstance.put("/users/profile", profileData);
+    return await axiosInstance.put("/auth/users/profile", profileData);
   },
 
   // Change password

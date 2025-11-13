@@ -20,6 +20,8 @@ import ProfilePage from "./pages/customer/ProfilePage";
 import OrderHistoryPage from "./pages/customer/OrderHistoryPage";
 import OrderDetailPage from "./pages/customer/OrderDetailPage";
 import PolicyPage from "./pages/customer/PolicyPage";
+import AboutPage from "./pages/customer/AboutPage";
+import ContactPage from "./pages/customer/ContactPage";
 import LoginPage from "./pages/auth/LoginPage";
 import RegisterPage from "./pages/auth/RegisterPage";
 
@@ -52,8 +54,10 @@ function App() {
   const { initialize } = useAuthStore();
 
   useEffect(() => {
+    // Initialize auth state from localStorage
     initialize();
-  }, [initialize]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []); // Empty deps - chỉ chạy 1 lần khi mount
 
   return (
     <QueryClientProvider client={queryClient}>
@@ -69,6 +73,12 @@ function App() {
             <Route path="/" element={<HomePage />} />
             <Route path="/products" element={<ProductsPage />} />
             <Route path="/products/:id" element={<ProductDetailPage />} />
+
+            {/* About & Contact Routes */}
+            <Route path="/about" element={<AboutPage />} />
+            <Route path="/contact" element={<ContactPage />} />
+            <Route path="/policy/about" element={<AboutPage />} />
+            <Route path="/policy/contact" element={<ContactPage />} />
 
             {/* Policy Routes */}
             <Route path="/privacy-policy" element={<PolicyPage />} />

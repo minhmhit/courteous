@@ -19,8 +19,22 @@ const AdminLayout = () => {
   const { user, logout } = useAuthStore();
   const navigate = useNavigate();
 
-  // Lấy roleId từ user
-  const userRole = user?.roleId || user?.role_id || user?.role;
+  // Lấy roleId từ user (với fallback từ localStorage)
+  let userRole = user?.roleId || user?.role_id || user?.role;
+
+  // Fallback: Nếu store chưa initialize, lấy từ localStorage
+  if (!userRole) {
+    const storedUser = localStorage.getItem("user");
+    if (storedUser) {
+      try {
+        const parsedUser = JSON.parse(storedUser);
+        userRole =
+          parsedUser?.roleId || parsedUser?.role_id || parsedUser?.role;
+      } catch (e) {
+        console.error("Failed to parse stored user:", e);
+      }
+    }
+  }
 
   // Redirect to role-specific dashboard when accessing /admin
   useEffect(() => {

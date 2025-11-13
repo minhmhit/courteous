@@ -22,6 +22,7 @@ import {
 import useToastStore from "../../stores/useToastStore";
 import Button from "../../components/ui/Button";
 import Input from "../../components/ui/Input";
+import { formatDate, formatCurrency } from "../../utils/formatDate";
 
 const AdminWarehousePage = () => {
   const toast = useToastStore();
@@ -198,23 +199,6 @@ const AdminWarehousePage = () => {
       console.error("Error updating payment status:", error);
       toast.error("Không thể cập nhật trạng thái");
     }
-  };
-
-  const formatPrice = (price) => {
-    return new Intl.NumberFormat("vi-VN", {
-      style: "currency",
-      currency: "VND",
-    }).format(price);
-  };
-
-  const formatDate = (dateString) => {
-    return new Date(dateString).toLocaleDateString("vi-VN", {
-      year: "numeric",
-      month: "2-digit",
-      day: "2-digit",
-      hour: "2-digit",
-      minute: "2-digit",
-    });
   };
 
   const getProductName = (productId) => {
@@ -442,7 +426,7 @@ const AdminWarehousePage = () => {
                           {formatDate(item.createdAt || item.created_at)}
                         </td>
                         <td className="px-6 py-4 font-semibold text-gray-900">
-                          {formatPrice(calculateImportTotal(item))}
+                          {formatCurrency(calculateImportTotal(item))}
                         </td>
                         <td className="px-6 py-4">
                           {item.paymentStatus === "PAID" ||

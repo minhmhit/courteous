@@ -9,16 +9,28 @@ const useAuthStore = create((set, get) => ({
   error: null,
 
   // Khởi tạo từ localStorage
-  initialize: () => {
+  initialize: async () => {
     const token = localStorage.getItem("token");
     const user = localStorage.getItem("user");
 
     if (token && user) {
+      // Set state tạm thời để cho phép render
       set({
         token,
         user: JSON.parse(user),
         isAuthenticated: true,
       });
+
+      // Verify token với backend (optional - để tránh delay UI)
+      // Nếu token invalid, axios interceptor sẽ tự động xóa và redirect
+      try {
+        await authAPI.getProfile();
+      } catch (error) {
+        // Token invalid - interceptor đã xử lý
+        console.log(
+          "Token verification failed - user will be redirected to login"
+        );
+      }
     }
   },
 
@@ -27,7 +39,6 @@ const useAuthStore = create((set, get) => ({
     set({ isLoading: true, error: null });
     try {
       const response = await authAPI.login(credentials);
-
 
       // Handle both response structures: { token, user } or { data: { token, user } }
       const token = response.token || response.data?.token;

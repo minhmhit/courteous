@@ -39,9 +39,15 @@ axiosInstance.interceptors.response.use(
       switch (status) {
         case 401:
           // Token hết hạn hoặc không hợp lệ
-          localStorage.removeItem("token");
-          localStorage.removeItem("user");
-          window.location.href = "/login";
+          // Chỉ xóa localStorage và redirect nếu đang không ở trang login
+          if (!window.location.pathname.includes("/login")) {
+            localStorage.removeItem("token");
+            localStorage.removeItem("user");
+            // Thêm timeout nhỏ để tránh race condition với initialize
+            setTimeout(() => {
+              window.location.href = "/login";
+            }, 100);
+          }
           break;
         case 403:
           console.error("Không có quyền truy cập");

@@ -16,6 +16,7 @@ import { orderAPI } from "../../services";
 import useToastStore from "../../stores/useToastStore";
 import SkeletonLoader from "../../components/ui/SkeletonLoader";
 import Button from "../../components/ui/Button";
+import { formatCurrency } from "../../utils/formatDate";
 
 const OrderDetailPage = () => {
   const { id } = useParams();
@@ -102,13 +103,6 @@ const OrderDetailPage = () => {
         bg: "bg-gray-50",
       }
     );
-  };
-
-  const formatPrice = (price) => {
-    return new Intl.NumberFormat("vi-VN", {
-      style: "currency",
-      currency: "VND",
-    }).format(price);
   };
 
   const formatDate = (dateString) => {
@@ -251,9 +245,8 @@ const OrderDetailPage = () => {
                   >
                     <img
                       src={
-                        item.imageUrl ||
-                        item.product?.imageUrl ||
-                        "https://via.placeholder.com/80"
+                        `../.${item.imageUrl}
+                        `
                       }
                       alt={item.name || item.product?.name}
                       className="w-20 h-20 object-cover rounded-lg"
@@ -266,12 +259,12 @@ const OrderDetailPage = () => {
                         Số lượng: {item.quantity}
                       </p>
                       <p className="text-sm text-gray-600">
-                        Đơn giá: {formatPrice(item.price)}
+                        Đơn giá: {formatCurrency(item.unitPrice)}
                       </p>
                     </div>
                     <div className="text-right">
                       <p className="font-bold text-coffee-600">
-                        {formatPrice(item.price * item.quantity)}
+                        {formatCurrency(item.unitPrice * item.quantity)}
                       </p>
                     </div>
                   </div>
@@ -290,7 +283,7 @@ const OrderDetailPage = () => {
               <div className="space-y-3">
                 <div className="flex justify-between text-gray-600">
                   <span>Tạm tính:</span>
-                  <span>{formatPrice(order.totalAmount || 0)}</span>
+                  <span>{formatCurrency(order.totalAmount || 0)}</span>
                 </div>
                 <div className="flex justify-between text-gray-600">
                   <span>Phí vận chuyển:</span>
@@ -300,7 +293,7 @@ const OrderDetailPage = () => {
                   <div className="flex justify-between text-lg font-bold">
                     <span>Tổng cộng:</span>
                     <span className="text-coffee-600">
-                      {formatPrice(order.totalAmount || 0)}
+                      {formatCurrency(order.totalAmount || 0)}
                     </span>
                   </div>
                 </div>
@@ -333,7 +326,7 @@ const OrderDetailPage = () => {
                     </p>
                   </div>
                 </div>
-                <div className="flex items-start gap-3">
+                {/* <div className="flex items-start gap-3">
                   <Phone className="w-5 h-5 text-gray-400 mt-0.5" />
                   <div>
                     <p className="text-sm text-gray-600">Số điện thoại</p>
@@ -359,12 +352,12 @@ const OrderDetailPage = () => {
                       {order.shippingAddress || "N/A"}
                     </p>
                   </div>
-                </div>
+                </div> */}
               </div>
             </div>
 
             {/* Payment Method */}
-            <div className="bg-white rounded-lg shadow-sm p-6">
+            {/* <div className="bg-white rounded-lg shadow-sm p-6">
               <h2 className="text-xl font-bold text-gray-900 mb-4">
                 Thanh toán
               </h2>
@@ -373,7 +366,7 @@ const OrderDetailPage = () => {
                   ? "Thanh toán khi nhận hàng (COD)"
                   : "Chuyển khoản ngân hàng"}
               </p>
-            </div>
+            </div> */}
           </div>
         </div>
       </div>

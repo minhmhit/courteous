@@ -17,7 +17,7 @@ const ProfilePage = () => {
   const [infoForm, setInfoForm] = useState({
     name: user?.name || "",
     email: user?.email || "",
-    phone: user?.phone || "",
+    phoneNumber: user?.phoneNumber || "",
   });
 
   // Password Form
@@ -163,9 +163,9 @@ const ProfilePage = () => {
                     />
                     <Input
                       label="Số điện thoại"
-                      name="phone"
+                      name="phoneNumber"
                       type="tel"
-                      value={infoForm.phone}
+                      value={infoForm.phoneNumber}
                       onChange={handleInfoChange}
                     />
                     <Button

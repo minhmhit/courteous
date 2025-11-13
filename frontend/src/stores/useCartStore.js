@@ -26,7 +26,7 @@ const useCartStore = create((set, get) => ({
         0
       );
       const totalPrice = items.reduce(
-        (sum, item) => sum + (item.price || 0) * (item.quantity || 0),
+        (sum, item) => sum + (item.unitPrice || 0) * (item.quantity || 0),
         0
       );
 

@@ -12,6 +12,11 @@ import {
 } from "lucide-react";
 import { orderAPI, productAPI, userAPI } from "../../services";
 import SalesChart from "../../components/admin/SalesChart";
+import {
+  formatDate,
+  formatDateISO,
+  formatCurrency,
+} from "../../utils/formatDate";
 
 const DashboardPage = () => {
   const [stats, setStats] = useState({
@@ -81,15 +86,15 @@ const DashboardPage = () => {
       for (let i = 6; i >= 0; i--) {
         const date = new Date();
         date.setDate(date.getDate() - i);
-        const dateStr = date.toISOString().split("T")[0];
+        const dateStr = formatDateISO(date).split("T")[0];
 
         // Calculate revenue for this day
         const dayRevenue = orders
           .filter((order) => {
-            const orderDate = new Date(order.createdAt || order.created_at)
-              .toISOString()
-              .split("T")[0];
-            return orderDate === dateStr;
+            const orderDateStr = formatDateISO(
+              order.createdAt || order.created_at
+            ).split("T")[0];
+            return orderDateStr === dateStr;
           })
           .reduce((sum, order) => sum + (order.totalAmount || 0), 0);
 
@@ -107,23 +112,6 @@ const DashboardPage = () => {
     } finally {
       setIsLoading(false);
     }
-  };
-
-  const formatPrice = (price) => {
-    return new Intl.NumberFormat("vi-VN", {
-      style: "currency",
-      currency: "VND",
-    }).format(price);
-  };
-
-  const formatDate = (dateString) => {
-    return new Date(dateString).toLocaleDateString("vi-VN", {
-      year: "numeric",
-      month: "2-digit",
-      day: "2-digit",
-      hour: "2-digit",
-      minute: "2-digit",
-    });
   };
 
   const getStatusColor = (status) => {
@@ -216,7 +204,7 @@ const DashboardPage = () => {
         />
         <StatCard
           title="Doanh Thu"
-          value={formatPrice(stats.totalRevenue)}
+          value={formatCurrency(stats.totalRevenue)}
           icon={DollarSign}
           trend
           trendValue={stats.revenueGrowth}
@@ -318,7 +306,9 @@ const DashboardPage = () => {
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap">
                       <span className="font-semibold text-gray-900">
-                        {formatPrice(order.totalAmount || order.total_amount)}
+                        {formatCurrency(
+                          order.totalAmount || order.total_amount
+                        )}
                       </span>
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap">

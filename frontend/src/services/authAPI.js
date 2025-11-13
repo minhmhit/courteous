@@ -46,7 +46,7 @@ const authAPI = {
 
   // Cập nhật profile
   updateProfile: async (userData) => {
-    return await axiosInstance.put("/users/profile", userData, {
+    return await axiosInstance.put("/auth/users/profile", userData, {
       headers: { "Content-Type": "application/x-www-form-urlencoded" },
     });
   },

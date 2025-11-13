@@ -16,6 +16,7 @@ import useToastStore from "../../stores/useToastStore";
 import Button from "../../components/ui/Button";
 import Input from "../../components/ui/Input";
 import { exportToCsv } from "../../utils/exportCSV";
+import { formatDate, formatCurrency } from "../../utils/formatDate";
 
 const AdminOrdersPage = () => {
   const toast = useToastStore();
@@ -78,23 +79,6 @@ const AdminOrdersPage = () => {
     }));
     exportToCsv("danh-sach-don-hang.csv", csvData);
     toast.success("Đã xuất file CSV thành công!");
-  };
-
-  const formatPrice = (price) => {
-    return new Intl.NumberFormat("vi-VN", {
-      style: "currency",
-      currency: "VND",
-    }).format(price);
-  };
-
-  const formatDate = (dateString) => {
-    return new Date(dateString).toLocaleDateString("vi-VN", {
-      year: "numeric",
-      month: "2-digit",
-      day: "2-digit",
-      hour: "2-digit",
-      minute: "2-digit",
-    });
   };
 
   const statusConfig = {
@@ -301,22 +285,21 @@ const AdminOrdersPage = () => {
                           <div>
                             <div className="font-medium text-gray-900">
                               {order.customerName ||
-                                order.customer_name ||
-                                "N/A"}
+                                order.customer_name 
+                                }
                             </div>
                             <div className="text-sm text-gray-500">
                               {order.customerPhone ||
-                                order.customer_phone ||
-                                ""}
+                                order.customer_phone }
                             </div>
                           </div>
                         </td>
                         <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-600">
-                          {formatDate(order.createdAt || order.created_at)}
+                          {formatDate(order.orderDate)}
                         </td>
                         <td className="px-6 py-4 whitespace-nowrap">
                           <span className="font-semibold text-gray-900">
-                            {formatPrice(
+                            {formatCurrency(
                               order.totalAmount || order.total_amount
                             )}
                           </span>
@@ -471,7 +454,7 @@ const AdminOrdersPage = () => {
                             </p>
                           </div>
                           <p className="font-semibold">
-                            {formatPrice(item.price * item.quantity)}
+                            {formatCurrency(item.price * item.quantity)}
                           </p>
                         </div>
                       ))}
@@ -482,7 +465,7 @@ const AdminOrdersPage = () => {
                     <div className="flex justify-between items-center text-lg font-bold">
                       <span>Tổng cộng</span>
                       <span className="text-coffee-600">
-                        {formatPrice(
+                        {formatCurrency(
                           selectedOrder.totalAmount ||
                             selectedOrder.total_amount
                         )}

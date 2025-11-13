@@ -12,6 +12,7 @@ import {
 } from "lucide-react";
 import { inventoryAPI, importAPI, productAPI } from "../../services";
 import useToastStore from "../../stores/useToastStore";
+import { formatDate } from "../../utils/formatDate";
 
 const WarehouseDashboardPage = () => {
   const toast = useToastStore();
@@ -79,14 +80,6 @@ const WarehouseDashboardPage = () => {
   useEffect(() => {
     fetchDashboardData();
   }, [fetchDashboardData]);
-
-  const formatDate = (dateString) => {
-    return new Date(dateString).toLocaleDateString("vi-VN", {
-      day: "2-digit",
-      month: "2-digit",
-      year: "numeric",
-    });
-  };
 
   const statCards = [
     {

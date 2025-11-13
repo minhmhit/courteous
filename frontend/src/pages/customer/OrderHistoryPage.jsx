@@ -5,6 +5,7 @@ import { Package, Clock, CheckCircle, XCircle, Truck, Eye } from "lucide-react";
 import { orderAPI } from "../../services";
 import useToastStore from "../../stores/useToastStore";
 import SkeletonLoader from "../../components/ui/SkeletonLoader";
+import { formatCurrency } from "../../utils/formatDate";
 
 const OrderHistoryPage = () => {
   const toast = useToastStore();
@@ -72,13 +73,6 @@ const OrderHistoryPage = () => {
         bg: "bg-gray-50",
       }
     );
-  };
-
-  const formatPrice = (price) => {
-    return new Intl.NumberFormat("vi-VN", {
-      style: "currency",
-      currency: "VND",
-    }).format(price);
   };
 
   const formatDate = (dateString) => {
@@ -227,7 +221,7 @@ const OrderHistoryPage = () => {
                             </p>
                           </div>
                           <p className="font-semibold text-gray-900">
-                            {formatPrice(item.price * item.quantity)}
+                            {formatCurrency(item.price * item.quantity)}
                           </p>
                         </div>
                       ))}
@@ -244,7 +238,7 @@ const OrderHistoryPage = () => {
                     <div>
                       <p className="text-sm text-gray-600">Tổng tiền:</p>
                       <p className="text-2xl font-bold text-coffee-600">
-                        {formatPrice(order.totalAmount || 0)}
+                        {formatCurrency(order.totalAmount || 0)}
                       </p>
                     </div>
                     <Link

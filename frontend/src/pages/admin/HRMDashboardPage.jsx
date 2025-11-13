@@ -21,6 +21,7 @@ import {
 import { userAPI } from "../../services";
 import useToastStore from "../../stores/useToastStore";
 import RoleBadge from "../../components/ui/RoleBadge";
+import { formatDate } from "../../utils/formatDate";
 
 const HRMDashboardPage = () => {
   const toast = useToastStore();
@@ -104,14 +105,6 @@ const HRMDashboardPage = () => {
   useEffect(() => {
     fetchDashboardData();
   }, [fetchDashboardData]);
-
-  const formatDate = (dateString) => {
-    return new Date(dateString).toLocaleDateString("vi-VN", {
-      day: "2-digit",
-      month: "2-digit",
-      year: "numeric",
-    });
-  };
 
   const statCards = [
     {
