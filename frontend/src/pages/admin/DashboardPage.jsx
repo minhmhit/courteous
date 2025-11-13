@@ -11,6 +11,7 @@ import {
   Clock,
 } from "lucide-react";
 import { orderAPI, productAPI, userAPI } from "../../services";
+import SalesChart from "../../components/admin/SalesChart";
 
 const DashboardPage = () => {
   const [stats, setStats] = useState({
@@ -24,6 +25,7 @@ const DashboardPage = () => {
     ordersGrowth: 0,
   });
   const [recentOrders, setRecentOrders] = useState([]);
+  const [salesData, setSalesData] = useState([]);
   const [isLoading, setIsLoading] = useState(true);
 
   useEffect(() => {
@@ -73,6 +75,33 @@ const DashboardPage = () => {
 
       // Get 5 most recent orders
       setRecentOrders(orders.slice(0, 5));
+
+      // Generate sales chart data (last 7 days)
+      const last7Days = [];
+      for (let i = 6; i >= 0; i--) {
+        const date = new Date();
+        date.setDate(date.getDate() - i);
+        const dateStr = date.toISOString().split("T")[0];
+
+        // Calculate revenue for this day
+        const dayRevenue = orders
+          .filter((order) => {
+            const orderDate = new Date(order.createdAt || order.created_at)
+              .toISOString()
+              .split("T")[0];
+            return orderDate === dateStr;
+          })
+          .reduce((sum, order) => sum + (order.totalAmount || 0), 0);
+
+        last7Days.push({
+          date: date.toLocaleDateString("vi-VN", {
+            month: "short",
+            day: "numeric",
+          }),
+          revenue: dayRevenue / 1000, // Convert to thousands
+        });
+      }
+      setSalesData(last7Days);
     } catch (error) {
       console.error("Error fetching dashboard data:", error);
     } finally {
@@ -242,6 +271,14 @@ const DashboardPage = () => {
             Tổng đơn hàng đã hoàn thành
           </p>
         </div>
+      </div>
+
+      {/* Sales Chart */}
+      <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-6">
+        <h2 className="text-xl font-bold text-gray-900 mb-6">
+          Doanh Thu 7 Ngày Qua
+        </h2>
+        <SalesChart data={salesData} />
       </div>
 
       {/* Recent Orders */}

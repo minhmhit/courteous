@@ -10,11 +10,13 @@ import {
   DollarSign,
   Tag,
   Image as ImageIcon,
+  Download,
 } from "lucide-react";
 import { productAPI, categoryAPI, supplierAPI } from "../../services";
 import useToastStore from "../../stores/useToastStore";
 import Button from "../../components/ui/Button";
 import Input from "../../components/ui/Input";
+import { exportToCsv } from "../../utils/exportCSV";
 
 const AdminProductsPage = () => {
   const toast = useToastStore();
@@ -262,11 +264,7 @@ const AdminProductsPage = () => {
                       <td className="px-6 py-4">
                         <div className="flex items-center gap-3">
                           <img
-                            src={
-                              product.imageUrl ||
-                              product.image_url ||
-                              "https://via.placeholder.com/60"
-                            }
+                            src={`../.${product.imageUrl}`}
                             alt={product.name}
                             className="w-12 h-12 rounded-lg object-cover"
                           />
@@ -293,14 +291,14 @@ const AdminProductsPage = () => {
                       <td className="px-6 py-4">
                         <span
                           className={`px-3 py-1 rounded-full text-xs font-medium ${
-                            (product.stock || product.quantity || 0) > 10
+                            (product.stockQuantity || 0) > 10
                               ? "bg-green-100 text-green-800"
-                              : (product.stock || product.quantity || 0) > 0
+                              : (product.stockQuantity || 0) > 0
                               ? "bg-yellow-100 text-yellow-800"
                               : "bg-red-100 text-red-800"
                           }`}
                         >
-                          {product.stock || product.quantity || 0}
+                          {product.stockQuantity || 0}
                         </span>
                       </td>
                       <td className="px-6 py-4 text-right space-x-2">
