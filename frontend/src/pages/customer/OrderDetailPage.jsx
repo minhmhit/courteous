@@ -26,6 +26,7 @@ const OrderDetailPage = () => {
   const [order, setOrder] = useState(null);
   const [isLoading, setIsLoading] = useState(true);
   const [isCancelling, setIsCancelling] = useState(false);
+  const [isConfirming, setIsConfirming] = useState(false);
 
   useEffect(() => {
     const fetchOrderDetail = async () => {
@@ -62,6 +63,24 @@ const OrderDetailPage = () => {
     }
   };
 
+  const handleConfirmReceived = async () => {
+    if (!window.confirm("Xác nhận bạn đã nhận được hàng?")) return;
+
+    setIsConfirming(true);
+    try {
+      // Cập nhật trạng thái đơn hàng thành "delivered"
+      await orderAPI.updateOrderStatus(id, { status: "delivered" });
+      toast.success("Cảm ơn bạn đã xác nhận nhận hàng!");
+      // Refresh order data
+      const response = await orderAPI.getOrderById(id);
+      setOrder(response.data || response);
+    } catch (error) {
+      toast.error("Không thể xác nhận nhận hàng");
+    } finally {
+      setIsConfirming(false);
+    }
+  };
+
   const getStatusConfig = (status) => {
     const configs = {
       pending: {
@@ -69,18 +88,6 @@ const OrderDetailPage = () => {
         icon: Clock,
         color: "text-yellow-600",
         bg: "bg-yellow-50",
-      },
-      confirmed: {
-        label: "Đã xác nhận",
-        icon: CheckCircle,
-        color: "text-blue-600",
-        bg: "bg-blue-50",
-      },
-      shipping: {
-        label: "Đang giao",
-        icon: Truck,
-        color: "text-purple-600",
-        bg: "bg-purple-50",
       },
       delivered: {
         label: "Đã giao",
@@ -183,55 +190,6 @@ const OrderDetailPage = () => {
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
           {/* Main Content */}
           <div className="lg:col-span-2 space-y-6">
-            {/* Timeline */}
-            <div className="bg-white rounded-lg shadow-sm p-6">
-              <h2 className="text-xl font-bold text-gray-900 mb-6">
-                Tiến trình đơn hàng
-              </h2>
-              <div className="relative">
-                {timeline.map((step, index) => (
-                  <div key={step.key} className="flex gap-4 mb-6 last:mb-0">
-                    <div className="flex flex-col items-center">
-                      <div
-                        className={`w-10 h-10 rounded-full flex items-center justify-center ${
-                          step.completed
-                            ? "bg-coffee-600 text-white"
-                            : "bg-gray-200 text-gray-400"
-                        }`}
-                      >
-                        {step.completed ? (
-                          <CheckCircle className="w-6 h-6" />
-                        ) : (
-                          <Clock className="w-6 h-6" />
-                        )}
-                      </div>
-                      {index < timeline.length - 1 && (
-                        <div
-                          className={`w-0.5 h-12 ${
-                            step.completed ? "bg-coffee-600" : "bg-gray-200"
-                          }`}
-                        />
-                      )}
-                    </div>
-                    <div className="flex-1 pt-2">
-                      <p
-                        className={`font-semibold ${
-                          step.completed ? "text-gray-900" : "text-gray-400"
-                        }`}
-                      >
-                        {step.label}
-                      </p>
-                      {step.completed && (
-                        <p className="text-sm text-gray-600 mt-1">
-                          {formatDate(order.updatedAt || order.createdAt)}
-                        </p>
-                      )}
-                    </div>
-                  </div>
-                ))}
-              </div>
-            </div>
-
             {/* Products */}
             <div className="bg-white rounded-lg shadow-sm p-6">
               <h2 className="text-xl font-bold text-gray-900 mb-6">
@@ -244,10 +202,8 @@ const OrderDetailPage = () => {
                     className="flex gap-4 pb-4 border-b border-gray-200 last:border-0"
                   >
                     <img
-                      src={
-                        `../.${item.imageUrl}
-                        `
-                      }
+                      src={`../.${item.imageUrl}
+                        `}
                       alt={item.name || item.product?.name}
                       className="w-20 h-20 object-cover rounded-lg"
                     />
@@ -299,16 +255,60 @@ const OrderDetailPage = () => {
                 </div>
               </div>
 
-              {order.status === "pending" && (
-                <Button
-                  variant="danger"
-                  className="w-full mt-6"
-                  onClick={handleCancelOrder}
-                  isLoading={isCancelling}
-                >
-                  Hủy đơn hàng
-                </Button>
-              )}
+              {/* Action Buttons */}
+              <div className="mt-6 space-y-3">
+                {/* Nút Hủy đơn - Chỉ hiện khi đơn hàng đang chờ xác nhận */}
+                {order.status === "pending" && (
+                  <Button
+                    variant="danger"
+                    className="w-full"
+                    onClick={handleCancelOrder}
+                    isLoading={isCancelling}
+                  >
+                    Hủy đơn hàng
+                  </Button>
+                )}
+
+                {/* Nút Nhận hàng - Chỉ hiện khi đơn hàng đang giao */}
+                {order.status === "shipping" && (
+                  <Button
+                    variant="primary"
+                    className="w-full"
+                    onClick={handleConfirmReceived}
+                    isLoading={isConfirming}
+                  >
+                    Đã nhận hàng
+                  </Button>
+                )}
+
+                {/* Hiển thị thông báo cho các trạng thái khác */}
+                {order.status === "delivered" && (
+                  <div className="p-4 bg-green-50 border border-green-200 rounded-lg text-center">
+                    <CheckCircle className="w-6 h-6 text-green-600 mx-auto mb-2" />
+                    <p className="text-green-700 font-medium">
+                      Đơn hàng đã hoàn thành
+                    </p>
+                  </div>
+                )}
+
+                {order.status === "cancelled" && (
+                  <div className="p-4 bg-red-50 border border-red-200 rounded-lg text-center">
+                    <XCircle className="w-6 h-6 text-red-600 mx-auto mb-2" />
+                    <p className="text-red-700 font-medium">
+                      Đơn hàng đã bị hủy
+                    </p>
+                  </div>
+                )}
+
+                {order.status === "confirmed" && (
+                  <div className="p-4 bg-blue-50 border border-blue-200 rounded-lg text-center">
+                    <Package className="w-6 h-6 text-blue-600 mx-auto mb-2" />
+                    <p className="text-blue-700 font-medium">
+                      Đơn hàng đang được chuẩn bị
+                    </p>
+                  </div>
+                )}
+              </div>
             </div>
 
             {/* Customer Info */}

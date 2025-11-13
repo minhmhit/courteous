@@ -34,31 +34,19 @@ const OrderHistoryPage = () => {
 
   const getStatusConfig = (status) => {
     const configs = {
-      pending: {
+      PENDING: {
         label: "Chờ xác nhận",
         icon: Clock,
         color: "text-yellow-600",
         bg: "bg-yellow-50",
       },
-      confirmed: {
-        label: "Đã xác nhận",
-        icon: CheckCircle,
-        color: "text-blue-600",
-        bg: "bg-blue-50",
-      },
-      shipping: {
-        label: "Đang giao",
-        icon: Truck,
-        color: "text-purple-600",
-        bg: "bg-purple-50",
-      },
-      delivered: {
+      COMPLETED: {
         label: "Đã giao",
         icon: CheckCircle,
         color: "text-green-600",
         bg: "bg-green-50",
       },
-      cancelled: {
+      CANCELLED: {
         label: "Đã hủy",
         icon: XCircle,
         color: "text-red-600",
@@ -123,8 +111,7 @@ const OrderHistoryPage = () => {
             {[
               { value: "all", label: "Tất cả" },
               { value: "pending", label: "Chờ xác nhận" },
-              { value: "confirmed", label: "Đã xác nhận" },
-              { value: "shipping", label: "Đang giao" },
+              
               { value: "delivered", label: "Đã giao" },
               { value: "cancelled", label: "Đã hủy" },
             ].map((filter) => (
@@ -184,7 +171,7 @@ const OrderHistoryPage = () => {
                           </span>
                         </p>
                         <p className="text-sm text-gray-600 mt-1">
-                          {formatDate(order.createdAt || new Date())}
+                          {formatDate(order.orderDate || new Date())}
                         </p>
                       </div>
                       <div
@@ -205,9 +192,7 @@ const OrderHistoryPage = () => {
                         <div key={index} className="flex items-center gap-4">
                           <img
                             src={
-                              item.imageUrl ||
-                              item.product?.imageUrl ||
-                              "https://via.placeholder.com/60"
+                              `../.${item.imageUrl}`
                             }
                             alt={item.name || item.product?.name}
                             className="w-16 h-16 object-cover rounded-lg"
