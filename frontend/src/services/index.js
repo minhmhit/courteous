@@ -7,6 +7,7 @@ import categoryAPI from "./categoryAPI";
 import supplierAPI from "./supplierAPI";
 import inventoryAPI from "./inventoryAPI";
 import importAPI from "./importAPI";
+import couponAPI from "./couponAPI";
 
 export {
   authAPI,
@@ -18,6 +19,7 @@ export {
   supplierAPI,
   inventoryAPI,
   importAPI,
+  couponAPI,
 };
 
 export default {
@@ -30,4 +32,5 @@ export default {
   supplier: supplierAPI,
   inventory: inventoryAPI,
   import: importAPI,
+  coupon: couponAPI,
 };
