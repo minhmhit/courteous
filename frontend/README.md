@@ -320,7 +320,6 @@ toast.error("Có lỗi xảy ra!");
 
 ---
 
-_Cập nhật lần cuối: 2025-11-11 - Phase 1 Complete_
 
 The React Compiler is not enabled on this template because of its impact on dev & build performances. To add it, see [this documentation](https://react.dev/learn/react-compiler/installation).
 
