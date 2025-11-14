@@ -53,7 +53,7 @@ const DashboardPage = () => {
 
       // Calculate stats
       const totalRevenue = orders.reduce(
-        (sum, order) => sum + (order.totalAmount || 0),
+        (sum, order) => sum + Number(order.totalAmount || 0),
         0
       );
       const pendingOrders = orders.filter(
@@ -92,11 +92,11 @@ const DashboardPage = () => {
         const dayRevenue = orders
           .filter((order) => {
             const orderDateStr = formatDateISO(
-              order.createdAt || order.created_at
+              order.orderDate
             ).split("T")[0];
             return orderDateStr === dateStr;
           })
-          .reduce((sum, order) => sum + (order.totalAmount || 0), 0);
+          .reduce((sum, order) => sum + Number(order.totalAmount || 0), 0);
 
         last7Days.push({
           date: date.toLocaleDateString("vi-VN", {
@@ -261,13 +261,13 @@ const DashboardPage = () => {
         </div>
       </div>
 
-      {/* Sales Chart */}
+      {/* Sales Chart
       <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-6">
         <h2 className="text-xl font-bold text-gray-900 mb-6">
           Doanh Thu 7 Ngày Qua
         </h2>
         <SalesChart data={salesData} />
-      </div>
+      </div> */}
 
       {/* Recent Orders */}
       <div className="bg-white rounded-xl shadow-sm border border-gray-100">
@@ -302,7 +302,7 @@ const DashboardPage = () => {
                       </span>
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-600">
-                      {formatDate(order.createdAt || order.created_at)}
+                      {formatDate(order.orderDate)}
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap">
                       <span className="font-semibold text-gray-900">

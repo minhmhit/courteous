@@ -8,6 +8,7 @@ import supplierAPI from "./supplierAPI";
 import inventoryAPI from "./inventoryAPI";
 import importAPI from "./importAPI";
 import couponAPI from "./couponAPI";
+import receiptAPI from "./receiptAPI";
 
 export {
   authAPI,
@@ -20,6 +21,7 @@ export {
   inventoryAPI,
   importAPI,
   couponAPI,
+  receiptAPI,
 };
 
 export default {
@@ -33,4 +35,5 @@ export default {
   inventory: inventoryAPI,
   import: importAPI,
   coupon: couponAPI,
+  receipt: receiptAPI,
 };

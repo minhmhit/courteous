@@ -25,7 +25,7 @@ import {
   Tooltip,
   Legend,
 } from "recharts";
-import { orderAPI, productAPI, userAPI } from "../../services";
+import { orderAPI, productAPI, userAPI, receiptAPI } from "../../services";
 import Button from "../../components/ui/Button";
 import { exportToCsv } from "../../utils/exportCSV";
 import useToastStore from "../../stores/useToastStore";
@@ -64,6 +64,7 @@ const AdminAnalyticsPage = () => {
       const orders = ordersRes.data || [];
       const products = productsRes.data || [];
       const users = usersRes.data || [];
+      
 
       // Calculate revenue over time
       const last30Days = [];
@@ -75,7 +76,7 @@ const AdminAnalyticsPage = () => {
         const dayRevenue = orders
           .filter((order) => {
             const orderDate = formatDate(
-              new Date(order.createdAt || order.created_at),
+              new Date(order.orderDate),
               "yyyy-MM-dd"
             );
             return (
@@ -83,11 +84,10 @@ const AdminAnalyticsPage = () => {
               (order.status === "COMPLETED" || order.status === "completed")
             );
           })
-          .reduce((sum, order) => sum + (order.totalAmount || 0), 0);
-
+          .reduce((sum, order) => sum + Number(order.totalAmount || 0), 0);
         const dayOrders = orders.filter((order) => {
           const orderDate = formatDate(
-            new Date(order.createdAt || order.created_at),
+            new Date(order.orderDate),
             "yyyy-MM-dd"
           );
           return orderDate === dateStr;
@@ -104,8 +104,8 @@ const AdminAnalyticsPage = () => {
       // Calculate top products
       const productSales = {};
       orders.forEach((order) => {
-        (order.orderItems || []).forEach((item) => {
-          const productId = item.productId || item.product_id;
+        (order.items || []).forEach((item) => {
+          const productId = item.productId || item.product_id || item.productid;
           if (!productSales[productId]) {
             productSales[productId] = {
               productId,
@@ -115,7 +115,7 @@ const AdminAnalyticsPage = () => {
           }
           productSales[productId].quantity += item.quantity || 0;
           productSales[productId].revenue +=
-            (item.quantity || 0) * (item.price || 0);
+            (item.quantity || 0) * (item.unitPrice || 0);
         });
       });
 
@@ -150,10 +150,9 @@ const AdminAnalyticsPage = () => {
       // Calculate stats
       const totalRevenue = orders
         .filter((o) => o.status === "COMPLETED" || o.status === "completed")
-        .reduce((sum, order) => sum + (order.totalAmount || 0), 0);
-
+        .reduce((sum, order) => sum + Number(order.totalAmount || 0), 0);
       const totalOrders = orders.length;
-      const totalCustomers = users.filter((u) => u.role === 0).length;
+      const totalCustomers = users.filter((u) => u.roleName === "user").length;
       const averageOrderValue =
         totalOrders > 0 ? totalRevenue / totalOrders : 0;
       const conversionRate =
