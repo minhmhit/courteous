@@ -146,12 +146,17 @@ const AdminWarehousePage = () => {
     }
 
     try {
+      console.log("Import form data:", importFormData);
       await importAPI.createImport({
-        supplierId: parseInt(importFormData.supplierId),
-        importItems: importFormData.importItems.map((item) => ({
-          productId: parseInt(item.productId),
+        importData:{
+          supplier_id: parseInt(importFormData.supplierId),
+          payment_status: importFormData.paymentStatus || "pending",
+        },
+        
+        details: importFormData.importItems.map((item) => ({
+          product_id: parseInt(item.productId),
           quantity: parseInt(item.quantity),
-          price: parseFloat(item.price),
+          unit_price: parseFloat(item.price),
         })),
       });
       toast.success("Tạo phiếu nhập hàng thành công");
@@ -420,13 +425,13 @@ const AdminWarehousePage = () => {
                           </span>
                         </td>
                         <td className="px-6 py-4 text-gray-900">
-                          {getSupplierName(item.supplierId)}
+                          {item.supplier_name}
                         </td>
                         <td className="px-6 py-4 text-sm text-gray-600">
-                          {formatDate(item.createdAt || item.created_at)}
+                          {formatDate(item.import_date)}
                         </td>
                         <td className="px-6 py-4 font-semibold text-gray-900">
-                          {formatCurrency(calculateImportTotal(item))}
+                          {formatCurrency(item.total_amount)}
                         </td>
                         <td className="px-6 py-4">
                           {item.paymentStatus === "PAID" ||
@@ -672,6 +677,22 @@ const AdminWarehousePage = () => {
                       </div>
                     </div>
                   </div>
+                  {/*trạng thái thanh toán*/}
+
+                  <select
+                    value={importFormData.paymentStatus}
+                    onChange={(e) =>
+                      setImportFormData((prev) => ({
+                        ...prev,
+                        paymentStatus: e.target.value,
+                      }))
+                    }
+                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-coffee-500"
+                    required
+                  >
+                    <option value="pending">Chưa thanh toán</option>
+                    <option value="paid">Đã thanh toán</option>
+                  </select>
 
                   <div className="flex items-center justify-end gap-3 p-6 border-t bg-gray-50">
                     <Button

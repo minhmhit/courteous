@@ -36,7 +36,7 @@ const ProductCard = ({ product }) => {
         {/* Image */}
         <div className="relative aspect-square overflow-hidden bg-gray-100">
           <img
-            src={product.imageUrl || "https://via.placeholder.com/400"}
+            src={`../.${product.imageUrl}`}
             alt={product.name}
             className="w-full h-full object-cover"
           />

@@ -95,10 +95,11 @@ const ProductDetailPage = () => {
   if (!product) {
     return null;
   }
+  console.log(product);
 
   // Mock images array (in real app, comes from backend)
   const images = product.images || [
-    product.imageUrl || "https://via.placeholder.com/600",
+    `../.${product.imageUrl}`,
   ];
 
   return (
@@ -240,11 +241,11 @@ const ProductDetailPage = () => {
             <div className="mb-6">
               <p
                 className={`font-medium ${
-                  product.stock > 0 ? "text-green-600" : "text-red-600"
+                  product.stockQuantity > 0 ? "text-green-600" : "text-red-600"
                 }`}
               >
-                {product.stock > 0
-                  ? `Còn ${product.stock} sản phẩm`
+                {product.stockQuantity > 0
+                  ? `Còn ${product.stockQuantity} sản phẩm`
                   : "Hết hàng"}
               </p>
             </div>
@@ -255,6 +256,7 @@ const ProductDetailPage = () => {
               <div className="flex items-center gap-4">
                 <div className="flex items-center border border-gray-300 rounded-lg">
                   <button
+                  
                     onClick={() => setQuantity(Math.max(1, quantity - 1))}
                     className="p-3 hover:bg-gray-100 transition-colors"
                   >
@@ -263,7 +265,7 @@ const ProductDetailPage = () => {
                   <span className="px-6 font-semibold">{quantity}</span>
                   <button
                     onClick={() =>
-                      setQuantity(Math.min(product.stock || 999, quantity + 1))
+                      setQuantity(Math.min(product.stockQuantity || null, quantity + 1))
                     }
                     className="p-3 hover:bg-gray-100 transition-colors"
                   >
@@ -271,7 +273,7 @@ const ProductDetailPage = () => {
                   </button>
                 </div>
                 <span className="text-gray-600 text-sm">
-                  {product.stock} sản phẩm có sẵn
+                  {product.stockQuantity} sản phẩm có sẵn
                 </span>
               </div>
             </div>
@@ -282,7 +284,7 @@ const ProductDetailPage = () => {
                 onClick={handleAddToCart}
                 variant="outline"
                 className="flex-1"
-                disabled={!product.stock}
+                disabled={!product.stockQuantity}
               >
                 <ShoppingCart className="w-5 h-5 mr-2" />
                 Thêm vào giỏ
@@ -291,7 +293,7 @@ const ProductDetailPage = () => {
                 onClick={handleBuyNow}
                 variant="primary"
                 className="flex-1"
-                disabled={!product.stock}
+                disabled={!product.stockQuantity}
               >
                 Mua ngay
               </Button>

@@ -27,6 +27,16 @@ const productAPI = {
     });
   },
 
+  // Admin: Upload product image (multipart/form-data)
+  uploadImage: async (file) => {
+    const formData = new FormData();
+    formData.append("image", file); // phải trùng với upload.single("image")
+
+    return await axiosInstance.post("/uploads/upload-image", formData, {
+      headers: { "Content-Type": "multipart/form-data" },
+    });
+  },
+
   // Admin: Cập nhật sản phẩm
   updateProduct: async (productId, productData) => {
     return await axiosInstance.put(

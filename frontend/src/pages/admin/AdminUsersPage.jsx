@@ -56,20 +56,22 @@ const AdminUsersPage = () => {
 
   const getRoleName = (roleId) => {
     const roleMap = {
-      1: "Admin",
-      2: "Khách hàng",
-      3: "Nhân viên",
-      4: "Kho",
+      "admin": "Admin",
+      "user": "Khách hàng",
+      "sale": "Nhân viên sale",
+      "hrm": "Nhân viên nhân sự",
+      "warehouse": "Nhân viên kho",
     };
     return roleMap[roleId] || "Không xác định";
   };
 
   const getRoleColor = (roleId) => {
     const colorMap = {
-      1: "bg-red-100 text-red-800",
-      2: "bg-blue-100 text-blue-800",
-      3: "bg-green-100 text-green-800",
-      4: "bg-purple-100 text-purple-800",
+      "admin": "bg-red-100 text-red-800",
+      "user": "bg-blue-100 text-blue-800",
+      "sale": "bg-green-100 text-green-800",
+      "hrm": "bg-purple-100 text-purple-800",
+      "warehouse": "bg-purple-100 text-purple-800",
     };
     return colorMap[roleId] || "bg-gray-100 text-gray-800";
   };
@@ -85,9 +87,11 @@ const AdminUsersPage = () => {
 
   const stats = {
     total: users.length,
-    active: users.filter((u) => u.isActive === 1 || u.is_active === 1).length,
-    inactive: users.filter((u) => u.isActive === 0 || u.is_active === 0).length,
-    admins: users.filter((u) => u.roleId === 1 || u.role_id === 1).length,
+    active: users.filter((u) => u.isActive === 1 ).length,
+    inactive: users.filter((u) => u.isActive === 0 ).length,
+    admins: users.filter((u) => u.roleName === "admin" ).length,
+    users: users.filter((u) => u.roleName === "user" ).length,
+    staff: users.filter((u) => u.roleName !== "user" && u.roleName !== "admin" ).length,
   };
 
   return (
@@ -101,7 +105,7 @@ const AdminUsersPage = () => {
       </div>
 
       {/* Stats Cards */}
-      <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
+      <div className="grid grid-cols-1 md:grid-cols-5 gap-6">
         <motion.div
           initial={{ opacity: 0, y: 20 }}
           animate={{ opacity: 1, y: 0 }}
@@ -112,12 +116,40 @@ const AdminUsersPage = () => {
               <Shield className="w-5 h-5 text-blue-600" />
             </div>
             <h3 className="text-sm font-medium text-gray-600">
-              Tổng Người Dùng
+              Tổng Khách Hàng
             </h3>
           </div>
-          <p className="text-3xl font-bold text-gray-900">{stats.total}</p>
+          <p className="text-3xl font-bold text-gray-900">{stats.users}</p>
         </motion.div>
-
+        <motion.div
+          initial={{ opacity: 0, y: 20 }}
+          animate={{ opacity: 1, y: 0 }}
+          className="bg-white rounded-xl shadow-sm p-6 border border-gray-100"
+        >
+          <div className="flex items-center gap-3 mb-2">
+            <div className="p-2 bg-blue-100 rounded-lg">
+              <Shield className="w-5 h-5 text-blue-600" />
+            </div>
+            <h3 className="text-sm font-medium text-gray-600">
+              Tổng Nhân viên
+            </h3>
+          </div>
+          <p className="text-3xl font-bold text-gray-900">{stats.staff}</p>
+        </motion.div>
+        <motion.div
+          initial={{ opacity: 0, y: 20 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ delay: 0.3 }}
+          className="bg-white rounded-xl shadow-sm p-6 border border-gray-100"
+        >
+          <div className="flex items-center gap-3 mb-2">
+            <div className="p-2 bg-purple-100 rounded-lg">
+              <Shield className="w-5 h-5 text-purple-600" />
+            </div>
+            <h3 className="text-sm font-medium text-gray-600">Quản Trị Viên</h3>
+          </div>
+          <p className="text-3xl font-bold text-purple-600">{stats.admins}</p>
+        </motion.div>
         <motion.div
           initial={{ opacity: 0, y: 20 }}
           animate={{ opacity: 1, y: 0 }}
@@ -148,21 +180,6 @@ const AdminUsersPage = () => {
             <h3 className="text-sm font-medium text-gray-600">Bị Khóa</h3>
           </div>
           <p className="text-3xl font-bold text-red-600">{stats.inactive}</p>
-        </motion.div>
-
-        <motion.div
-          initial={{ opacity: 0, y: 20 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ delay: 0.3 }}
-          className="bg-white rounded-xl shadow-sm p-6 border border-gray-100"
-        >
-          <div className="flex items-center gap-3 mb-2">
-            <div className="p-2 bg-purple-100 rounded-lg">
-              <Shield className="w-5 h-5 text-purple-600" />
-            </div>
-            <h3 className="text-sm font-medium text-gray-600">Quản Trị Viên</h3>
-          </div>
-          <p className="text-3xl font-bold text-purple-600">{stats.admins}</p>
         </motion.div>
       </div>
 
@@ -199,9 +216,9 @@ const AdminUsersPage = () => {
                   <th className="px-6 py-4 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                     Vai Trò
                   </th>
-                  <th className="px-6 py-4 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                  {/* <th className="px-6 py-4 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                     Ngày Tạo
-                  </th>
+                  </th> */}
                   <th className="px-6 py-4 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                     Trạng Thái
                   </th>
@@ -215,7 +232,8 @@ const AdminUsersPage = () => {
                   filteredUsers.map((user) => {
                     const isActive =
                       user.isActive === 1 || user.is_active === 1;
-                    const roleId = user.roleId || user.role_id;
+                    console.log(user);
+                    const roleId = user.roleName;
 
                     return (
                       <tr key={user.id} className="hover:bg-gray-50">
@@ -244,10 +262,10 @@ const AdminUsersPage = () => {
                               <Mail className="w-4 h-4" />
                               <span>{user.email || "N/A"}</span>
                             </div>
-                            {user.phone && (
+                            {user.phoneNumber && (
                               <div className="flex items-center gap-2 text-sm text-gray-600">
                                 <Phone className="w-4 h-4" />
-                                <span>{user.phone}</span>
+                                <span>{user.phoneNumber}</span>
                               </div>
                             )}
                           </div>
@@ -261,12 +279,12 @@ const AdminUsersPage = () => {
                             {getRoleName(roleId)}
                           </span>
                         </td>
-                        <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-600">
+                        {/* <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-600">
                           <div className="flex items-center gap-2">
                             <Calendar className="w-4 h-4" />
                             {formatDate(user.createdAt || user.created_at)}
                           </div>
-                        </td>
+                        </td> */}
                         <td className="px-6 py-4 whitespace-nowrap">
                           <span
                             className={`px-3 py-1 rounded-full text-xs font-medium ${
@@ -279,7 +297,7 @@ const AdminUsersPage = () => {
                           </span>
                         </td>
                         <td className="px-6 py-4 whitespace-nowrap text-right">
-                          {roleId !== 1 && ( // Don't allow banning admin
+                          {roleId !== "admin" && ( // Don't allow banning admin
                             <button
                               onClick={() =>
                                 handleToggleUserStatus(

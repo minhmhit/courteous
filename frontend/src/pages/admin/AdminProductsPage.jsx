@@ -27,6 +27,9 @@ const AdminProductsPage = () => {
   const [searchTerm, setSearchTerm] = useState("");
   const [showModal, setShowModal] = useState(false);
   const [editingProduct, setEditingProduct] = useState(null);
+  const [selectedImageFile, setSelectedImageFile] = useState(null);
+  const [uploadingImage, setUploadingImage] = useState(false);
+  const [imagePreview, setImagePreview] = useState("");
   const [formData, setFormData] = useState({
     name: "",
     description: "",
@@ -67,7 +70,7 @@ const AdminProductsPage = () => {
   const fetchSuppliers = async () => {
     try {
       const response = await supplierAPI.getAllSuppliers();
-      setSuppliers(response.data || []);
+      setSuppliers(response.suppliers || []);
     } catch (error) {
       console.error("Error fetching suppliers:", error);
     }
@@ -101,6 +104,7 @@ const AdminProductsPage = () => {
         supplierId: product.supplierId || product.supplier_id || "",
         imageUrl: product.imageUrl || product.image_url || "",
       });
+      setImagePreview(product.imageUrl || product.image_url || "");
     } else {
       setEditingProduct(null);
       setFormData({
@@ -111,6 +115,8 @@ const AdminProductsPage = () => {
         supplierId: "",
         imageUrl: "",
       });
+      setImagePreview("");
+      setSelectedImageFile(null);
     }
     setShowModal(true);
   };
@@ -142,6 +148,31 @@ const AdminProductsPage = () => {
     }
 
     try {
+      // If user selected a new image but didn't click upload, upload it automatically
+      if (
+        selectedImageFile &&
+        !formData.imageUrl?.includes("./asset") &&
+        !formData.imageUrl?.startsWith("http")
+      ) {
+        try {
+          const res = await productAPI.uploadImage(selectedImageFile);
+          const data = res.data || res;
+          let imgPath = "";
+          if (data.path) imgPath = data.path;
+          else if (data.filename)
+            imgPath = `./asset/products/img/${data.filename}`;
+          else if (data.fileName)
+            imgPath = `./asset/products/img/${data.fileName}`;
+          else if (data.url) imgPath = data.url;
+
+          if (imgPath) setFormData((f) => ({ ...f, imageUrl: imgPath }));
+        } catch (err) {
+          console.error("Auto upload image error:", err);
+          toast.error("Không thể tải ảnh lên. Vui lòng thử lại hoặc nhập URL");
+          setUploadingImage(false);
+          return;
+        }
+      }
       if (editingProduct) {
         await productAPI.updateProduct(editingProduct.id, formData);
         toast.success("Cập nhật sản phẩm thành công");
@@ -175,7 +206,7 @@ const AdminProductsPage = () => {
       "Mã SP": product.id,
       "Tên Sản Phẩm": product.name,
       "Danh Mục": getCategoryName(product.categoryId),
-      "Giá": product.unitPrice,
+      Giá: product.unitPrice,
       "Mô Tả": product.description || "",
     }));
     exportToCsv("danh-sach-san-pham.csv", csvData);
@@ -478,7 +509,8 @@ const AdminProductsPage = () => {
                         className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-coffee-500"
                       >
                         <option value="">Chọn nhà cung cấp</option>
-                        {suppliers.map((sup) => (
+
+                         {suppliers?.data.map((sup) => (
                           <option key={sup.id} value={sup.id}>
                             {sup.name}
                           </option>
@@ -486,29 +518,94 @@ const AdminProductsPage = () => {
                       </select>
                     </div>
 
-                    <Input
-                      label="URL Hình Ảnh"
-                      name="imageUrl"
-                      value={formData.imageUrl}
-                      onChange={(e) =>
-                        setFormData({ ...formData, imageUrl: e.target.value })
-                      }
-                      icon={<ImageIcon className="w-5 h-5" />}
-                      placeholder="https://..."
-                    />
-
-                    {formData.imageUrl && (
-                      <div className="mt-2">
-                        <img
-                          src={formData.imageUrl}
-                          alt="Preview"
-                          className="w-32 h-32 object-cover rounded-lg"
-                          onError={(e) => {
-                            e.target.src = "https://via.placeholder.com/128";
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-2">
+                        Ảnh sản phẩm
+                      </label>
+                      <div className="flex items-center gap-2">
+                        <input
+                          type="file"
+                          accept="image/*"
+                          onChange={(e) => {
+                            const file = e.target.files?.[0] || null;
+                            setSelectedImageFile(file);
+                            if (file) {
+                              setImagePreview(URL.createObjectURL(file));
+                            }
                           }}
                         />
+                        <Button
+                          type="button"
+                          variant="outline"
+                          onClick={async () => {
+                            if (!selectedImageFile) {
+                              toast.error(
+                                "Vui lòng chọn tập tin trước khi tải lên"
+                              );
+                              return;
+                            }
+                            setUploadingImage(true);
+                            try {
+                              const res = await productAPI.uploadImage(
+                                selectedImageFile
+                              );
+                              // Expect backend to return { filename: 'img.jpg' } or { path: './asset/products/img/img.jpg' }
+                              const data = res.data || res;
+                              let imgPath = "";
+                              if (data.path) imgPath = data.path;
+                              else if (data.filename)
+                                imgPath = `./asset/img/products/${data.filename}`;
+                              else if (data.fileName)
+                                imgPath = `./asset/img/products/${data.fileName}`;
+                              else if (data.url) imgPath = data.url;
+
+                              if (!imgPath) {
+                                toast.error(
+                                  "Không nhận được đường dẫn ảnh từ server"
+                                );
+                              } else {
+                                setFormData({ ...formData, imageUrl: imgPath });
+                                toast.success("Tải ảnh lên thành công");
+                              }
+                            } catch (err) {
+                              console.error("Upload image error:", err);
+                              toast.error("Không thể tải ảnh lên");
+                            } finally {
+                              setUploadingImage(false);
+                            }
+                          }}
+                          disabled={uploadingImage}
+                        >
+                          {uploadingImage ? "Đang tải..." : "Tải lên"}
+                        </Button>
                       </div>
-                    )}
+
+                      <div className="mt-2">
+                        {imagePreview ? (
+                          <img
+                            src={imagePreview}
+                            alt="Preview"
+                            className="w-32 h-32 object-cover rounded-lg"
+                            onError={(e) => {
+                              e.target.src = "https://via.placeholder.com/128";
+                            }}
+                          />
+                        ) : formData.imageUrl ? (
+                          <img
+                            src={
+                              formData.imageUrl.startsWith("./")
+                                ? `..${formData.imageUrl}`
+                                : formData.imageUrl
+                            }
+                            alt="Preview"
+                            className="w-32 h-32 object-cover rounded-lg"
+                            onError={(e) => {
+                              e.target.src = "https://via.placeholder.com/128";
+                            }}
+                          />
+                        ) : null}
+                      </div>
+                    </div>
                   </div>
 
                   {/* Modal Footer */}
