@@ -29,6 +29,7 @@ import { orderAPI, productAPI, userAPI } from "../../services";
 import Button from "../../components/ui/Button";
 import { exportToCsv } from "../../utils/exportCSV";
 import useToastStore from "../../stores/useToastStore";
+import { formatCurrency, formatDate } from "../../utils/formatDate";
 
 const AdminAnalyticsPage = () => {
   const toast = useToastStore();
@@ -69,13 +70,14 @@ const AdminAnalyticsPage = () => {
       for (let i = timeRange - 1; i >= 0; i--) {
         const date = new Date();
         date.setDate(date.getDate() - i);
-        const dateStr = date.toISOString().split("T")[0];
+        const dateStr = formatDate(date, "yyyy-MM-dd");
 
         const dayRevenue = orders
           .filter((order) => {
-            const orderDate = new Date(order.createdAt || order.created_at)
-              .toISOString()
-              .split("T")[0];
+            const orderDate = formatDate(
+              new Date(order.createdAt || order.created_at),
+              "yyyy-MM-dd"
+            );
             return (
               orderDate === dateStr &&
               (order.status === "COMPLETED" || order.status === "completed")
@@ -84,18 +86,16 @@ const AdminAnalyticsPage = () => {
           .reduce((sum, order) => sum + (order.totalAmount || 0), 0);
 
         const dayOrders = orders.filter((order) => {
-          const orderDate = new Date(order.createdAt || order.created_at)
-            .toISOString()
-            .split("T")[0];
+          const orderDate = formatDate(
+            new Date(order.createdAt || order.created_at),
+            "yyyy-MM-dd"
+          );
           return orderDate === dateStr;
         }).length;
 
         last30Days.push({
-          date: date.toLocaleDateString("vi-VN", {
-            month: "short",
-            day: "numeric",
-          }),
-          revenue: dayRevenue / 1000, // Convert to thousands
+          date: formatDate(date, "dd/MM"),
+          revenue: dayRevenue / 1000000, // Convert to millions for better chart readability
           orders: dayOrders,
         });
       }
@@ -181,18 +181,11 @@ const AdminAnalyticsPage = () => {
   const handleExportReport = () => {
     const reportData = revenueData.map((item) => ({
       Ngày: item.date,
-      "Doanh Thu (VNĐ)": item.revenue * 1000,
+      "Doanh Thu (VNĐ)": formatCurrency(item.revenue * 1000000),
       "Số Đơn": item.orders,
     }));
     exportToCsv("bao-cao-doanh-thu.csv", reportData);
     toast.success("Đã xuất báo cáo thành công!");
-  };
-
-  const formatPrice = (price) => {
-    return new Intl.NumberFormat("vi-VN", {
-      style: "currency",
-      currency: "VND",
-    }).format(price);
   };
 
   const COLORS = ["#8B4513", "#D2691E", "#CD853F", "#DEB887", "#F5DEB3"];
@@ -253,7 +246,7 @@ const AdminAnalyticsPage = () => {
             Tổng Doanh Thu
           </h3>
           <p className="text-3xl font-bold text-gray-900">
-            {formatPrice(stats.totalRevenue)}
+            {formatCurrency(stats.totalRevenue)}
           </p>
         </motion.div>
 
@@ -272,7 +265,7 @@ const AdminAnalyticsPage = () => {
             Tổng Đơn Hàng
           </h3>
           <p className="text-3xl font-bold text-gray-900">
-            {stats.totalOrders}
+            {stats.totalOrders.toLocaleString("vi-VN")}
           </p>
         </motion.div>
 
@@ -289,7 +282,7 @@ const AdminAnalyticsPage = () => {
           </div>
           <h3 className="text-gray-600 text-sm font-medium mb-1">Khách Hàng</h3>
           <p className="text-3xl font-bold text-gray-900">
-            {stats.totalCustomers}
+            {stats.totalCustomers.toLocaleString("vi-VN")}
           </p>
         </motion.div>
 
@@ -308,7 +301,7 @@ const AdminAnalyticsPage = () => {
             Giá Trị TB/Đơn
           </h3>
           <p className="text-3xl font-bold text-gray-900">
-            {formatPrice(stats.averageOrderValue)}
+            {formatCurrency(stats.averageOrderValue)}
           </p>
         </motion.div>
       </div>
@@ -349,7 +342,7 @@ const AdminAnalyticsPage = () => {
             <Line
               type="monotone"
               dataKey="revenue"
-              name="Doanh Thu (k VNĐ)"
+              name="Doanh Thu (tr VNĐ)"
               stroke="#8B4513"
               strokeWidth={3}
               dot={{ fill: "#8B4513", r: 4 }}
@@ -459,7 +452,11 @@ const AdminAnalyticsPage = () => {
             </h3>
           </div>
           <p className="text-4xl font-bold text-blue-600">
-            {stats.conversionRate.toFixed(1)}%
+            {stats.conversionRate.toLocaleString("vi-VN", {
+              minimumFractionDigits: 1,
+              maximumFractionDigits: 1,
+            })}
+            %
           </p>
           <p className="text-sm text-gray-600 mt-2">Đơn hàng / Khách hàng</p>
         </div>
@@ -472,7 +469,12 @@ const AdminAnalyticsPage = () => {
             <h3 className="text-lg font-semibold text-gray-900">Tăng Trưởng</h3>
           </div>
           <p className="text-4xl font-bold text-green-600">
-            +{stats.growthRate}%
+            +
+            {stats.growthRate.toLocaleString("vi-VN", {
+              minimumFractionDigits: 1,
+              maximumFractionDigits: 1,
+            })}
+            %
           </p>
           <p className="text-sm text-gray-600 mt-2">So với kỳ trước</p>
         </div>
@@ -487,7 +489,10 @@ const AdminAnalyticsPage = () => {
             </h3>
           </div>
           <p className="text-4xl font-bold text-purple-600">
-            {(stats.totalOrders / timeRange).toFixed(1)}
+            {(stats.totalOrders / timeRange).toLocaleString("vi-VN", {
+              minimumFractionDigits: 1,
+              maximumFractionDigits: 1,
+            })}
           </p>
           <p className="text-sm text-gray-600 mt-2">
             Trung bình {timeRange} ngày

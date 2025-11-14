@@ -5,12 +5,13 @@ import Button from "../../components/ui/Button";
 import Modal from "../../components/ui/Modal";
 import Input from "../../components/ui/Input";
 import useToastStore from "../../stores/useToastStore";
+import { formatDate, formatDateISO } from "../../utils/formatDate";
 
 const emptyForm = {
   code: "",
   discountPercentage: 0,
-  startDate: "",
-  endDate: "",
+  validFrom: "",
+  validUntil: "",
   usageLimit: 0,
   isActive: true,
 };
@@ -29,7 +30,7 @@ export default function AdminCouponsPage() {
     setLoading(true);
     try {
       const res = await couponAPI.getAllCoupons();
-      const list = res.data || res.coupons || res;
+      const list = res?.data?.coupons;
       setCoupons(list);
     } catch (err) {
       console.error(err);
@@ -41,6 +42,7 @@ export default function AdminCouponsPage() {
 
   useEffect(() => {
     loadCoupons();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   const openCreate = () => {
@@ -53,9 +55,9 @@ export default function AdminCouponsPage() {
     setEditing(c);
     setForm({
       code: c.code || "",
-      discountPercentage: c.discountPercentage || 0,
-      startDate: c.startDate ? c.startDate.slice(0, 16) : "",
-      endDate: c.endDate ? c.endDate.slice(0, 16) : "",
+      discountPercentage: c.discountPercent || 0,
+      validFrom: c.validFrom ? c.validFrom.slice(0, 16) : "",
+      validUntil: c.validUntil ? c.validUntil.slice(0, 16) : "",
       usageLimit: c.usageLimit || 0,
       isActive: !!c.isActive,
     });
@@ -73,13 +75,10 @@ export default function AdminCouponsPage() {
     try {
       const payload = {
         code: form.code,
-        discountPercentage: Number(form.discountPercentage) || 0,
-        startDate: form.startDate
-          ? new Date(form.startDate).toISOString()
-          : null,
-        endDate: form.endDate ? new Date(form.endDate).toISOString() : null,
-        usageLimit: Number(form.usageLimit) || 0,
-        isActive: !!form.isActive,
+        discountPercent: Number(form.discountPercentage) || 0,
+        validFrom: form.validFrom ? formatDateISO(form.validFrom) : null,
+        validUntil: form.validUntil ? formatDateISO(form.validUntil) : null,
+        
       };
 
       if (editing && editing.id) {
@@ -129,7 +128,7 @@ export default function AdminCouponsPage() {
                 <th className="p-3">Mã</th>
                 <th className="p-3">% Giảm</th>
                 <th className="p-3">Hiệu lực</th>
-                <th className="p-3">Lượt/giới hạn</th>
+                {/* <th className="p-3">Lượt/giới hạn</th> */}
                 <th className="p-3">Trạng thái</th>
                 <th className="p-3">Hành động</th>
               </tr>
@@ -151,45 +150,84 @@ export default function AdminCouponsPage() {
                 </tr>
               )}
 
-              {coupons.map((c) => (
-                <tr key={c.id} className="border-t">
-                  <td className="p-3">{c.code}</td>
-                  <td className="p-3">{c.discountPercentage}%</td>
-                  <td className="p-3">
-                    {c.startDate ? new Date(c.startDate).toLocaleString() : "-"}
-                    <br />
-                    {c.endDate ? new Date(c.endDate).toLocaleString() : "-"}
-                  </td>
-                  <td className="p-3">
+              {coupons.map((c) => {
+                const now = new Date();
+                const validFrom = c.validFrom ? new Date(c.validFrom) : null;
+                const validUntil = c.validUntil ? new Date(c.validUntil) : null;
+                const isInValidPeriod =
+                  (!validFrom || now >= validFrom) &&
+                  (!validUntil || now <= validUntil);
+                const isActive = c.isActive && isInValidPeriod;
+
+                return (
+                  <tr key={c.id} className="border-t">
+                    <td className="p-3">{c.code}</td>
+                    <td className="p-3">{c.discountPercent}%</td>
+                    <td className="p-3">
+                      {c.validFrom
+                        ? formatDate(c.validFrom, {
+                            day: "2-digit",
+                            month: "2-digit",
+                            year: "numeric",
+                            hour: "2-digit",
+                            minute: "2-digit",
+                          })
+                        : "-"}
+                      <br />
+                      {c.validUntil
+                        ? formatDate(c.validUntil, {
+                            day: "2-digit",
+                            month: "2-digit",
+                            year: "numeric",
+                            hour: "2-digit",
+                            minute: "2-digit",
+                          })
+                        : "-"}
+                    </td>
+                    {/* <td className="p-3">
                     {c.currentUsage || 0}/{c.usageLimit || 0}
-                  </td>
-                  <td className="p-3">
-                    {c.isActive ? "Hoạt động" : "Không hoạt động"}
-                  </td>
-                  <td className="p-3">
-                    <div className="flex gap-2">
-                      <button
-                        onClick={() => openEdit(c)}
-                        className="text-blue-600 hover:underline inline-flex items-center"
+                  </td> */}
+                    <td className="p-3">
+                      <span
+                        className={
+                          isActive
+                            ? "text-green-600 font-medium"
+                            : "text-gray-500"
+                        }
                       >
-                        <Edit className="w-4 h-4 mr-1" /> Sửa
-                      </button>
-                      <button
-                        onClick={() => handleDelete(c)}
-                        className="text-red-600 hover:underline inline-flex items-center"
-                      >
-                        <Trash2 className="w-4 h-4 mr-1" /> Xóa
-                      </button>
-                    </div>
-                  </td>
-                </tr>
-              ))}
+                        {isInValidPeriod ? "Hoạt động" : "Không hoạt động"}
+                      </span>
+                      {!isInValidPeriod && (
+                        <span className="text-xs text-amber-600 block">
+                          (Ngoài thời gian)
+                        </span>
+                      )}
+                    </td>
+                    <td className="p-3">
+                      <div className="flex gap-2">
+                        <button
+                          onClick={() => openEdit(c)}
+                          className="text-blue-600 hover:underline inline-flex items-center"
+                        >
+                          <Edit className="w-4 h-4 mr-1" /> Sửa
+                        </button>
+                        <button
+                          onClick={() => handleDelete(c)}
+                          className="text-red-600 hover:underline inline-flex items-center"
+                        >
+                          <Trash2 className="w-4 h-4 mr-1" /> Xóa
+                        </button>
+                      </div>
+                    </td>
+                  </tr>
+                );
+              })}
             </tbody>
           </table>
         </div>
 
         <Modal
-          open={showModal}
+          isOpen={showModal}
           onClose={() => setShowModal(false)}
           title={editing ? "Sửa mã" : "Tạo mã mới"}
         >
@@ -213,16 +251,16 @@ export default function AdminCouponsPage() {
               <label className="block text-sm">Bắt đầu</label>
               <input
                 type="datetime-local"
-                name="startDate"
-                value={form.startDate}
+                name="validFrom"
+                value={form.validFrom}
                 onChange={handleChange}
                 className="w-full px-3 py-2 border rounded"
               />
               <label className="block text-sm">Kết thúc</label>
               <input
                 type="datetime-local"
-                name="endDate"
-                value={form.endDate}
+                name="validUntil"
+                value={form.validUntil}
                 onChange={handleChange}
                 className="w-full px-3 py-2 border rounded"
               />
