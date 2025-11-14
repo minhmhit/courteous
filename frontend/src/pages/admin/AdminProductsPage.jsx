@@ -175,7 +175,7 @@ const AdminProductsPage = () => {
       "Mã SP": product.id,
       "Tên Sản Phẩm": product.name,
       "Danh Mục": getCategoryName(product.categoryId),
-      Giá: product.price,
+      "Giá": product.unitPrice,
       "Mô Tả": product.description || "",
     }));
     exportToCsv("danh-sach-san-pham.csv", csvData);

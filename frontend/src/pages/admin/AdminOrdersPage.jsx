@@ -72,10 +72,10 @@ const AdminOrdersPage = () => {
   const handleExportCSV = () => {
     const csvData = filteredOrders.map((order) => ({
       "Mã Đơn": order.id,
-      "Thời Gian": formatDate(order.createdAt || order.created_at),
-      "Tổng Tiền": order.totalAmount || order.total_amount,
+      "Thời Gian": formatDate(order.orderDate ),
+      "Tổng Tiền": order.totalAmount ,
       "Trạng Thái": getStatusInfo(order.status)?.label || order.status,
-      "Người Dùng": order.userId || order.user_id,
+      "Người Dùng": order.userId ,
     }));
     exportToCsv("danh-sach-don-hang.csv", csvData);
     toast.success("Đã xuất file CSV thành công!");
@@ -284,13 +284,11 @@ const AdminOrdersPage = () => {
                         <td className="px-6 py-4">
                           <div>
                             <div className="font-medium text-gray-900">
-                              {order.customerName ||
-                                order.customer_name 
+                              {order.customerName 
                                 }
                             </div>
                             <div className="text-sm text-gray-500">
-                              {order.customerPhone ||
-                                order.customer_phone }
+                              {order.phoneNumber }
                             </div>
                           </div>
                         </td>
@@ -300,7 +298,7 @@ const AdminOrdersPage = () => {
                         <td className="px-6 py-4 whitespace-nowrap">
                           <span className="font-semibold text-gray-900">
                             {formatCurrency(
-                              order.totalAmount || order.total_amount
+                              order.totalAmount
                             )}
                           </span>
                         </td>
@@ -398,30 +396,26 @@ const AdminOrdersPage = () => {
                     <div>
                       <p className="text-sm text-gray-600">Khách hàng</p>
                       <p className="font-medium">
-                        {selectedOrder.customerName ||
-                          selectedOrder.customer_name}
+                        {selectedOrder.customerName }
                       </p>
                     </div>
                     <div>
                       <p className="text-sm text-gray-600">Số điện thoại</p>
                       <p className="font-medium">
-                        {selectedOrder.customerPhone ||
-                          selectedOrder.customer_phone}
+                          {selectedOrder.phoneNumber}
                       </p>
                     </div>
                     <div className="col-span-2">
                       <p className="text-sm text-gray-600">Địa chỉ</p>
                       <p className="font-medium">
-                        {selectedOrder.shippingAddress ||
-                          selectedOrder.shipping_address ||
-                          "N/A"}
+                        {selectedOrder.shipAddress}
                       </p>
                     </div>
                     <div>
                       <p className="text-sm text-gray-600">Thời gian đặt</p>
                       <p className="font-medium">
                         {formatDate(
-                          selectedOrder.createdAt || selectedOrder.created_at
+                          selectedOrder.orderDate
                         )}
                       </p>
                     </div>
@@ -447,14 +441,14 @@ const AdminOrdersPage = () => {
                         >
                           <div className="flex-1">
                             <p className="font-medium">
-                              {item.productName || item.product_name}
+                              {item.productName}
                             </p>
                             <p className="text-sm text-gray-600">
                               Số lượng: {item.quantity}
                             </p>
                           </div>
                           <p className="font-semibold">
-                            {formatCurrency(item.price * item.quantity)}
+                            {formatCurrency(item.unitPrice * item.quantity)}
                           </p>
                         </div>
                       ))}
@@ -466,8 +460,7 @@ const AdminOrdersPage = () => {
                       <span>Tổng cộng</span>
                       <span className="text-coffee-600">
                         {formatCurrency(
-                          selectedOrder.totalAmount ||
-                            selectedOrder.total_amount
+                          selectedOrder.totalAmount 
                         )}
                       </span>
                     </div>

@@ -32,7 +32,7 @@ const CheckoutPage = () => {
     fullName: user?.name || "",
     phoneNumber: user?.phoneNumber || "",
     email: user?.email || "",
-    address: "",
+    shipAddress: "",
     city: "",
     district: "",
     note: "",
@@ -144,7 +144,7 @@ const CheckoutPage = () => {
     if (
       !formData.fullName ||
       !formData.phoneNumber ||
-      !formData.address ||
+      !formData.shipAddress ||
       !formData.city
     ) {
       toast.error("Vui lòng điền đầy đủ thông tin giao hàng");
@@ -159,10 +159,6 @@ const CheckoutPage = () => {
     setIsSubmitting(true);
 
     try {
-      console.log("📦 Checkout - Cart items:", items); // Debug log
-
-      // Prepare order data theo format backend
-      // Backend expects: { cartItems: [{ cartItemId, productId, quantity }], couponId }
       const orderData = {
         cartItems: items.map((item) => ({
           cartItemId: item.id || item.cartItemId,
@@ -170,10 +166,10 @@ const CheckoutPage = () => {
           quantity: item.quantity,
         })),
         couponId: appliedCoupon?.id || null, // Gửi couponId nếu có
+        shipAddress: formData?.shipAddress || null,
+        phoneNumber: formData?.phoneNumber || null,
       };
-
-      console.log("📤 Sending order data:", orderData); // Debug log
-
+      console.log(orderData)
       const response = await orderAPI.createOrder(orderData);
       console.log("✅ Order response:", response); // Debug log
 
@@ -251,7 +247,7 @@ const CheckoutPage = () => {
           <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
             {/* Shipping & Payment Info */}
             <div className="lg:col-span-2 space-y-6">
-              {/* Shipping Address */}
+              {/* Shipping shipAddress */}
               <div className="bg-white rounded-lg shadow-sm p-6">
                 <div className="flex items-center gap-3 mb-6">
                   <div className="p-2 bg-coffee-50 rounded-lg">
@@ -292,8 +288,8 @@ const CheckoutPage = () => {
                   <div className="md:col-span-2">
                     <Input
                       label="Địa chỉ"
-                      name="address"
-                      value={formData.address}
+                      name="shipAddress"
+                      value={formData.shipAddress}
                       onChange={handleInputChange}
                       required
                       placeholder="Số nhà, tên đường..."
@@ -393,7 +389,7 @@ const CheckoutPage = () => {
                   {items?.map((item) => (
                     <div key={item.id} className="flex gap-3">
                       <img
-                        src={item.imageUrl || "https://via.placeholder.com/60"}
+                        src={`../.${item.imageUrl}`}
                         alt={item.name}
                         className="w-16 h-16 object-cover rounded-lg"
                       />

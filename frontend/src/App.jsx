@@ -39,6 +39,7 @@ import AdminAnalyticsPage from "./pages/admin/AdminAnalyticsPage";
 import WarehouseDashboardPage from "./pages/admin/WarehouseDashboardPage";
 import SalesDashboardPage from "./pages/admin/SalesDashboardPage";
 import HRMDashboardPage from "./pages/admin/HRMDashboardPage";
+import AdminCouponsPage from "./pages/admin/AdminCouponsPage";
 
 // Create React Query client
 const queryClient = new QueryClient({
@@ -223,6 +224,16 @@ function App() {
               element={
                 <ProtectedRoute allowedRoles={[1, 4]}>
                   <AdminOrdersPage />
+                </ProtectedRoute>
+              }
+            />
+
+            {/* Coupons - Admin & Sales */}
+            <Route
+              path="coupons"
+              element={
+                <ProtectedRoute allowedRoles={[1, 4]}>
+                  <AdminCouponsPage />
                 </ProtectedRoute>
               }
             />
