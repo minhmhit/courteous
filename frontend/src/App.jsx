@@ -190,11 +190,11 @@ function App() {
               }
             />
 
-            {/* Products & Categories - Admin & Warehouse */}
+            {/* Products & Categories - Admin & Warehouse & Sales */}
             <Route
               path="products"
               element={
-                <ProtectedRoute allowedRoles={[1, 3]}>
+                <ProtectedRoute allowedRoles={[1, 3, 4]}>
                   <AdminProductsPage />
                 </ProtectedRoute>
               }

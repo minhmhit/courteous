@@ -28,12 +28,11 @@ const AdminHRMPage = () => {
   const [showModal, setShowModal] = useState(false);
   const [editingEmployee, setEditingEmployee] = useState(null);
   const [formData, setFormData] = useState({
-    username: "",
     email: "",
     password: "",
     fullName: "",
-    phone: "",
-    role: 2,
+    phoneNumber: "",
+    roleId: "",
     address: "",
   });
 
@@ -46,7 +45,9 @@ const AdminHRMPage = () => {
     try {
       const response = await userAPI.getAllUsers();
       // Filter out customers (role 0) to show only staff
-      const staffOnly = (response.data || []).filter((user) => user.role > 0);
+      const staffOnly = (response.data || []).filter(
+        (user) => user.roleName !== "user"
+      );
       setEmployees(staffOnly);
     } catch (error) {
       console.error("Error fetching employees:", error);
@@ -64,19 +65,18 @@ const AdminHRMPage = () => {
         email: employee.email || "",
         password: "", // Don't show password
         fullName: employee.fullName || employee.full_name || "",
-        phone: employee.phone || "",
-        role: employee.role || 2,
+        phoneNumber: employee.phone || "",
+        role: employee.role || "",
         address: employee.address || "",
       });
     } else {
       setEditingEmployee(null);
       setFormData({
-        username: "",
         email: "",
         password: "",
         fullName: "",
-        phone: "",
-        role: 2,
+        phoneNumber: "",
+        roleId: "",
         address: "",
       });
     }
@@ -87,12 +87,11 @@ const AdminHRMPage = () => {
     setShowModal(false);
     setEditingEmployee(null);
     setFormData({
-      username: "",
       email: "",
       password: "",
-      fullName: "",
-      phone: "",
-      role: 2,
+      name: "",
+      phoneNumber: "",
+      roleId: "",
       address: "",
     });
   };
@@ -100,10 +99,7 @@ const AdminHRMPage = () => {
   const handleSubmit = async (e) => {
     e.preventDefault();
 
-    if (!formData.username || !formData.email) {
-      toast.error("Vui lòng điền đầy đủ thông tin bắt buộc");
-      return;
-    }
+   
 
     if (!editingEmployee && !formData.password) {
       toast.error("Vui lòng nhập mật khẩu cho nhân viên mới");
@@ -113,8 +109,9 @@ const AdminHRMPage = () => {
     try {
       const submitData = {
         ...formData,
-        fullName: formData.fullName,
+        name: formData.fullName,
       };
+      console.log("Submitting Employee Data:", submitData); // Debug log
 
       if (editingEmployee) {
         // Update - don't send password if empty
@@ -127,11 +124,13 @@ const AdminHRMPage = () => {
         // Create new employee
         await userAPI.registerUser(submitData);
         toast.success("Thêm nhân viên thành công");
+        console.log(submitData);
       }
       handleCloseModal();
       fetchEmployees();
     } catch (error) {
       console.error("Error saving employee:", error);
+
       toast.error(error.response?.data?.message || "Không thể lưu nhân viên");
     }
   };
@@ -151,20 +150,20 @@ const AdminHRMPage = () => {
 
   const getRoleName = (role) => {
     const roleMap = {
-      1: "Admin",
-      2: "Nhân Viên Kho",
-      3: "Nhân Viên Bán Hàng",
-      4: "Quản Lý",
+      admin: "Admin",
+      warehouse: "Nhân Viên Kho",
+      sale: "Nhân Viên Bán Hàng",
+      hrm: "Quản Lý",
     };
     return roleMap[role] || "Nhân Viên";
   };
 
   const getRoleBadgeColor = (role) => {
     const colorMap = {
-      1: "bg-purple-100 text-purple-800",
-      2: "bg-blue-100 text-blue-800",
-      3: "bg-green-100 text-green-800",
-      4: "bg-orange-100 text-orange-800",
+      admin: "bg-purple-100 text-purple-800",
+      warehouse: "bg-blue-100 text-blue-800",
+      sale: "bg-green-100 text-green-800",
+      hrm: "bg-orange-100 text-orange-800",
     };
     return colorMap[role] || "bg-gray-100 text-gray-800";
   };
@@ -176,8 +175,7 @@ const AdminHRMPage = () => {
       employee.fullName?.toLowerCase().includes(searchTerm.toLowerCase()) ||
       employee.full_name?.toLowerCase().includes(searchTerm.toLowerCase());
 
-    const roleMatch =
-      roleFilter === "all" || employee.role === parseInt(roleFilter);
+    const roleMatch = roleFilter === "all" || employee.roleName === roleFilter;
 
     return searchMatch && roleMatch;
   });
@@ -185,24 +183,24 @@ const AdminHRMPage = () => {
   const roleOptions = [
     { value: "all", label: "Tất cả", count: employees.length },
     {
-      value: 1,
+      value: "admin",
       label: "Admin",
-      count: employees.filter((e) => e.role === 1).length,
+      count: employees.filter((e) => e.roleName === "admin").length,
     },
     {
-      value: 2,
+      value: "warehouse",
       label: "Kho",
-      count: employees.filter((e) => e.role === 2).length,
+      count: employees.filter((e) => e.roleName === "warehouse").length,
     },
     {
-      value: 3,
+      value: "sale",
       label: "Bán Hàng",
-      count: employees.filter((e) => e.role === 3).length,
+      count: employees.filter((e) => e.roleName === "sale").length,
     },
     {
-      value: 4,
+      value: "hrm",
       label: "Quản Lý",
-      count: employees.filter((e) => e.role === 4).length,
+      count: employees.filter((e) => e.roleName === "hrm").length,
     },
   ];
 
@@ -246,12 +244,11 @@ const AdminHRMPage = () => {
             <div>
               <p className="text-sm text-gray-600">Admin</p>
               <p className="text-2xl font-bold text-gray-900">
-                {employees.filter((e) => e.role === 1).length}
+                {employees.filter((e) => e.roleName === "admin").length}
               </p>
             </div>
           </div>
         </div>
-
         <div className="bg-white rounded-xl shadow-sm p-6 border border-gray-100">
           <div className="p-3 bg-green-100 rounded-lg">
             <Award className="w-6 h-6 text-green-600" />
@@ -259,7 +256,7 @@ const AdminHRMPage = () => {
           <div className="mt-3">
             <p className="text-sm text-gray-600">Nhân Viên Hoạt Động</p>
             <p className="text-2xl font-bold text-gray-900">
-              {employees.filter((e) => !e.isBanned && !e.is_banned).length}
+              {employees.filter((e) => e.isActive !== 0).length}
             </p>
           </div>
         </div>
@@ -338,12 +335,10 @@ const AdminHRMPage = () => {
                     <td className="px-6 py-4">
                       <div>
                         <p className="font-bold text-gray-900">
-                          {employee.fullName ||
-                            employee.full_name ||
-                            employee.username}
+                          {employee.name}
                         </p>
                         <p className="text-sm text-gray-600">
-                          @{employee.username}
+                          @{employee.name}
                         </p>
                       </div>
                     </td>
@@ -364,14 +359,14 @@ const AdminHRMPage = () => {
                     <td className="px-6 py-4">
                       <span
                         className={`px-3 py-1 rounded-full text-xs font-medium ${getRoleBadgeColor(
-                          employee.role
+                          employee.roleName
                         )}`}
                       >
-                        {getRoleName(employee.role)}
+                        {getRoleName(employee.roleName)}
                       </span>
                     </td>
                     <td className="px-6 py-4">
-                      {employee.isBanned || employee.is_banned ? (
+                      {employee.isActive === 0 ? (
                         <span className="px-3 py-1 bg-red-100 text-red-800 rounded-full text-xs font-medium">
                           Đã khóa
                         </span>
@@ -450,18 +445,6 @@ const AdminHRMPage = () => {
                   <div className="p-6 space-y-4 max-h-[70vh] overflow-y-auto">
                     <div className="grid grid-cols-2 gap-4">
                       <Input
-                        label="Tên đăng nhập *"
-                        name="username"
-                        value={formData.username}
-                        onChange={(e) =>
-                          setFormData({ ...formData, username: e.target.value })
-                        }
-                        required
-                        disabled={!!editingEmployee}
-                        icon={<Users className="w-5 h-5" />}
-                      />
-
-                      <Input
                         label="Email *"
                         name="email"
                         type="email"
@@ -472,9 +455,6 @@ const AdminHRMPage = () => {
                         required
                         icon={<Mail className="w-5 h-5" />}
                       />
-                    </div>
-
-                    <div className="grid grid-cols-2 gap-4">
                       <Input
                         label={
                           editingEmployee
@@ -489,14 +469,16 @@ const AdminHRMPage = () => {
                         }
                         required={!editingEmployee}
                       />
+                    </div>
 
+                    <div className="grid grid-cols-1 gap-4">
                       <Input
                         label="Số điện thoại"
                         name="phone"
                         type="tel"
-                        value={formData.phone}
+                        value={formData.phoneNumber}
                         onChange={(e) =>
-                          setFormData({ ...formData, phone: e.target.value })
+                          setFormData({ ...formData, phoneNumber: e.target.value })
                         }
                         icon={<Phone className="w-5 h-5" />}
                       />
@@ -516,36 +498,21 @@ const AdminHRMPage = () => {
                         Vai trò *
                       </label>
                       <select
-                        value={formData.role}
+                        value={formData.roleId}
                         onChange={(e) =>
                           setFormData({
                             ...formData,
-                            role: parseInt(e.target.value),
+                            roleId: parseInt(e.target.value),
                           })
                         }
                         className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-coffee-500"
                         required
                       >
                         <option value={1}>Admin</option>
-                        <option value={2}>Nhân Viên Kho</option>
-                        <option value={3}>Nhân Viên Bán Hàng</option>
-                        <option value={4}>Quản Lý</option>
+                        <option value={3}>Nhân Viên Kho</option>
+                        <option value={4}>Nhân Viên Bán Hàng</option>
+                        <option value={5}>Quản Lý</option>
                       </select>
-                    </div>
-
-                    <div>
-                      <label className="block text-sm font-medium text-gray-700 mb-2">
-                        Địa chỉ
-                      </label>
-                      <textarea
-                        value={formData.address}
-                        onChange={(e) =>
-                          setFormData({ ...formData, address: e.target.value })
-                        }
-                        rows={2}
-                        className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-coffee-500"
-                        placeholder="Địa chỉ nhân viên..."
-                      />
                     </div>
                   </div>
 

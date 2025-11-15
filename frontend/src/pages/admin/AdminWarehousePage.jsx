@@ -36,7 +36,9 @@ const AdminWarehousePage = () => {
   const [searchTerm, setSearchTerm] = useState("");
   const [showImportModal, setShowImportModal] = useState(false);
   const [showAdjustModal, setShowAdjustModal] = useState(false);
+  const [showDetailModal, setShowDetailModal] = useState(false);
   const [selectedProduct, setSelectedProduct] = useState(null);
+  const [selectedImport, setSelectedImport] = useState(null);
   const [importFormData, setImportFormData] = useState({
     supplierId: "",
     importItems: [{ productId: "", quantity: "", price: "" }],
@@ -148,11 +150,11 @@ const AdminWarehousePage = () => {
     try {
       console.log("Import form data:", importFormData);
       await importAPI.createImport({
-        importData:{
+        importData: {
           supplier_id: parseInt(importFormData.supplierId),
           payment_status: importFormData.paymentStatus || "pending",
         },
-        
+
         details: importFormData.importItems.map((item) => ({
           product_id: parseInt(item.productId),
           quantity: parseInt(item.quantity),
@@ -195,6 +197,17 @@ const AdminWarehousePage = () => {
     }
   };
 
+  const handleViewDetail = async (importItem) => {
+    try {
+      const res = await importAPI.getImportById(importItem.id);
+      setSelectedImport(res.data);
+      setShowDetailModal(true);
+    } catch (error) {
+      console.error("Error fetching import detail:", error);
+      toast.error("Không thể tải chi tiết phiếu nhập");
+    }
+  };
+
   const handleUpdatePaymentStatus = async (importId, status) => {
     try {
       await importAPI.updatePaymentStatus(importId, status);
@@ -220,7 +233,8 @@ const AdminWarehousePage = () => {
 
   const calculateImportTotal = (importItem) => {
     return (importItem.importItems || []).reduce(
-      (sum, item) => sum + (item.quantity || 0) * (item.price || 0),
+      (sum, item) =>
+        sum + Number(item.quantity || 0) * Number(item.unitPrice || 0),
       0
     );
   };
@@ -434,8 +448,8 @@ const AdminWarehousePage = () => {
                           {formatCurrency(item.total_amount)}
                         </td>
                         <td className="px-6 py-4">
-                          {item.paymentStatus === "PAID" ||
-                          item.payment_status === "PAID" ? (
+                          {item.paymentStatus === "paid" ||
+                          item.payment_status === "paid" ? (
                             <span className="px-3 py-1 bg-green-100 text-green-800 rounded-full text-xs font-medium flex items-center gap-1 w-fit">
                               <CheckCircle className="w-3 h-3" />
                               Đã thanh toán
@@ -448,19 +462,29 @@ const AdminWarehousePage = () => {
                           )}
                         </td>
                         <td className="px-6 py-4 text-right">
-                          {item.paymentStatus !== "PAID" &&
-                            item.payment_status !== "PAID" && (
-                              <Button
-                                onClick={() =>
-                                  handleUpdatePaymentStatus(item.id, "PAID")
-                                }
-                                variant="outline"
-                                size="sm"
-                              >
-                                <CheckCircle className="w-4 h-4 mr-1" />
-                                Xác Nhận
-                              </Button>
-                            )}
+                          <div className="flex gap-2 justify-end">
+                            <Button
+                              onClick={() => handleViewDetail(item)}
+                              variant="outline"
+                              size="sm"
+                            >
+                              <Eye className="w-4 h-4 mr-1" />
+                              Chi Tiết
+                            </Button>
+                            {item.paymentStatus !== "paid" &&
+                              item.payment_status !== "paid" && (
+                                <Button
+                                  onClick={() =>
+                                    handleUpdatePaymentStatus(item.id, "paid")
+                                  }
+                                  variant="outline"
+                                  size="sm"
+                                >
+                                  <CheckCircle className="w-4 h-4 mr-1" />
+                                  Xác Nhận
+                                </Button>
+                              )}
+                          </div>
                         </td>
                       </tr>
                     ))
@@ -783,6 +807,167 @@ const AdminWarehousePage = () => {
                     </Button>
                   </div>
                 </form>
+              </motion.div>
+            </div>
+          </div>
+        )}
+      </AnimatePresence>
+
+      {/* Import Detail Modal */}
+      <AnimatePresence>
+        {showDetailModal && selectedImport && (
+          <div className="fixed inset-0 z-50 overflow-y-auto">
+            <div className="flex items-center justify-center min-h-screen px-4">
+              <motion.div
+                initial={{ opacity: 0 }}
+                animate={{ opacity: 1 }}
+                exit={{ opacity: 0 }}
+                className="fixed inset-0 bg-gray-500 bg-opacity-75"
+                onClick={() => setShowDetailModal(false)}
+              />
+
+              <motion.div
+                initial={{ opacity: 0, scale: 0.95 }}
+                animate={{ opacity: 1, scale: 1 }}
+                exit={{ opacity: 0, scale: 0.95 }}
+                className="relative inline-block w-full max-w-4xl my-8 overflow-hidden text-left align-middle transition-all transform bg-white shadow-xl rounded-2xl z-50"
+              >
+                <div className="flex items-center justify-between p-6 border-b">
+                  <div>
+                    <h3 className="text-2xl font-bold text-gray-900">
+                      Chi Tiết Phiếu Nhập #{selectedImport.id}
+                    </h3>
+                    <p className="text-sm text-gray-600 mt-1">
+                      Ngày nhập:{" "}
+                      {formatDate(
+                        selectedImport.import_date 
+                      )}
+                    </p>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() => setShowDetailModal(false)}
+                    className="text-gray-400 hover:text-gray-600"
+                  >
+                    <X className="w-6 h-6" />
+                  </button>
+                </div>
+
+                <div className="p-6 space-y-6 max-h-[70vh] overflow-y-auto">
+                  {/* Supplier Info */}
+                  <div className="bg-gray-50 rounded-lg p-4">
+                    <h4 className="font-semibold text-gray-900 mb-2">
+                      Nhà Cung Cấp
+                    </h4>
+                    <p className="text-gray-700">
+                      {selectedImport.supplier_name ||
+                        getSupplierName(selectedImport.supplierId)}
+                    </p>
+                  </div>
+
+                  {/* Products Table */}
+                  <div>
+                    <h4 className="font-semibold text-gray-900 mb-3">
+                      Sản Phẩm Nhập
+                    </h4>
+                    <div className="border border-gray-200 rounded-lg overflow-hidden">
+                      <table className="w-full">
+                        <thead className="bg-gray-50">
+                          <tr>
+                            <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">
+                              Sản Phẩm
+                            </th>
+                            <th className="px-4 py-3 text-right text-xs font-medium text-gray-500 uppercase">
+                              Số Lượng
+                            </th>
+                            <th className="px-4 py-3 text-right text-xs font-medium text-gray-500 uppercase">
+                              Đơn Giá
+                            </th>
+                            <th className="px-4 py-3 text-right text-xs font-medium text-gray-500 uppercase">
+                              Thành Tiền
+                            </th>
+                          </tr>
+                        </thead>
+                        <tbody className="divide-y divide-gray-200">
+                          {(
+                            selectedImport.details ||
+                            []
+                          ).map((item, index) => {
+                            const quantity = item.quantity || 0;
+                            const unitPrice =
+                              item.unit_price || 0;
+                            const total = quantity * unitPrice;
+                            return (
+                              <tr key={index}>
+                                <td className="px-4 py-3 text-gray-900">
+                                  {item.product_name ||
+                                    getProductName(
+                                      item.productId || item.product_id
+                                    )}
+                                </td>
+                                <td className="px-4 py-3 text-right text-gray-900">
+                                  {quantity}
+                                </td>
+                                <td className="px-4 py-3 text-right text-gray-900">
+                                  {formatCurrency(unitPrice)}
+                                </td>
+                                <td className="px-4 py-3 text-right font-semibold text-gray-900">
+                                  {formatCurrency(total)}
+                                </td>
+                              </tr>
+                            );
+                          })}
+                        </tbody>
+                        <tfoot className="bg-gray-50">
+                          <tr>
+                            <td
+                              colSpan="3"
+                              className="px-4 py-3 text-right font-bold text-gray-900"
+                            >
+                              Tổng Cộng:
+                            </td>
+                            <td className="px-4 py-3 text-right font-bold text-coffee-600 text-lg">
+                              {formatCurrency(
+                                selectedImport.total_amount ||
+                                 
+                                  0
+                              )}
+                            </td>
+                          </tr>
+                        </tfoot>
+                      </table>
+                    </div>
+                  </div>
+
+                  {/* Payment Status */}
+                  <div className="bg-gray-50 rounded-lg p-4">
+                    <h4 className="font-semibold text-gray-900 mb-2">
+                      Trạng Thái Thanh Toán
+                    </h4>
+                    {selectedImport.paymentStatus === "paid" ||
+                    selectedImport.payment_status === "paid" ? (
+                      <span className="inline-flex items-center gap-2 px-3 py-1 bg-green-100 text-green-800 rounded-full text-sm font-medium">
+                        <CheckCircle className="w-4 h-4" />
+                        Đã thanh toán
+                      </span>
+                    ) : (
+                      <span className="inline-flex items-center gap-2 px-3 py-1 bg-yellow-100 text-yellow-800 rounded-full text-sm font-medium">
+                        <Clock className="w-4 h-4" />
+                        Chưa thanh toán
+                      </span>
+                    )}
+                  </div>
+                </div>
+
+                <div className="flex items-center justify-end gap-3 p-6 border-t bg-gray-50">
+                  <Button
+                    type="button"
+                    onClick={() => setShowDetailModal(false)}
+                    variant="outline"
+                  >
+                    Đóng
+                  </Button>
+                </div>
               </motion.div>
             </div>
           </div>

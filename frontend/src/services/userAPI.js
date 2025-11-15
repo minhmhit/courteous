@@ -1,6 +1,14 @@
 import axiosInstance from "./axiosConfig";
 
 const userAPI = {
+
+  // Admin: Tạo user mới
+  registerUser: async (userData) => {
+    return await axiosInstance.post("/auth/register", userData, {
+      headers: { "Content-Type": "application/x-www-form-urlencoded" },
+    });
+  },
+
   // Admin: Lấy tất cả users
   getAllUsers: async () => {
     return await axiosInstance.get("/auth/users/");

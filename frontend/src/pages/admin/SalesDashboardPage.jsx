@@ -55,17 +55,18 @@ const SalesDashboardPage = () => {
         : productsRes.data?.products || [];
 
       // Calculate stats
+      console.log("Orders Data:", ordersData); // Debug log
       const totalRevenue = ordersData
         .filter(
-          (o) => o.paymentStatus === "PAID" || o.payment_status === "PAID"
+          (o) => o.status === "COMPLETED" || o.payment_status === "COMPLETED"
         )
         .reduce(
-          (sum, order) => sum + (order.total || order.totalAmount || 0),
+          (sum, order) => sum + Number(order.total || order.totalAmount || 0),
           0
         );
 
       const completedOrders = ordersData.filter(
-        (o) => o.status === "DELIVERED" || o.orderStatus === "DELIVERED"
+        (o) => o.status === "COMPLETED" || o.orderStatus === "COMPLETED"
       ).length;
 
       const pendingOrders = ordersData.filter(
@@ -85,17 +86,36 @@ const SalesDashboardPage = () => {
 
       setRecentOrders(ordersData.slice(0, 5));
 
-      // Mock sales data (replace with real data if API provides)
-      const mockSalesData = [
-        { date: "T2", revenue: 12000000 },
-        { date: "T3", revenue: 18000000 },
-        { date: "T4", revenue: 15000000 },
-        { date: "T5", revenue: 22000000 },
-        { date: "T6", revenue: 28000000 },
-        { date: "T7", revenue: 24000000 },
-        { date: "CN", revenue: 20000000 },
-      ];
-      setSalesData(mockSalesData);
+      // Calculate sales data for last 7 days
+      const last7Days = [];
+      for (let i = 6; i >= 0; i--) {
+        const date = new Date();
+        date.setDate(date.getDate() - i);
+        const dateStr = formatDate(date, "yyyy-MM-dd");
+
+        const dayRevenue = ordersData
+          .filter((order) => {
+            const orderDate = formatDate(
+              new Date(order.orderDate),
+              "yyyy-MM-dd"
+            );
+            return (
+              orderDate === dateStr &&
+              (order.status === "COMPLETED" ||
+                order.payment_status === "COMPLETED")
+            );
+          })
+          .reduce(
+            (sum, order) => sum + Number(order.total || order.totalAmount || 0),
+            0
+          );
+
+        last7Days.push({
+          date: formatDate(date, "dd/MM"),
+          revenue: dayRevenue,
+        });
+      }
+      setSalesData(last7Days);
 
       // Top products (mock data - replace with real API)
       setTopProducts(productsData.slice(0, 5));
@@ -277,7 +297,7 @@ const SalesDashboardPage = () => {
                           Đơn #{order.id}
                         </p>
                         <p className="text-sm text-gray-600">
-                          {formatDate(order.createdAt || order.created_at)}
+                          {formatDate(order.orderDate)}
                         </p>
                       </div>
                     </div>
@@ -340,7 +360,7 @@ const SalesDashboardPage = () => {
         </div>
       </div>
 
-      {/* Quick Actions */}
+      {/* Quick Actions
       <div className="bg-gradient-to-r from-coffee-600 to-coffee-800 rounded-xl p-8 text-white">
         <h2 className="text-2xl font-bold mb-4">Thao Tác Nhanh</h2>
         <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
@@ -375,7 +395,7 @@ const SalesDashboardPage = () => {
             </p>
           </Link>
         </div>
-      </div>
+      </div> */}
     </div>
   );
 };

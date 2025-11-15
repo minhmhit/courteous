@@ -92,7 +92,7 @@ const AdminLayout = () => {
       icon: Package,
       label: "Sản phẩm",
       path: "/admin/products",
-      allowedRoles: [1, 3], // Admin & Warehouse
+      allowedRoles: [1, 3, 4], // Admin & Warehouse & Sales
     },
     {
       icon: Tag,
@@ -120,7 +120,7 @@ const AdminLayout = () => {
     },
     {
       icon: Users,
-      label: "Khách hàng",
+      label: "Người dùng",
       path: "/admin/users",
       allowedRoles: [1, 5], // Admin & HRM
     },

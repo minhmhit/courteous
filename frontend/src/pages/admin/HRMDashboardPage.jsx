@@ -47,16 +47,15 @@ const HRMDashboardPage = () => {
         ? usersRes.data
         : usersRes.data?.users || [];
 
-      // Filter out customers (role_id = 2)
       const employees = usersData.filter(
-        (u) => (u.roleId || u.role_id || u.role) !== 2
+        (u) => (u.roleName) !== "user"
       );
 
       const activeEmployees = employees.filter(
-        (e) => e.isActive || e.is_active !== false
+        (e) => e.isActive  !== false
       );
       const inactiveEmployees = employees.filter(
-        (e) => !e.isActive && e.is_active === false
+        (e) => e.isActive === false
       );
 
       setStats({
@@ -70,15 +69,15 @@ const HRMDashboardPage = () => {
 
       // Calculate role distribution
       const roleMap = {
-        0: { name: "Guest", color: "#9ca3af" },
-        1: { name: "Admin", color: "#ef4444" },
-        3: { name: "Warehouse", color: "#8b5cf6" },
-        4: { name: "Sales", color: "#3b82f6" },
-        5: { name: "HRM", color: "#10b981" },
+        "user": { name: "Guest", color: "#9ca3af" },
+        "admin": { name: "Admin", color: "#ef4444" },
+        "warehouse": { name: "Warehouse", color: "#8b5cf6" },
+        "sale": { name: "Sales", color: "#3b82f6" },
+        "hrm": { name: "HRM", color: "#10b981" },
       };
 
       const roleCounts = employees.reduce((acc, emp) => {
-        const roleId = emp.roleId || emp.role_id || emp.role;
+        const roleId = emp.roleName;
         if (roleMap[roleId]) {
           acc[roleId] = (acc[roleId] || 0) + 1;
         }
