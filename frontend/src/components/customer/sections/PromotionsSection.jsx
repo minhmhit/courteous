@@ -38,9 +38,8 @@ const PromotionsSection = ({ coupons, products }) => {
               </div>
               <h3 className="text-xl font-bold text-gray-900 mb-2">
                 Giảm{" "}
-                {coupon.discountPercent ||
-                  coupon.discountPercentage ||
-                  coupon.discount_percentage}
+                {coupon.discountPercent 
+                 }
                 %
               </h3>
               <p className="text-gray-600 text-sm mb-4">
@@ -51,7 +50,7 @@ const PromotionsSection = ({ coupons, products }) => {
                 {(coupon.usageLimit ||
                   coupon.usage_limit ||
                   coupon.limit ||
-                  999) -
+                  99) -
                   (coupon.usedCount ||
                     coupon.used_count ||
                     coupon.used ||

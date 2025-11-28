@@ -1,9 +1,10 @@
 import { Link } from "react-router-dom";
 import { motion } from "framer-motion";
+
 import { Coffee, Award, ArrowRight } from "lucide-react";
 
 const HeroSection = () => {
-  return (
+  return (   
     <section className="bg-gradient-to-br from-coffee-900 via-coffee-800 to-coffee-700 text-white py-20">
       <div className="container mx-auto px-4">
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-12 items-center">
