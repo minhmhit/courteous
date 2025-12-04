@@ -1,7 +1,12 @@
 import { Link } from "react-router-dom";
 import { motion } from "framer-motion";
+import useAuthStore from "../../../stores/useAuthStore";
 
 const CTASection = () => {
+  const { isAuthenticated } = useAuthStore();
+   if (isAuthenticated) {
+     return null;
+   }
   return (
     <section className="py-20 bg-coffee-800 text-white">
       <div className="container mx-auto px-4 text-center">

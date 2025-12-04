@@ -199,7 +199,7 @@ const OrderHistoryPage = () => {
                           />
                           <div className="flex-1">
                             <p className="font-medium text-gray-900">
-                              {item.name || item.product?.name || "Sản phẩm"}
+                              {item.productName || item.product?.name || "Sản phẩm"}
                             </p>
                             <p className="text-sm text-gray-600">
                               x{item.quantity}

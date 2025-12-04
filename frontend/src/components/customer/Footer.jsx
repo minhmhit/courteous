@@ -30,7 +30,7 @@ const Footer = () => {
             </p>
             <div className="flex gap-3">
               <a
-                href="https://facebook.com"
+                href="https://www.facebook.com/profile.php?id=61575249303691"
                 target="_blank"
                 rel="noopener noreferrer"
                 className="p-2 bg-coffee-800 rounded-lg hover:bg-coffee-700 transition-colors"
@@ -84,14 +84,6 @@ const Footer = () => {
                   Liên hệ
                 </Link>
               </li>
-              <li>
-                <Link
-                  to="/blog"
-                  className="text-cream-200 hover:text-white transition-colors text-sm"
-                >
-                  Blog
-                </Link>
-              </li>
             </ul>
           </div>
 
@@ -101,15 +93,15 @@ const Footer = () => {
             <ul className="space-y-2">
               <li>
                 <Link
-                  to="/faq"
+                  to="/terms-of-service"
                   className="text-cream-200 hover:text-white transition-colors text-sm"
                 >
-                  Câu hỏi thường gặp
+                  Điều khoản sử dụng
                 </Link>
               </li>
               <li>
                 <Link
-                  to="/shipping"
+                  to="/shipping-policy"
                   className="text-cream-200 hover:text-white transition-colors text-sm"
                 >
                   Chính sách giao hàng
@@ -117,7 +109,7 @@ const Footer = () => {
               </li>
               <li>
                 <Link
-                  to="/returns"
+                  to="/return-policy"
                   className="text-cream-200 hover:text-white transition-colors text-sm"
                 >
                   Chính sách đổi trả
@@ -125,7 +117,7 @@ const Footer = () => {
               </li>
               <li>
                 <Link
-                  to="/privacy"
+                  to="/privacy-policy"
                   className="text-cream-200 hover:text-white transition-colors text-sm"
                 >
                   Chính sách bảo mật
@@ -150,7 +142,7 @@ const Footer = () => {
                   href="tel:+84123456789"
                   className="text-cream-200 hover:text-white transition-colors text-sm"
                 >
-                  +84 123 456 789
+                  +84 935 704 208
                 </a>
               </li>
               <li className="flex items-center gap-3">
@@ -169,23 +161,7 @@ const Footer = () => {
         {/* Bottom Bar */}
         <div className="border-t border-coffee-800 mt-8 pt-8">
           <div className="flex flex-col md:flex-row justify-between items-center gap-4">
-            <p className="text-cream-300 text-sm">
-              © {currentYear} CoffeeBot. Tất cả quyền được bảo lưu.
-            </p>
-            <div className="flex gap-6 text-sm">
-              <Link
-                to="/terms"
-                className="text-cream-300 hover:text-white transition-colors"
-              >
-                Điều khoản sử dụng
-              </Link>
-              <Link
-                to="/privacy"
-                className="text-cream-300 hover:text-white transition-colors"
-              >
-                Chính sách bảo mật
-              </Link>
-            </div>
+            <p className="text-cream-300 text-sm">© {currentYear} CoffeeBot.</p>
           </div>
         </div>
       </div>

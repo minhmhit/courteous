@@ -4,25 +4,25 @@ import { Star } from "lucide-react";
 const ReviewsSection = () => {
   const reviews = [
     {
-      name: "Nguyễn Văn A",
+      name: "Nguyễn Múc Đinh",
       rating: 5,
       comment:
         "Cà phê rất thơm và đậm đà, đúng như mô tả. Giao hàng nhanh, đóng gói cẩn thận. Sẽ ủng hộ tiếp!",
-      avatar: "A",
+      avatar: "Đ",
     },
     {
-      name: "Trần Thị B",
+      name: "Trần Thị Nam",
       rating: 5,
       comment:
         "Chất lượng tuyệt vời, giá cả hợp lý. Dịch vụ chăm sóc khách hàng rất tốt. Rất hài lòng!",
-      avatar: "B",
+      avatar: "N",
     },
     {
-      name: "Lê Văn C",
+      name: "Lê Văn Khánh",
       rating: 5,
       comment:
         "Mình đã thử nhiều loại cà phê nhưng của shop này là ngon nhất. Hương vị đặc biệt, khó quên!",
-      avatar: "C",
+      avatar: "K",
     },
   ];
 

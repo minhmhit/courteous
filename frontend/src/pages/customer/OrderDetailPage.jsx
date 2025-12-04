@@ -204,12 +204,12 @@ const OrderDetailPage = () => {
                     <img
                       src={`../.${item.imageUrl}
                         `}
-                      alt={item.name || item.product?.name}
+                      alt={item.productName || item.product?.name}
                       className="w-20 h-20 object-cover rounded-lg"
                     />
                     <div className="flex-1">
                       <h3 className="font-semibold text-gray-900">
-                        {item.name || item.product?.name || "Sản phẩm"}
+                        {item.productName || item.product?.name || "Sản phẩm"}
                       </h3>
                       <p className="text-sm text-gray-600 mt-1">
                         Số lượng: {item.quantity}

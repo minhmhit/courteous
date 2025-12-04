@@ -9,6 +9,7 @@ import useAuthStore from "./stores/useAuthStore";
 import ToastContainer from "./components/ui/Toast";
 import ProtectedRoute from "./components/ProtectedRoute";
 import CustomerLayout from "./components/customer/CustomerLayout";
+import ScrollToTop from "./components/ScrollToTop";
 
 // Pages - Customer
 import HomePage from "./pages/customer/HomePage";
@@ -63,6 +64,7 @@ function App() {
   return (
     <QueryClientProvider client={queryClient}>
       <BrowserRouter>
+        <ScrollToTop />
         <ToastContainer />
         <Routes>
           {/* Auth Routes (no layout) */}

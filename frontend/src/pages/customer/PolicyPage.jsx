@@ -396,15 +396,24 @@ const PolicyPage = () => {
             {tabs.map((tab) => {
               const Icon = tab.icon;
               const isActive = activeTab === tab.id;
+              const colorMap = {
+                blue: "#2563eb",
+                purple: "#9333ea",
+                green: "#16a34a",
+                orange: "#ea580c",
+              };
               return (
                 <button
                   key={tab.id}
                   onClick={() => handleTabChange(tab.id)}
                   className={`flex items-center justify-center gap-2 px-4 py-3 rounded-lg font-medium transition-all ${
                     isActive
-                      ? `bg-${tab.color}-600 text-white shadow-md`
+                      ? "text-white shadow-md"
                       : "bg-gray-50 text-gray-700 hover:bg-gray-100"
                   }`}
+                  style={
+                    isActive ? { backgroundColor: colorMap[tab.color] } : {}
+                  }
                 >
                   <Icon className="w-5 h-5" />
                   <span className="hidden sm:inline">{tab.label}</span>
