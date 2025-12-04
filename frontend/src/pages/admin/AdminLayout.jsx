@@ -13,6 +13,7 @@ import {
   UserCog,
   TrendingUp,
   Tag,
+  Truck,
 } from "lucide-react";
 import useAuthStore from "../../stores/useAuthStore";
 
@@ -116,6 +117,12 @@ const AdminLayout = () => {
       icon: Warehouse,
       label: "Kho hàng",
       path: "/admin/warehouse",
+      allowedRoles: [1, 3], // Admin & Warehouse
+    },
+    {
+      icon: Truck,
+      label: "Nhà cung cấp",
+      path: "/admin/suppliers",
       allowedRoles: [1, 3], // Admin & Warehouse
     },
     {

@@ -36,19 +36,19 @@ const WarehouseDashboardPage = () => {
           importAPI.getAllImports(1, 10).catch(() => ({ data: [] })),
           productAPI.getAllProducts().catch(() => ({ data: [] })),
         ]);
-
+        
       // Normalize data
-      const inventoryData = Array.isArray(inventoryRes.data)
-        ? inventoryRes.data
-        : inventoryRes.data?.inventory || [];
+      const inventoryData = Array.isArray(inventoryRes.data.inventory)
+        ? inventoryRes.data.inventory
+        : [];
 
-      const lowStockData = Array.isArray(lowStockRes.data)
-        ? lowStockRes.data
-        : lowStockRes.data?.products || [];
+      const lowStockData = Array.isArray(lowStockRes.data.inventory)
+        ? lowStockRes.data.inventory
+        : [];
 
-      const importsData = Array.isArray(importsRes.data)
-        ? importsRes.data
-        : importsRes.data?.imports || [];
+      const importsData = Array.isArray(importsRes.data.imports)
+        ? importsRes.data.imports
+        :[];
 
       const productsData = Array.isArray(productsRes.data)
         ? productsRes.data
@@ -194,10 +194,16 @@ const WarehouseDashboardPage = () => {
                     className="flex items-center justify-between p-3 bg-red-50 rounded-lg border border-red-200"
                   >
                     <div className="flex items-center gap-3">
-                      <AlertTriangle className="w-5 h-5 text-red-600" />
+                      <div className="w-10 h-10">
+                        <img
+                          src={`../.${product.imageUrl || "default.jpg"}`}
+                          alt={product.product_name || "N/A"}
+                        />
+                      </div>
+
                       <div>
                         <p className="font-medium text-gray-900">
-                          Sản phẩm #{product.productId || product.id}
+                          {product.product_name || "N/A"}
                         </p>
                         <p className="text-sm text-gray-600">
                           Còn {product.quantity || 0} sản phẩm
@@ -250,9 +256,7 @@ const WarehouseDashboardPage = () => {
                           Phiếu #{importItem.id}
                         </p>
                         <p className="text-sm text-gray-600">
-                          {formatDate(
-                            importItem.createdAt || importItem.created_at
-                          )}
+                          {formatDate(importItem.import_date)}
                         </p>
                       </div>
                     </div>
