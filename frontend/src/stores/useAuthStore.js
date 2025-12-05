@@ -98,8 +98,10 @@ const useAuthStore = create((set, get) => ({
     set({ isLoading: true, error: null });
     try {
       const response = await authAPI.updateProfile(userData);
-      const updatedUser = { ...get().user, ...response.user };
-      localStorage.setItem("user", JSON.stringify(updatedUser));
+      const updatedUser = response?.data || null;
+      if(updatedUser !== null){
+        localStorage.setItem("user", JSON.stringify(updatedUser));
+      };
       set({
         user: updatedUser,
         isLoading: false,

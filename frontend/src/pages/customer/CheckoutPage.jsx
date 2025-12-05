@@ -6,6 +6,7 @@ import useCartStore from "../../stores/useCartStore";
 import useAuthStore from "../../stores/useAuthStore";
 import useToastStore from "../../stores/useToastStore";
 import { couponAPI, orderAPI } from "../../services";
+import provinceAPI from "../../services/provinceAPI";
 import Button from "../../components/ui/Button";
 import Input from "../../components/ui/Input";
 import { formatCurrency } from "../../utils/formatDate";
@@ -27,17 +28,37 @@ const CheckoutPage = () => {
   const [discountAmount, setDiscountAmount] = useState(0);
   const [availableCoupons, setAvailableCoupons] = useState([]);
 
+  // Province state
+  const [provinces, setProvinces] = useState([]);
+  const [districts, setDistricts] = useState([]);
+  const [wards, setWards] = useState([]);
+  const [selectedProvince, setSelectedProvince] = useState(null);
+  const [selectedDistrict, setSelectedDistrict] = useState(null);
+  const [selectedWard, setSelectedWard] = useState(null);
+
   // Form data
   const [formData, setFormData] = useState({
     fullName: user?.name || "",
     phoneNumber: user?.phoneNumber || "",
     email: user?.email || "",
     shipAddress: "",
-    city: "",
-    district: "",
     note: "",
     paymentMethod: "cod", // cod hoặc banking
   });
+
+  // Fetch provinces on mount
+  useEffect(() => {
+    const fetchProvinces = async () => {
+      try {
+        const data = await provinceAPI.getAllProvinces();
+        setProvinces(data);
+      } catch (error) {
+        console.error("Error fetching provinces:", error);
+        toast.error("Không thể tải danh sách tỉnh thành");
+      }
+    };
+    fetchProvinces();
+  }, []);
 
   // Fetch all available coupons on mount
   useEffect(() => {
@@ -45,7 +66,7 @@ const CheckoutPage = () => {
       try {
         const response = await couponAPI.getAllCoupons();
         const coupons = response.data.coupons;
-        
+
         setAvailableCoupons(coupons);
       } catch (error) {
         console.error("Error fetching coupons:", error);
@@ -67,6 +88,68 @@ const CheckoutPage = () => {
   const handleInputChange = (e) => {
     const { name, value } = e.target;
     setFormData((prev) => ({ ...prev, [name]: value }));
+  };
+
+  // Handle province selection
+  const handleProvinceChange = async (e) => {
+    const provinceCode = e.target.value;
+    if (!provinceCode) {
+      setSelectedProvince(null);
+      setDistricts([]);
+      setWards([]);
+      setSelectedDistrict(null);
+      setSelectedWard(null);
+      return;
+    }
+
+    const province = provinces.find((p) => p.code === parseInt(provinceCode));
+    setSelectedProvince(province);
+    setSelectedDistrict(null);
+    setSelectedWard(null);
+    setWards([]);
+
+    try {
+      const data = await provinceAPI.getDistrictsByProvince(provinceCode);
+      setDistricts(data.districts || []);
+    } catch (error) {
+      console.error("Error fetching districts:", error);
+      toast.error("Không thể tải danh sách quận/huyện");
+    }
+  };
+
+  // Handle district selection
+  const handleDistrictChange = async (e) => {
+    const districtCode = e.target.value;
+    if (!districtCode) {
+      setSelectedDistrict(null);
+      setWards([]);
+      setSelectedWard(null);
+      return;
+    }
+
+    const district = districts.find((d) => d.code === parseInt(districtCode));
+    setSelectedDistrict(district);
+    setSelectedWard(null);
+
+    try {
+      const data = await provinceAPI.getWardsByDistrict(districtCode);
+      setWards(data.wards || []);
+    } catch (error) {
+      console.error("Error fetching wards:", error);
+      toast.error("Không thể tải danh sách phường/xã");
+    }
+  };
+
+  // Handle ward selection
+  const handleWardChange = (e) => {
+    const wardCode = e.target.value;
+    if (!wardCode) {
+      setSelectedWard(null);
+      return;
+    }
+
+    const ward = wards.find((w) => w.code === parseInt(wardCode));
+    setSelectedWard(ward);
   };
 
   // Áp dụng mã giảm giá
@@ -106,8 +189,6 @@ const CheckoutPage = () => {
       return;
     }
 
-   
-
     // Kiểm tra số lượng còn lại
     if (foundCoupon.currentUsage >= foundCoupon.usageLimit) {
       toast.error("Mã giảm giá đã hết lượt sử dụng");
@@ -145,7 +226,9 @@ const CheckoutPage = () => {
       !formData.fullName ||
       !formData.phoneNumber ||
       !formData.shipAddress ||
-      !formData.city
+      !selectedProvince ||
+      !selectedDistrict ||
+      !selectedWard
     ) {
       toast.error("Vui lòng điền đầy đủ thông tin giao hàng");
       return;
@@ -159,6 +242,16 @@ const CheckoutPage = () => {
     setIsSubmitting(true);
 
     try {
+      // Ghép địa chỉ đầy đủ
+      const fullAddress = [
+        formData.shipAddress,
+        selectedWard?.name,
+        selectedDistrict?.name,
+        selectedProvince?.name,
+      ]
+        .filter(Boolean)
+        .join(", ");
+
       const orderData = {
         cartItems: items.map((item) => ({
           cartItemId: item.id || item.cartItemId,
@@ -166,10 +259,10 @@ const CheckoutPage = () => {
           quantity: item.quantity,
         })),
         couponId: appliedCoupon?.id || null, // Gửi couponId nếu có
-        shipAddress: formData?.shipAddress || null,
+        shipAddress: fullAddress,
         phoneNumber: formData?.phoneNumber || null,
       };
-      console.log(orderData)
+      console.log(orderData);
       const response = await orderAPI.createOrder(orderData);
       console.log("✅ Order response:", response); // Debug log
 
@@ -295,19 +388,68 @@ const CheckoutPage = () => {
                       placeholder="Số nhà, tên đường..."
                     />
                   </div>
-                  <Input
-                    label="Quận / Huyện"
-                    name="district"
-                    value={formData.district}
-                    onChange={handleInputChange}
-                  />
-                  <Input
-                    label="Thành phố / Tỉnh"
-                    name="city"
-                    value={formData.city}
-                    onChange={handleInputChange}
-                    required
-                  />
+
+                  {/* Province Select */}
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-2">
+                      Tỉnh / Thành phố <span className="text-red-500">*</span>
+                    </label>
+                    <select
+                      value={selectedProvince?.code || ""}
+                      onChange={handleProvinceChange}
+                      required
+                      className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-coffee-500 focus:border-transparent"
+                    >
+                      <option value="">Chọn tỉnh/thành phố</option>
+                      {provinces.map((province) => (
+                        <option key={province.code} value={province.code}>
+                          {province.name}
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+
+                  {/* District Select */}
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-2">
+                      Quận / Huyện <span className="text-red-500">*</span>
+                    </label>
+                    <select
+                      value={selectedDistrict?.code || ""}
+                      onChange={handleDistrictChange}
+                      disabled={!selectedProvince}
+                      required
+                      className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-coffee-500 focus:border-transparent disabled:bg-gray-100 disabled:cursor-not-allowed"
+                    >
+                      <option value="">Chọn quận/huyện</option>
+                      {districts.map((district) => (
+                        <option key={district.code} value={district.code}>
+                          {district.name}
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+
+                  {/* Ward Select */}
+                  <div className="md:col-span-2">
+                    <label className="block text-sm font-medium text-gray-700 mb-2">
+                      Phường / Xã <span className="text-red-500">*</span>
+                    </label>
+                    <select
+                      value={selectedWard?.code || ""}
+                      onChange={handleWardChange}
+                      disabled={!selectedDistrict}
+                      required
+                      className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-coffee-500 focus:border-transparent disabled:bg-gray-100 disabled:cursor-not-allowed"
+                    >
+                      <option value="">Chọn phường/xã</option>
+                      {wards.map((ward) => (
+                        <option key={ward.code} value={ward.code}>
+                          {ward.name}
+                        </option>
+                      ))}
+                    </select>
+                  </div>
                   <div className="md:col-span-2">
                     <label className="block text-sm font-medium text-gray-700 mb-2">
                       Ghi chú (tùy chọn)
