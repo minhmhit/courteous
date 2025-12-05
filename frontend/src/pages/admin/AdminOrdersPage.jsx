@@ -72,10 +72,13 @@ const AdminOrdersPage = () => {
   const handleExportCSV = () => {
     const csvData = filteredOrders.map((order) => ({
       "Mã Đơn": order.id,
-      "Thời Gian": formatDate(order.orderDate ),
-      "Tổng Tiền": order.totalAmount ,
+      "Thời Gian": formatDate(order.orderDate),
+      "Tổng Tiền": order.totalAmount,
       "Trạng Thái": getStatusInfo(order.status)?.label || order.status,
-      "Người Dùng": order.userId ,
+      "Người Dùng": order.customerName,
+      "Số Điện Thoại": order.phoneNumber,
+      "Email": order.email,
+      "Địa Chỉ": order.shipAddress,
     }));
     exportToCsv("danh-sach-don-hang.csv", csvData);
     toast.success("Đã xuất file CSV thành công!");

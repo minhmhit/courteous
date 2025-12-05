@@ -205,8 +205,10 @@ const AdminProductsPage = () => {
     const csvData = filteredProducts.map((product) => ({
       "Mã SP": product.id,
       "Tên Sản Phẩm": product.name,
-      "Danh Mục": getCategoryName(product.categoryId),
-      Giá: product.unitPrice,
+      "Danh Mục": product.categoryName,
+      "Giá": product.price,
+      "Tồn Kho": product.stockQuantity || 0,
+      "Nhà Cung Cấp": product.supplierName || "",
       "Mô Tả": product.description || "",
     }));
     exportToCsv("danh-sach-san-pham.csv", csvData);
