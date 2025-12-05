@@ -83,9 +83,10 @@ const AdminWarehousePage = () => {
         const lowStockRes = await inventoryAPI
           .getLowStockProducts(20)
           .catch(() => ({ data: [] }));
-        const lowStockData = Array.isArray(lowStockRes.data)
-          ? lowStockRes.data
-          : lowStockRes.data?.products || lowStockRes.products || [];
+        const lowStockData = Array.isArray(lowStockRes.data.inventory)
+          ? lowStockRes.data.inventory
+          : [];
+        console.log("Low stock data:", lowStockData);
         setLowStockProducts(lowStockData);
       }
     } catch (error) {
@@ -148,7 +149,6 @@ const AdminWarehousePage = () => {
     }
 
     try {
-      console.log("Import form data:", importFormData);
       await importAPI.createImport({
         importData: {
           supplier_id: parseInt(importFormData.supplierId),
@@ -342,9 +342,7 @@ const AdminWarehousePage = () => {
                     <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">
                       Trạng Thái
                     </th>
-                    <th className="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase">
-                      Thao Tác
-                    </th>
+                    
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-gray-200">
@@ -376,16 +374,7 @@ const AdminWarehousePage = () => {
                             </span>
                           )}
                         </td>
-                        <td className="px-6 py-4 text-right">
-                          <Button
-                            onClick={() => handleOpenAdjustModal(item)}
-                            variant="outline"
-                            size="sm"
-                          >
-                            <Edit className="w-4 h-4 mr-1" />
-                            Điều Chỉnh
-                          </Button>
-                        </td>
+                        
                       </tr>
                     ))
                   ) : (
@@ -527,14 +516,7 @@ const AdminWarehousePage = () => {
                         </p>
                       </div>
                     </div>
-                    <Button
-                      onClick={() => handleOpenAdjustModal(product)}
-                      variant="primary"
-                      className="w-full"
-                    >
-                      <Plus className="w-4 h-4 mr-2" />
-                      Nhập Thêm Hàng
-                    </Button>
+                    
                   </motion.div>
                 ))
               ) : (
@@ -838,10 +820,7 @@ const AdminWarehousePage = () => {
                       Chi Tiết Phiếu Nhập #{selectedImport.id}
                     </h3>
                     <p className="text-sm text-gray-600 mt-1">
-                      Ngày nhập:{" "}
-                      {formatDate(
-                        selectedImport.import_date 
-                      )}
+                      Ngày nhập: {formatDate(selectedImport.import_date)}
                     </p>
                   </div>
                   <button
@@ -889,13 +868,9 @@ const AdminWarehousePage = () => {
                           </tr>
                         </thead>
                         <tbody className="divide-y divide-gray-200">
-                          {(
-                            selectedImport.details ||
-                            []
-                          ).map((item, index) => {
+                          {(selectedImport.details || []).map((item, index) => {
                             const quantity = item.quantity || 0;
-                            const unitPrice =
-                              item.unit_price || 0;
+                            const unitPrice = item.unit_price || 0;
                             const total = quantity * unitPrice;
                             return (
                               <tr key={index}>
@@ -927,11 +902,7 @@ const AdminWarehousePage = () => {
                               Tổng Cộng:
                             </td>
                             <td className="px-4 py-3 text-right font-bold text-coffee-600 text-lg">
-                              {formatCurrency(
-                                selectedImport.total_amount ||
-                                 
-                                  0
-                              )}
+                              {formatCurrency(selectedImport.total_amount || 0)}
                             </td>
                           </tr>
                         </tfoot>

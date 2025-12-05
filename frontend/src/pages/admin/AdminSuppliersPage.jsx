@@ -189,14 +189,7 @@ const AdminSuppliersPage = () => {
           </div>
         </div>
 
-        <div className="bg-white rounded-xl shadow-sm p-6 border border-gray-100">
-          <div className="flex items-center gap-4">
-            <div className="p-3 bg-purple-100 rounded-lg">
-              <Mail className="w-6 h-6 text-purple-600" />
-            </div>
-            
-          </div>
-        </div>
+        
       </div>
 
       {/* Search */}

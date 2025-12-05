@@ -64,7 +64,7 @@ const ProfilePage = () => {
     setIsLoading(true);
     try {
       await authAPI.changePassword({
-        oldPassword: passwordForm.currentPassword,
+        currentPassword: passwordForm.currentPassword,
         newPassword: passwordForm.newPassword,
       });
       toast.success("Đổi mật khẩu thành công!");
@@ -280,7 +280,6 @@ const ProfilePage = () => {
                       </h3>
                       <select className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-coffee-500">
                         <option value="vi">Tiếng Việt</option>
-                        <option value="en">English</option>
                       </select>
                     </div>
                   </div>
