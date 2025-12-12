@@ -15,7 +15,7 @@ const useCartStore = create((set, get) => ({
     try {
       const response = await cartAPI.getCart();
 
-      console.log("Cart response:", response); // Debug log
+      // console.log("Cart response:", response); // Debug log
 
       // Handle different response structures
       const cartData = response.data || response;
@@ -56,7 +56,7 @@ const useCartStore = create((set, get) => ({
     set({ isLoading: true, error: null });
     try {
       const response = await cartAPI.addToCart(productId, quantity);
-      console.log("Add to cart response:", response); // Debug log
+      // console.log("Add to cart response:", response); // Debug log
       await get().fetchCart(); // Refresh giỏ hàng
       return true;
     } catch (error) {

@@ -42,7 +42,7 @@ const RegisterPage = () => {
       toast.success("Đăng ký thành công! Vui lòng đăng nhập");
       navigate("/login");
     } catch (error) {
-      toast.error(error.message || "Đăng ký thất bại");
+      toast.error(error.errors[0].msg || "Đăng ký thất bại");
     }
   };
 

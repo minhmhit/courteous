@@ -86,7 +86,7 @@ const AdminWarehousePage = () => {
         const lowStockData = Array.isArray(lowStockRes.data.inventory)
           ? lowStockRes.data.inventory
           : [];
-        console.log("Low stock data:", lowStockData);
+        // console.log("Low stock data:", lowStockData);
         setLowStockProducts(lowStockData);
       }
     } catch (error) {

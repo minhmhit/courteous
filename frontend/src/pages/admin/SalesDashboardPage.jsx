@@ -55,7 +55,7 @@ const SalesDashboardPage = () => {
         : productsRes.data?.products || [];
 
       // Calculate stats
-      console.log("Orders Data:", ordersData); // Debug log
+      // console.log("Orders Data:", ordersData); // Debug log
       const totalRevenue = ordersData
         .filter(
           (o) => o.status === "COMPLETED" || o.payment_status === "COMPLETED"

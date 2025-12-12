@@ -28,6 +28,9 @@ const LoginPage = () => {
     e.preventDefault();
     try {
       const response = await login(formData);
+      if(response?.error){
+        throw new Error(response.message);
+      }
       toast.success("Đăng nhập thành công!");
 
       // Lấy roleId từ response

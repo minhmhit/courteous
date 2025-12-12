@@ -262,9 +262,9 @@ const CheckoutPage = () => {
         shipAddress: fullAddress,
         phoneNumber: formData?.phoneNumber || null,
       };
-      console.log(orderData);
+      // console.log(orderData);
       const response = await orderAPI.createOrder(orderData);
-      console.log("✅ Order response:", response); // Debug log
+      // console.log("✅ Order response:", response); // Debug log
 
       const newOrderId =
         response.data?.id || response.data?.orderId || response.id;

@@ -232,7 +232,7 @@ const AdminUsersPage = () => {
                   filteredUsers.map((user) => {
                     const isActive =
                       user.isActive === 1 || user.is_active === 1;
-                    console.log(user);
+                    // console.log(user);
                     const roleId = user.roleName;
 
                     return (

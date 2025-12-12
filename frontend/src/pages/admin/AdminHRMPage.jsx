@@ -111,7 +111,7 @@ const AdminHRMPage = () => {
         ...formData,
         name: formData.fullName,
       };
-      console.log("Submitting Employee Data:", submitData); // Debug log
+      // console.log("Submitting Employee Data:", submitData); // Debug log
 
       if (editingEmployee) {
         // Update - don't send password if empty
@@ -124,7 +124,7 @@ const AdminHRMPage = () => {
         // Create new employee
         await userAPI.registerUser(submitData);
         toast.success("Thêm nhân viên thành công");
-        console.log(submitData);
+        // console.log(submitData);
       }
       handleCloseModal();
       fetchEmployees();

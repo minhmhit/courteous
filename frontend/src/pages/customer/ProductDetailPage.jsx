@@ -95,7 +95,7 @@ const ProductDetailPage = () => {
   if (!product) {
     return null;
   }
-  console.log(product);
+  // console.log(product);
 
   // Mock images array (in real app, comes from backend)
   const images = product.images || [

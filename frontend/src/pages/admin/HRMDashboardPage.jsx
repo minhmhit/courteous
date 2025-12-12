@@ -8,7 +8,9 @@ import {
   Shield,
   ArrowRight,
   Clock,
+  Ban,
   CheckCircle,
+  CloudSnow,
 } from "lucide-react";
 import {
   PieChart,
@@ -50,6 +52,7 @@ const HRMDashboardPage = () => {
       const employees = usersData.filter(
         (u) => (u.roleName) !== "user"
       );
+      
 
       const activeEmployees = employees.filter(
         (e) => e.isActive  !== false
@@ -241,6 +244,7 @@ const HRMDashboardPage = () => {
             </div>
           </div>
           <div className="p-6">
+            {console.log(recentEmployees)}
             {recentEmployees.length > 0 ? (
               <div className="space-y-3">
                 {recentEmployees.map((employee, index) => (
@@ -252,29 +256,19 @@ const HRMDashboardPage = () => {
                       <Users className="w-5 h-5 text-blue-600" />
                       <div>
                         <p className="font-medium text-gray-900">
-                          {employee.fullName ||
-                            employee.full_name ||
-                            employee.email}
+                          {employee.name}
                         </p>
                         <div className="flex items-center gap-2 mt-1">
-                          <RoleBadge
-                            roleId={
-                              employee.roleId ||
-                              employee.role_id ||
-                              employee.role
-                            }
-                            size="sm"
-                          />
-                          {employee.isActive || employee.is_active !== false ? (
-                            <CheckCircle className="w-4 h-4 text-green-600" />
-                          ) : (
-                            <Clock className="w-4 h-4 text-gray-400" />
-                          )}
+                          <RoleBadge roleId={employee.roleId} size="sm" />
                         </div>
                       </div>
                     </div>
                     <p className="text-sm text-gray-600">
-                      {formatDate(employee.createdAt || employee.created_at)}
+                      {employee.isActive===1 ? (
+                        <CheckCircle className="w-4 h-4 text-green-600" />
+                      ) : (
+                        <Ban className="w-4 h-4 text-red-400" />
+                      )}
                     </p>
                   </div>
                 ))}

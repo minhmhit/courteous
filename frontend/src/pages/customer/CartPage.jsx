@@ -7,6 +7,7 @@ import useToastStore from "../../stores/useToastStore";
 import Button from "../../components/ui/Button";
 import SkeletonLoader from "../../components/ui/SkeletonLoader";
 import { formatCurrency } from "../../utils/formatDate";
+import e from "cors";
 
 const CartPage = () => {
   const navigate = useNavigate();
