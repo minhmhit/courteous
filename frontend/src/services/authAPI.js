@@ -16,17 +16,18 @@ const authAPI = {
 
 
     // Lưu token vào localStorage
-    if (response.token) {
-      localStorage.setItem("token", response.token);
-      if (response.user) {
-        localStorage.setItem("user", JSON.stringify(response.user));
-      }
-    } else if (response.data?.token) {
-      // Trường hợp response có nested data
-      localStorage.setItem("token", response.data.token);
-      if (response.data.user) {
-        localStorage.setItem("user", JSON.stringify(response.data.user));
-      }
+    const token = response.token || response.accessToken || response.data?.token || response.data?.accessToken;
+    const refreshToken = response.refreshToken || response.data?.refreshToken;
+    const user = response.user || response.data?.user;
+
+    if (token) {
+      localStorage.setItem("token", token);
+    }
+    if (refreshToken) {
+      localStorage.setItem("refreshToken", refreshToken);
+    }
+    if (user) {
+      localStorage.setItem("user", JSON.stringify(user));
     }
 
     return response;
@@ -35,25 +36,26 @@ const authAPI = {
   // Đăng xuất
   logout: () => {
     localStorage.removeItem("token");
+    localStorage.removeItem("refreshToken");
     localStorage.removeItem("user");
     window.location.href = "/login";
   },
 
   // Lấy thông tin profile
   getProfile: async () => {
-    return await axiosInstance.get("/auth/users/profile");
+    return await axiosInstance.get("/auth/me");
   },
 
   // Cập nhật profile
   updateProfile: async (userData) => {
-    return await axiosInstance.put("/auth/users/profile", userData, {
+    return await axiosInstance.patch("/auth/me/profile", userData, {
       headers: { "Content-Type": "application/x-www-form-urlencoded" },
     });
   },
 
   // Đổi mật khẩu
   changePassword: async (passwordData) => {
-    return await axiosInstance.put("/auth/users/password", passwordData, {
+    return await axiosInstance.patch("/auth/me/password", passwordData, {
       headers: { "Content-Type": "application/x-www-form-urlencoded" },
     });
   },

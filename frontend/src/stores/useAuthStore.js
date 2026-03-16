@@ -40,13 +40,21 @@ const useAuthStore = create((set, get) => ({
     try {
       const response = await authAPI.login(credentials);
 
-      // Handle both response structures: { token, user } or { data: { token, user } }
-      const token = response.token || response.data?.token;
+      // Handle both response structures: { accessToken, user } or { data: { accessToken, user } }
+      const token =
+        response.token ||
+        response.accessToken ||
+        response.data?.token ||
+        response.data?.accessToken;
       const user = response.user || response.data?.user;
+      const refreshToken = response.refreshToken || response.data?.refreshToken;
 
       // Đảm bảo lưu vào localStorage
       if (token) {
         localStorage.setItem("token", token);
+      }
+      if (refreshToken) {
+        localStorage.setItem("refreshToken", refreshToken);
       }
       if (user) {
         localStorage.setItem("user", JSON.stringify(user));
