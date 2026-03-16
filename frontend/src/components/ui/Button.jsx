@@ -1,4 +1,4 @@
-import { motion } from "framer-motion";
+﻿import { motion } from "framer-motion";
 
 const Button = ({
   children,
@@ -12,21 +12,20 @@ const Button = ({
   ...props
 }) => {
   const baseStyles =
-    "inline-flex items-center justify-center font-medium rounded-lg transition-all duration-200 disabled:opacity-50 disabled:cursor-not-allowed";
+    "inline-flex items-center justify-center font-medium rounded-2xl transition-all duration-200 disabled:opacity-50 disabled:cursor-not-allowed";
 
   const variants = {
-    primary:
-      "bg-coffee-600 hover:bg-coffee-700 text-white shadow-md hover:shadow-lg",
-    secondary: "bg-gray-200 hover:bg-gray-300 text-gray-800",
-    outline: "border-2 border-coffee-600 text-coffee-600 hover:bg-coffee-50",
-    ghost: "text-coffee-600 hover:bg-coffee-50",
-    danger: "bg-red-600 hover:bg-red-700 text-white shadow-md hover:shadow-lg",
+    primary: "glass-button text-white",
+    secondary: "glass-card text-slate-800",
+    outline: "border border-white/45 bg-white/20 text-coffee-700 backdrop-blur-xl hover:bg-white/35",
+    ghost: "text-coffee-700 hover:bg-white/25",
+    danger: "bg-red-600 text-white shadow-md hover:bg-red-700 hover:shadow-lg",
   };
 
   const sizes = {
-    sm: "px-3 py-1.5 text-sm",
-    md: "px-4 py-2 text-base",
-    lg: "px-6 py-3 text-lg",
+    sm: "px-3 py-2 text-sm",
+    md: "px-4 py-2.5 text-base",
+    lg: "px-6 py-3.5 text-lg",
   };
 
   return (
@@ -42,7 +41,7 @@ const Button = ({
       {isLoading ? (
         <>
           <svg
-            className="animate-spin -ml-1 mr-2 h-4 w-4"
+            className="-ml-1 mr-2 h-4 w-4 animate-spin"
             xmlns="http://www.w3.org/2000/svg"
             fill="none"
             viewBox="0 0 24 24"

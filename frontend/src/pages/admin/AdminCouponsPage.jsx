@@ -1,5 +1,5 @@
-import { useEffect, useState } from "react";
-import { Plus, Edit, Trash2 } from "lucide-react";
+﻿import { useEffect, useState } from "react";
+import { Plus, Edit, Trash2, Tag } from "lucide-react";
 import { couponAPI } from "../../services";
 import Button from "../../components/ui/Button";
 import Modal from "../../components/ui/Modal";
@@ -20,7 +20,6 @@ export default function AdminCouponsPage() {
   const toast = useToastStore();
   const [coupons, setCoupons] = useState([]);
   const [loading, setLoading] = useState(true);
-
   const [showModal, setShowModal] = useState(false);
   const [editing, setEditing] = useState(null);
   const [form, setForm] = useState(emptyForm);
@@ -30,8 +29,7 @@ export default function AdminCouponsPage() {
     setLoading(true);
     try {
       const res = await couponAPI.getAllCoupons();
-      const list = res?.data?.coupons;
-      setCoupons(list);
+      setCoupons(res?.data?.coupons || []);
     } catch (err) {
       console.error(err);
       toast.error("Không thể tải danh sách mã giảm giá");
@@ -42,7 +40,6 @@ export default function AdminCouponsPage() {
 
   useEffect(() => {
     loadCoupons();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   const openCreate = () => {
@@ -51,22 +48,22 @@ export default function AdminCouponsPage() {
     setShowModal(true);
   };
 
-  const openEdit = (c) => {
-    setEditing(c);
+  const openEdit = (coupon) => {
+    setEditing(coupon);
     setForm({
-      code: c.code || "",
-      discountPercentage: c.discountPercent || 0,
-      validFrom: c.validFrom ? c.validFrom.slice(0, 16) : "",
-      validUntil: c.validUntil ? c.validUntil.slice(0, 16) : "",
-      usageLimit: c.usageLimit || 0,
-      isActive: !!c.isActive,
+      code: coupon.code || "",
+      discountPercentage: coupon.discountPercent || 0,
+      validFrom: coupon.validFrom ? coupon.validFrom.slice(0, 16) : "",
+      validUntil: coupon.validUntil ? coupon.validUntil.slice(0, 16) : "",
+      usageLimit: coupon.usageLimit || 0,
+      isActive: !!coupon.isActive,
     });
     setShowModal(true);
   };
 
   const handleChange = (e) => {
     const { name, value, type, checked } = e.target;
-    setForm((s) => ({ ...s, [name]: type === "checkbox" ? checked : value }));
+    setForm((state) => ({ ...state, [name]: type === "checkbox" ? checked : value }));
   };
 
   const handleSubmit = async (e) => {
@@ -78,10 +75,9 @@ export default function AdminCouponsPage() {
         discountPercent: Number(form.discountPercentage) || 0,
         validFrom: form.validFrom ? formatDateISO(form.validFrom) : null,
         validUntil: form.validUntil ? formatDateISO(form.validUntil) : null,
-        
       };
 
-      if (editing && editing.id) {
+      if (editing?.id) {
         await couponAPI.updateCoupon(editing.id, payload);
         toast.success("Cập nhật mã giảm giá thành công");
       } else {
@@ -99,10 +95,10 @@ export default function AdminCouponsPage() {
     }
   };
 
-  const handleDelete = async (c) => {
-    if (!window.confirm(`Xóa mã ${c.code}?`)) return;
+  const handleDelete = async (coupon) => {
+    if (!window.confirm(`Xóa mã ${coupon.code}?`)) return;
     try {
-      await couponAPI.deleteCoupon(c.id);
+      await couponAPI.deleteCoupon(coupon.id);
       toast.success("Đã xóa mã giảm giá");
       await loadCoupons();
     } catch (err) {
@@ -112,110 +108,67 @@ export default function AdminCouponsPage() {
   };
 
   return (
-    <div className="min-h-screen bg-gray-50 py-8">
-      <div className="container mx-auto px-4">
-        <div className="flex items-center justify-between mb-6">
-          <h1 className="text-2xl font-bold">Quản lý mã giảm giá</h1>
-          <Button onClick={openCreate} variant="primary">
-            <Plus className="w-4 h-4 mr-2" /> Tạo mã mới
-          </Button>
+    <div className="space-y-6">
+      <div className="flex items-center justify-between">
+        <div>
+          <h1 className="text-3xl font-bold text-slate-900">Quản lý mã giảm giá</h1>
+          <p className="mt-1 text-slate-600">Theo dõi hiệu lực, phần trăm giảm và trạng thái kích hoạt.</p>
         </div>
+        <Button onClick={openCreate} variant="primary">
+          <Plus className="mr-2 h-4 w-4" /> Tạo mã mới
+        </Button>
+      </div>
 
-        <div className="bg-white rounded-lg shadow-sm overflow-hidden">
+      <div className="admin-table-shell">
+        <div className="overflow-x-auto">
           <table className="w-full text-left">
-            <thead className="bg-gray-100">
+            <thead className="bg-white/10 text-slate-500">
               <tr>
-                <th className="p-3">Mã</th>
-                <th className="p-3">% Giảm</th>
-                <th className="p-3">Hiệu lực</th>
-                {/* <th className="p-3">Lượt/giới hạn</th> */}
-                <th className="p-3">Trạng thái</th>
-                <th className="p-3">Hành động</th>
+                <th className="p-4 text-xs font-semibold uppercase tracking-[0.2em]">Mã</th>
+                <th className="p-4 text-xs font-semibold uppercase tracking-[0.2em]">% Giảm</th>
+                <th className="p-4 text-xs font-semibold uppercase tracking-[0.2em]">Hiệu lực</th>
+                <th className="p-4 text-xs font-semibold uppercase tracking-[0.2em]">Trạng thái</th>
+                <th className="p-4 text-xs font-semibold uppercase tracking-[0.2em]">Hành động</th>
               </tr>
             </thead>
-            <tbody>
+            <tbody className="divide-y divide-white/20">
               {loading && (
                 <tr>
-                  <td colSpan={6} className="p-6 text-center text-gray-500">
-                    Đang tải...
-                  </td>
+                  <td colSpan={5} className="p-6 text-center text-slate-500">Đang tải...</td>
                 </tr>
               )}
-
               {!loading && coupons.length === 0 && (
                 <tr>
-                  <td colSpan={6} className="p-6 text-center text-gray-500">
-                    Không có mã giảm giá
-                  </td>
+                  <td colSpan={5} className="p-6 text-center text-slate-500">Không có mã giảm giá</td>
                 </tr>
               )}
-
-              {coupons.map((c) => {
+              {coupons.map((coupon) => {
                 const now = new Date();
-                const validFrom = c.validFrom ? new Date(c.validFrom) : null;
-                const validUntil = c.validUntil ? new Date(c.validUntil) : null;
-                const isInValidPeriod =
-                  (!validFrom || now >= validFrom) &&
-                  (!validUntil || now <= validUntil);
-                const isActive = c.isActive && isInValidPeriod;
+                const validFrom = coupon.validFrom ? new Date(coupon.validFrom) : null;
+                const validUntil = coupon.validUntil ? new Date(coupon.validUntil) : null;
+                const isInValidPeriod = (!validFrom || now >= validFrom) && (!validUntil || now <= validUntil);
+                const isActive = coupon.isActive && isInValidPeriod;
 
                 return (
-                  <tr key={c.id} className="border-t">
-                    <td className="p-3">{c.code}</td>
-                    <td className="p-3">{c.discountPercent}%</td>
-                    <td className="p-3">
-                      {c.validFrom
-                        ? formatDate(c.validFrom, {
-                            day: "2-digit",
-                            month: "2-digit",
-                            year: "numeric",
-                            hour: "2-digit",
-                            minute: "2-digit",
-                          })
-                        : "-"}
-                      <br />
-                      {c.validUntil
-                        ? formatDate(c.validUntil, {
-                            day: "2-digit",
-                            month: "2-digit",
-                            year: "numeric",
-                            hour: "2-digit",
-                            minute: "2-digit",
-                          })
-                        : "-"}
+                  <tr key={coupon.id} className="hover:bg-white/20">
+                    <td className="p-4 font-semibold text-slate-900">{coupon.code}</td>
+                    <td className="p-4 text-slate-700">{coupon.discountPercent}%</td>
+                    <td className="p-4 text-sm text-slate-600">
+                      <div>{coupon.validFrom ? formatDate(coupon.validFrom) : "-"}</div>
+                      <div>{coupon.validUntil ? formatDate(coupon.validUntil) : "-"}</div>
                     </td>
-                    {/* <td className="p-3">
-                    {c.currentUsage || 0}/{c.usageLimit || 0}
-                  </td> */}
-                    <td className="p-3">
-                      <span
-                        className={
-                          isActive
-                            ? "text-green-600 font-medium"
-                            : "text-gray-500"
-                        }
-                      >
-                        {isInValidPeriod ? "Hoạt động" : "Không hoạt động"}
+                    <td className="p-4">
+                      <span className={isActive ? "glass-chip text-emerald-700" : "glass-chip text-slate-500"}>
+                        {isInValidPeriod ? "Hoạt động" : "Ngoài thời gian"}
                       </span>
-                      {!isInValidPeriod && (
-                        <span className="text-xs text-amber-600 block">
-                          (Ngoài thời gian)
-                        </span>
-                      )}
                     </td>
-                    <td className="p-3">
+                    <td className="p-4">
                       <div className="flex gap-2">
-                        <button
-                          onClick={() => openEdit(c)}
-                          className="text-blue-600 hover:underline inline-flex items-center"
-                        >
-                          <Edit className="w-4 h-4 mr-1" /> Sửa
+                        <button onClick={() => openEdit(coupon)} className="glass-card inline-flex items-center rounded-2xl px-3 py-2 text-sm text-blue-600">
+                          <Edit className="mr-1 h-4 w-4" /> Sửa
                         </button>
-                        <button
-                          onClick={() => handleDelete(c)}
-                          className="text-red-600 hover:underline inline-flex items-center"
-                        >
-                          <Trash2 className="w-4 h-4 mr-1" /> Xóa
+                        <button onClick={() => handleDelete(coupon)} className="glass-card inline-flex items-center rounded-2xl px-3 py-2 text-sm text-red-600">
+                          <Trash2 className="mr-1 h-4 w-4" /> Xóa
                         </button>
                       </div>
                     </td>
@@ -225,77 +178,34 @@ export default function AdminCouponsPage() {
             </tbody>
           </table>
         </div>
-
-        <Modal
-          isOpen={showModal}
-          onClose={() => setShowModal(false)}
-          title={editing ? "Sửa mã" : "Tạo mã mới"}
-        >
-          <form onSubmit={handleSubmit}>
-            <div className="space-y-3">
-              <Input
-                label="Mã"
-                name="code"
-                value={form.code}
-                onChange={handleChange}
-                required
-              />
-              <Input
-                label="% Giảm"
-                name="discountPercentage"
-                type="number"
-                value={form.discountPercentage}
-                onChange={handleChange}
-                required
-              />
-              <label className="block text-sm">Bắt đầu</label>
-              <input
-                type="datetime-local"
-                name="validFrom"
-                value={form.validFrom}
-                onChange={handleChange}
-                className="w-full px-3 py-2 border rounded"
-              />
-              <label className="block text-sm">Kết thúc</label>
-              <input
-                type="datetime-local"
-                name="validUntil"
-                value={form.validUntil}
-                onChange={handleChange}
-                className="w-full px-3 py-2 border rounded"
-              />
-              <Input
-                label="Lượt sử dụng (limit)"
-                name="usageLimit"
-                type="number"
-                value={form.usageLimit}
-                onChange={handleChange}
-              />
-              <label className="flex items-center gap-2">
-                <input
-                  type="checkbox"
-                  name="isActive"
-                  checked={form.isActive}
-                  onChange={handleChange}
-                />
-                <span>Kích hoạt</span>
-              </label>
-            </div>
-            <div className="mt-4 flex justify-end gap-2">
-              <Button
-                type="button"
-                variant="ghost"
-                onClick={() => setShowModal(false)}
-              >
-                Hủy
-              </Button>
-              <Button type="submit" isLoading={submitting}>
-                {editing ? "Lưu" : "Tạo"}
-              </Button>
-            </div>
-          </form>
-        </Modal>
       </div>
+
+      <Modal isOpen={showModal} onClose={() => setShowModal(false)} title={editing ? "Sửa mã" : "Tạo mã mới"}>
+        <form onSubmit={handleSubmit} className="p-6">
+          <div className="space-y-4">
+            <Input label="Mã" name="code" value={form.code} onChange={handleChange} required />
+            <Input label="% Giảm" name="discountPercentage" type="number" value={form.discountPercentage} onChange={handleChange} required />
+            <div>
+              <label className="mb-2 block text-sm font-medium text-slate-700">Bắt đầu</label>
+              <input type="datetime-local" name="validFrom" value={form.validFrom} onChange={handleChange} className="glass-input w-full" />
+            </div>
+            <div>
+              <label className="mb-2 block text-sm font-medium text-slate-700">Kết thúc</label>
+              <input type="datetime-local" name="validUntil" value={form.validUntil} onChange={handleChange} className="glass-input w-full" />
+            </div>
+            <Input label="Lượt sử dụng (limit)" name="usageLimit" type="number" value={form.usageLimit} onChange={handleChange} />
+            <label className="glass-card flex items-center gap-3 rounded-2xl px-4 py-3 text-sm text-slate-700">
+              <Tag className="h-4 w-4 text-coffee-700" />
+              <input type="checkbox" name="isActive" checked={form.isActive} onChange={handleChange} />
+              <span>Kích hoạt</span>
+            </label>
+          </div>
+          <div className="mt-6 flex justify-end gap-2">
+            <Button type="button" variant="ghost" onClick={() => setShowModal(false)}>Hủy</Button>
+            <Button type="submit" isLoading={submitting}>{editing ? "Lưu" : "Tạo"}</Button>
+          </div>
+        </form>
+      </Modal>
     </div>
   );
 }

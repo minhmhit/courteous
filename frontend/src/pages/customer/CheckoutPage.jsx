@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+﻿import { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import { motion } from "framer-motion";
 import { CreditCard, MapPin, Phone, User, CheckCircle } from "lucide-react";
@@ -264,7 +264,7 @@ const CheckoutPage = () => {
       };
       // console.log(orderData);
       const response = await orderAPI.createOrder(orderData);
-      // console.log("✅ Order response:", response); // Debug log
+      // console.log("âœ… Order response:", response); // Debug log
 
       const newOrderId =
         response.data?.id || response.data?.orderId || response.id;
@@ -280,7 +280,7 @@ const CheckoutPage = () => {
         navigate(`/profile/orders`);
       }, 3000);
     } catch (error) {
-      console.error("❌ Lỗi khi đặt hàng:", error);
+      console.error("Lỗi khi đặt hàng:", error);
       console.error("Error response:", error.response?.data);
       toast.error(
         error.response?.data?.message ||
@@ -294,14 +294,14 @@ const CheckoutPage = () => {
 
   if (orderSuccess) {
     return (
-      <div className="min-h-screen bg-gray-50 py-16">
+      <div className="min-h-screen px-3 py-10 md:px-6">
         <div className="container mx-auto px-4">
           <motion.div
             initial={{ scale: 0.8, opacity: 0 }}
             animate={{ scale: 1, opacity: 1 }}
-            className="max-w-md mx-auto bg-white rounded-2xl shadow-lg p-12 text-center"
+            className="glass-panel-strong max-w-md mx-auto rounded-[32px] p-12 text-center"
           >
-            <div className="w-20 h-20 bg-green-100 rounded-full flex items-center justify-center mx-auto mb-6">
+            <div className="mx-auto mb-6 flex h-20 w-20 items-center justify-center rounded-full bg-emerald-100/80">
               <CheckCircle className="w-12 h-12 text-green-600" />
             </div>
             <h2 className="text-2xl font-bold text-gray-900 mb-3">
@@ -332,7 +332,7 @@ const CheckoutPage = () => {
   }
 
   return (
-    <div className="min-h-screen bg-gray-50 py-8">
+    <div className="min-h-screen px-3 py-6 md:px-6 md:py-8">
       <div className="container mx-auto px-4">
         <h1 className="text-3xl font-bold text-gray-900 mb-8">Thanh toán</h1>
 
@@ -341,9 +341,9 @@ const CheckoutPage = () => {
             {/* Shipping & Payment Info */}
             <div className="lg:col-span-2 space-y-6">
               {/* Shipping shipAddress */}
-              <div className="bg-white rounded-lg shadow-sm p-6">
+              <div className="glass-card rounded-[28px] p-6">
                 <div className="flex items-center gap-3 mb-6">
-                  <div className="p-2 bg-coffee-50 rounded-lg">
+                  <div className="glass-card rounded-2xl p-2">
                     <MapPin className="w-6 h-6 text-coffee-600" />
                   </div>
                   <h2 className="text-xl font-bold text-gray-900">
@@ -398,7 +398,7 @@ const CheckoutPage = () => {
                       value={selectedProvince?.code || ""}
                       onChange={handleProvinceChange}
                       required
-                      className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-coffee-500 focus:border-transparent"
+                      className="glass-textarea w-full"
                     >
                       <option value="">Chọn tỉnh/thành phố</option>
                       {provinces.map((province) => (
@@ -419,7 +419,7 @@ const CheckoutPage = () => {
                       onChange={handleDistrictChange}
                       disabled={!selectedProvince}
                       required
-                      className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-coffee-500 focus:border-transparent disabled:bg-gray-100 disabled:cursor-not-allowed"
+                      className="glass-select w-full disabled:bg-gray-100 disabled:cursor-not-allowed"
                     >
                       <option value="">Chọn quận/huyện</option>
                       {districts.map((district) => (
@@ -440,7 +440,7 @@ const CheckoutPage = () => {
                       onChange={handleWardChange}
                       disabled={!selectedDistrict}
                       required
-                      className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-coffee-500 focus:border-transparent disabled:bg-gray-100 disabled:cursor-not-allowed"
+                      className="glass-select w-full disabled:bg-gray-100 disabled:cursor-not-allowed"
                     >
                       <option value="">Chọn phường/xã</option>
                       {wards.map((ward) => (
@@ -459,7 +459,7 @@ const CheckoutPage = () => {
                       value={formData.note}
                       onChange={handleInputChange}
                       rows="3"
-                      className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-coffee-500 focus:border-transparent"
+                      className="glass-textarea w-full"
                       placeholder="Ghi chú về đơn hàng (thời gian giao, yêu cầu đặc biệt...)"
                     />
                   </div>
@@ -467,9 +467,9 @@ const CheckoutPage = () => {
               </div>
 
               {/* Payment Method */}
-              <div className="bg-white rounded-lg shadow-sm p-6">
+              <div className="glass-card rounded-[28px] p-6">
                 <div className="flex items-center gap-3 mb-6">
-                  <div className="p-2 bg-coffee-50 rounded-lg">
+                  <div className="glass-card rounded-2xl p-2">
                     <CreditCard className="w-6 h-6 text-coffee-600" />
                   </div>
                   <h2 className="text-xl font-bold text-gray-900">
@@ -478,7 +478,7 @@ const CheckoutPage = () => {
                 </div>
 
                 <div className="space-y-3">
-                  <label className="flex items-center gap-3 p-4 border-2 border-gray-200 rounded-lg cursor-pointer hover:border-coffee-500 transition-colors">
+                  <label className="glass-card flex items-center gap-3 rounded-[24px] p-4 cursor-pointer transition-all hover:-translate-y-0.5">
                     <input
                       type="radio"
                       name="paymentMethod"
@@ -497,7 +497,7 @@ const CheckoutPage = () => {
                     </div>
                   </label>
 
-                  <label className="flex items-center gap-3 p-4 border-2 border-gray-200 rounded-lg cursor-pointer hover:border-coffee-500 transition-colors">
+                  <label className="glass-card flex items-center gap-3 rounded-[24px] p-4 cursor-pointer transition-all hover:-translate-y-0.5">
                     <input
                       type="radio"
                       name="paymentMethod"
@@ -521,7 +521,7 @@ const CheckoutPage = () => {
 
             {/* Order Summary */}
             <div className="lg:col-span-1">
-              <div className="bg-white rounded-lg shadow-sm p-6 sticky top-24">
+              <div className="glass-panel sticky top-28 rounded-[32px] p-6">
                 <h2 className="text-xl font-bold text-gray-900 mb-6">
                   Đơn hàng của bạn
                 </h2>
@@ -548,12 +548,12 @@ const CheckoutPage = () => {
                 </div>
 
                 {/* Coupon */}
-                <div className="border-t border-gray-200 pt-4 mb-4">
+                <div className="border-t border-white/25 pt-4 mb-4">
                   <label className="block text-sm font-medium text-gray-700 mb-2">
                     Mã giảm giá
                   </label>
                   {appliedCoupon ? (
-                    <div className="flex items-center justify-between p-3 bg-green-50 border border-green-200 rounded-lg">
+                    <div className="glass-card flex items-center justify-between rounded-[20px] border border-emerald-200/70 p-3">
                       <div>
                         <p className="font-semibold text-green-700">
                           {appliedCoupon.code}
@@ -577,7 +577,7 @@ const CheckoutPage = () => {
                         value={couponCode}
                         onChange={(e) => setCouponCode(e.target.value.trim())}
                         placeholder="Nhập mã giảm giá"
-                        className="flex-1 px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-coffee-500 focus:border-transparent"
+                        className="glass-input flex-1"
                       />
                       <Button
                         type="button"
@@ -593,7 +593,7 @@ const CheckoutPage = () => {
                 </div>
 
                 {/* Price Summary */}
-                <div className="border-t border-gray-200 pt-4 space-y-2 mb-6">
+                <div className="border-t border-white/25 pt-4 space-y-2 mb-6">
                   <div className="flex justify-between text-gray-600">
                     <span>Tạm tính</span>
                     <span>{formatCurrency(totalPrice)}</span>
@@ -610,7 +610,7 @@ const CheckoutPage = () => {
                     <span>Phí vận chuyển</span>
                     <span className="text-green-600">Miễn phí</span>
                   </div>
-                  <div className="border-t border-gray-200 pt-2">
+                  <div className="border-t border-white/25 pt-2">
                     <div className="flex justify-between text-lg font-bold text-gray-900">
                       <span>Tổng cộng</span>
                       <span className="text-coffee-600">
@@ -630,7 +630,7 @@ const CheckoutPage = () => {
                   {isSubmitting ? "Đang xử lý..." : "Đặt hàng"}
                 </Button>
 
-                <p className="text-xs text-gray-500 text-center mt-4">
+                <p className="mt-4 text-center text-xs text-slate-500">
                   Bằng việc đặt hàng, bạn đồng ý với{" "}
                   <a href="/terms" className="text-coffee-600 hover:underline">
                     Điều khoản sử dụng
@@ -647,3 +647,4 @@ const CheckoutPage = () => {
 };
 
 export default CheckoutPage;
+
