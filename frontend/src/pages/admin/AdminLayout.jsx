@@ -1,4 +1,4 @@
-﻿import { Outlet, useNavigate, useLocation, Link } from "react-router-dom";
+import { Outlet, useNavigate, useLocation, Link } from "react-router-dom";
 import { useEffect } from "react";
 import {
   LayoutDashboard,
@@ -84,7 +84,7 @@ const AdminLayout = () => {
   return (
     <div className="min-h-screen px-3 py-3 md:px-6 md:py-5">
       <div className="mx-auto flex min-h-[calc(100vh-1.5rem)] max-w-7xl flex-col gap-4 lg:flex-row">
-        <aside className="glass-panel-strong w-full rounded-[32px] p-4 lg:w-72 lg:p-5">
+        <aside className="glass-panel-strong w-full rounded-[32px] p-4 lg:sticky lg:top-5 lg:h-[calc(100vh-2.5rem)] lg:w-64 lg:p-4">
           <div className="mb-5 rounded-[28px] bg-white/25 p-5">
             <h1 className="text-2xl font-bold text-coffee-950">Admin Panel</h1>
             <p className="mt-1 text-sm text-slate-600">{user?.name || user?.username}</p>
@@ -93,36 +93,38 @@ const AdminLayout = () => {
             </span>
           </div>
 
-          <nav className="space-y-2">
-            {menuItems.map((item) => {
-              const isActive = location.pathname === item.path;
-              return (
-                <Link
-                  key={item.path}
-                  to={item.path}
-                  className={`flex items-center gap-3 rounded-2xl px-4 py-3 text-sm font-medium transition-all ${
-                    isActive
-                      ? "bg-white/65 text-coffee-800 shadow-[0_10px_30px_rgba(72,45,24,0.12)]"
-                      : "text-slate-700 hover:bg-white/35 hover:text-coffee-700"
-                  }`}
-                >
-                  <item.icon className="h-5 w-5" />
-                  <span>{item.label}</span>
-                </Link>
-              );
-            })}
+          <div className="lg:flex lg:h-[calc(100%-9.5rem)] lg:flex-col">
+            <nav className="space-y-2 lg:flex-1 lg:overflow-y-auto lg:pr-1">
+              {menuItems.map((item) => {
+                const isActive = location.pathname === item.path;
+                return (
+                  <Link
+                    key={item.path}
+                    to={item.path}
+                    className={`flex items-center gap-3 rounded-2xl px-4 py-3 text-sm font-medium transition-all ${
+                      isActive
+                        ? "bg-white/65 text-coffee-800 shadow-[0_10px_30px_rgba(72,45,24,0.12)]"
+                        : "text-slate-700 hover:bg-white/35 hover:text-coffee-700"
+                    }`}
+                  >
+                    <item.icon className="h-5 w-5 shrink-0" />
+                    <span className="truncate">{item.label}</span>
+                  </Link>
+                );
+              })}
+            </nav>
 
             <button
               onClick={logout}
-              className="mt-4 flex w-full items-center gap-3 rounded-2xl px-4 py-3 text-sm font-medium text-rose-600 transition-colors hover:bg-rose-50/80"
+              className="mt-4 flex w-full items-center justify-center gap-3 rounded-2xl px-4 py-3 text-sm font-medium text-rose-600 transition-colors hover:bg-rose-50/80 lg:mt-3"
             >
-              <LogOut className="h-5 w-5" />
+              <LogOut className="h-5 w-5 shrink-0" />
               <span>Đăng xuất</span>
             </button>
-          </nav>
+          </div>
         </aside>
 
-        <main className="glass-panel flex-1 overflow-hidden rounded-[32px]">
+        <main className="glass-panel flex-1 overflow-hidden rounded-[32px] lg:h-[calc(100vh-2.5rem)]">
           <div className="h-full overflow-auto p-5 md:p-8">
             <Outlet />
           </div>

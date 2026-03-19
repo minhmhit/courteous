@@ -8,15 +8,17 @@ import {
   X,
   Package,
   DollarSign,
-  Tag,
-  Image as ImageIcon,
   Download,
+  ChevronLeft,
+  ChevronRight,
 } from "lucide-react";
 import { productAPI, categoryAPI, supplierAPI } from "../../services";
 import useToastStore from "../../stores/useToastStore";
 import Button from "../../components/ui/Button";
 import Input from "../../components/ui/Input";
 import { exportToCsv } from "../../utils/exportCSV";
+
+const PAGE_SIZE = 10;
 
 const AdminProductsPage = () => {
   const toast = useToastStore();
@@ -25,6 +27,7 @@ const AdminProductsPage = () => {
   const [suppliers, setSuppliers] = useState([]);
   const [isLoading, setIsLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState("");
+  const [currentPage, setCurrentPage] = useState(1);
   const [showModal, setShowModal] = useState(false);
   const [editingProduct, setEditingProduct] = useState(null);
   const [selectedImageFile, setSelectedImageFile] = useState(null);
@@ -48,7 +51,7 @@ const AdminProductsPage = () => {
   const fetchProducts = async () => {
     setIsLoading(true);
     try {
-      const response = await productAPI.getAllProducts();
+      const response = await productAPI.getAllProducts(1, 200);
       setProducts(response.data || []);
     } catch (error) {
       console.error("Error fetching products:", error);
@@ -70,17 +73,18 @@ const AdminProductsPage = () => {
   const fetchSuppliers = async () => {
     try {
       const response = await supplierAPI.getAllSuppliers();
-      setSuppliers(response.suppliers || []);
+      setSuppliers(response?.data || response?.suppliers || []);
     } catch (error) {
       console.error("Error fetching suppliers:", error);
     }
   };
 
   const handleSearch = async () => {
+    setCurrentPage(1);
     if (searchTerm.trim()) {
       setIsLoading(true);
       try {
-        const response = await productAPI.searchProducts(searchTerm);
+        const response = await productAPI.searchProducts(searchTerm, 1, 200);
         setProducts(response.data || []);
       } catch (error) {
         console.error("Error searching products:", error);
@@ -137,18 +141,12 @@ const AdminProductsPage = () => {
   const handleSubmit = async (e) => {
     e.preventDefault();
 
-    if (
-      !formData.name ||
-      !formData.price ||
-      !formData.categoryId ||
-      !formData.supplierId
-    ) {
+    if (!formData.name || !formData.price || !formData.categoryId || !formData.supplierId) {
       toast.error("Vui lòng điền đầy đủ thông tin");
       return;
     }
 
     try {
-      // If user selected a new image but didn't click upload, upload it automatically
       if (
         selectedImageFile &&
         !formData.imageUrl?.includes("./asset") &&
@@ -159,13 +157,14 @@ const AdminProductsPage = () => {
           const data = res.data || res;
           let imgPath = "";
           if (data.path) imgPath = data.path;
-          else if (data.filename)
-            imgPath = `./asset/products/img/${data.filename}`;
-          else if (data.fileName)
-            imgPath = `./asset/products/img/${data.fileName}`;
+          else if (data.filename) imgPath = `./asset/img/products/${data.filename}`;
+          else if (data.fileName) imgPath = `./asset/img/products/${data.fileName}`;
           else if (data.url) imgPath = data.url;
 
-          if (imgPath) setFormData((f) => ({ ...f, imageUrl: imgPath }));
+          if (imgPath) {
+            setFormData((prev) => ({ ...prev, imageUrl: imgPath }));
+            formData.imageUrl = imgPath;
+          }
         } catch (err) {
           console.error("Auto upload image error:", err);
           toast.error("Không thể tải ảnh lên. Vui lòng thử lại hoặc nhập URL");
@@ -173,6 +172,7 @@ const AdminProductsPage = () => {
           return;
         }
       }
+
       if (editingProduct) {
         await productAPI.updateProduct(editingProduct.id, formData);
         toast.success("Cập nhật sản phẩm thành công");
@@ -180,6 +180,7 @@ const AdminProductsPage = () => {
         await productAPI.createProduct(formData);
         toast.success("Thêm sản phẩm thành công");
       }
+
       handleCloseModal();
       fetchProducts();
     } catch (error) {
@@ -201,12 +202,33 @@ const AdminProductsPage = () => {
     }
   };
 
+  const formatPrice = (price) =>
+    new Intl.NumberFormat("vi-VN", {
+      style: "currency",
+      currency: "VND",
+    }).format(price);
+
+  const getCategoryName = (categoryId) => {
+    const category = categories.find((c) => c.id === categoryId);
+    return category?.name || "N/A";
+  };
+
+  const filteredProducts = products.filter((product) =>
+    product.name?.toLowerCase().includes(searchTerm.toLowerCase()),
+  );
+
+  const totalPages = Math.max(1, Math.ceil(filteredProducts.length / PAGE_SIZE));
+  const currentProducts = filteredProducts.slice(
+    (currentPage - 1) * PAGE_SIZE,
+    currentPage * PAGE_SIZE,
+  );
+
   const handleExportCSV = () => {
     const csvData = filteredProducts.map((product) => ({
       "Mã SP": product.id,
       "Tên Sản Phẩm": product.name,
-      "Danh Mục": product.categoryName,
-      "Giá": product.price,
+      "Danh Mục": product.categoryName || getCategoryName(product.categoryId || product.category_id),
+      Giá: product.price,
       "Tồn Kho": product.stockQuantity || 0,
       "Nhà Cung Cấp": product.supplierName || "",
       "Mô Tả": product.description || "",
@@ -215,31 +237,20 @@ const AdminProductsPage = () => {
     toast.success("Đã xuất file CSV thành công!");
   };
 
-  const formatPrice = (price) => {
-    return new Intl.NumberFormat("vi-VN", {
-      style: "currency",
-      currency: "VND",
-    }).format(price);
-  };
-
-  const getCategoryName = (categoryId) => {
-    const category = categories.find((c) => c.id === categoryId);
-    return category?.name || "N/A";
-  };
-
-  const filteredProducts = products.filter((product) =>
-    product.name?.toLowerCase().includes(searchTerm.toLowerCase())
-  );
+  useEffect(() => {
+    if (currentPage > totalPages) {
+      setCurrentPage(totalPages);
+    }
+  }, [currentPage, totalPages]);
 
   return (
     <div className="space-y-6">
-      {/* Header */}
-      <div className="flex justify-between items-center">
+      <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
         <div>
           <h1 className="text-3xl font-bold text-gray-900">Quản Lý Sản Phẩm</h1>
           <p className="text-gray-600 mt-1">Quản lý toàn bộ sản phẩm cà phê</p>
         </div>
-        <div className="flex gap-3">
+        <div className="flex flex-wrap gap-3">
           <Button onClick={handleExportCSV} variant="secondary">
             <Download className="w-5 h-5 mr-2" />
             Xuất CSV
@@ -251,15 +262,17 @@ const AdminProductsPage = () => {
         </div>
       </div>
 
-      {/* Search */}
       <div className="bg-white rounded-lg shadow-sm p-4">
-        <div className="flex gap-3">
+        <div className="flex flex-col gap-3 md:flex-row">
           <div className="flex-1">
             <Input
               placeholder="Tìm kiếm sản phẩm..."
               value={searchTerm}
-              onChange={(e) => setSearchTerm(e.target.value)}
-              onKeyPress={(e) => e.key === "Enter" && handleSearch()}
+              onChange={(e) => {
+                setSearchTerm(e.target.value);
+                setCurrentPage(1);
+              }}
+              onKeyDown={(e) => e.key === "Enter" && handleSearch()}
               icon={<Search className="w-5 h-5" />}
             />
           </div>
@@ -270,6 +283,7 @@ const AdminProductsPage = () => {
             <Button
               onClick={() => {
                 setSearchTerm("");
+                setCurrentPage(1);
                 fetchProducts();
               }}
               variant="outline"
@@ -280,120 +294,140 @@ const AdminProductsPage = () => {
         </div>
       </div>
 
-      {/* Products Table */}
       <div className="bg-white rounded-lg shadow-sm overflow-hidden">
         {isLoading ? (
           <div className="flex items-center justify-center h-64">
-            <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-coffee-600"></div>
+            <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-coffee-600" />
           </div>
         ) : (
-          <div className="overflow-x-auto">
-            <table className="w-full">
-              <thead className="bg-gray-50 border-b border-gray-200">
-                <tr>
-                  <th className="px-6 py-4 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                    Sản Phẩm
-                  </th>
-                  <th className="px-6 py-4 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                    Danh Mục
-                  </th>
-                  <th className="px-6 py-4 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                    Giá
-                  </th>
-                  <th className="px-6 py-4 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                    Tồn Kho
-                  </th>
-                  <th className="px-6 py-4 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">
-                    Thao Tác
-                  </th>
-                </tr>
-              </thead>
-              <tbody className="bg-white divide-y divide-gray-200">
-                {filteredProducts.length > 0 ? (
-                  filteredProducts.map((product) => (
-                    <tr key={product.id} className="hover:bg-gray-50">
-                      <td className="px-6 py-4">
-                        <div className="flex items-center gap-3">
-                          <img
-                            src={`../.${product.imageUrl}`}
-                            alt={product.name}
-                            className="w-12 h-12 rounded-lg object-cover"
-                          />
-                          <div>
-                            <div className="font-medium text-gray-900">
-                              {product.name}
-                            </div>
-                            <div className="text-sm text-gray-500 line-clamp-1">
-                              {product.description}
+          <>
+            <div className="overflow-x-auto">
+              <table className="w-full">
+                <thead className="bg-gray-50 border-b border-gray-200">
+                  <tr>
+                    <th className="px-6 py-4 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                      Sản Phẩm
+                    </th>
+                    <th className="px-6 py-4 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                      Danh Mục
+                    </th>
+                    <th className="px-6 py-4 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                      Giá
+                    </th>
+                    <th className="px-6 py-4 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                      Tồn Kho
+                    </th>
+                    <th className="px-6 py-4 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">
+                      Thao Tác
+                    </th>
+                  </tr>
+                </thead>
+                <tbody className="bg-white divide-y divide-gray-200">
+                  {currentProducts.length > 0 ? (
+                    currentProducts.map((product) => (
+                      <tr key={product.id} className="hover:bg-gray-50">
+                        <td className="px-6 py-4">
+                          <div className="flex items-center gap-3">
+                            <img
+                              src={`../.${product.imageUrl}`}
+                              alt={product.name}
+                              className="w-12 h-12 rounded-lg object-cover"
+                            />
+                            <div>
+                              <div className="font-medium text-gray-900">{product.name}</div>
+                              <div className="text-sm text-gray-500 line-clamp-1">
+                                {product.description}
+                              </div>
                             </div>
                           </div>
-                        </div>
-                      </td>
-                      <td className="px-6 py-4 text-sm text-gray-600">
-                        {getCategoryName(
-                          product.categoryId || product.category_id
-                        )}
-                      </td>
-                      <td className="px-6 py-4">
-                        <span className="font-semibold text-coffee-600">
-                          {formatPrice(product.price)}
-                        </span>
-                      </td>
-                      <td className="px-6 py-4">
-                        <span
-                          className={`px-3 py-1 rounded-full text-xs font-medium ${
-                            (product.stockQuantity || 0) > 10
-                              ? "bg-green-100 text-green-800"
-                              : (product.stockQuantity || 0) > 0
-                              ? "bg-yellow-100 text-yellow-800"
-                              : "bg-red-100 text-red-800"
-                          }`}
-                        >
-                          {product.stockQuantity || 0}
-                        </span>
-                      </td>
-                      <td className="px-6 py-4 text-right space-x-2">
-                        <button
-                          onClick={() => handleOpenModal(product)}
-                          className="inline-flex items-center px-3 py-2 text-sm font-medium text-blue-600 hover:text-blue-800 hover:bg-blue-50 rounded-lg transition-colors"
-                        >
-                          <Edit className="w-4 h-4 mr-1" />
-                          Sửa
-                        </button>
-                        <button
-                          onClick={() => handleDelete(product.id)}
-                          className="inline-flex items-center px-3 py-2 text-sm font-medium text-red-600 hover:text-red-800 hover:bg-red-50 rounded-lg transition-colors"
-                        >
-                          <Trash2 className="w-4 h-4 mr-1" />
-                          Xóa
-                        </button>
+                        </td>
+                        <td className="px-6 py-4 text-sm text-gray-600">
+                          {getCategoryName(product.categoryId || product.category_id)}
+                        </td>
+                        <td className="px-6 py-4">
+                          <span className="font-semibold text-coffee-600">
+                            {formatPrice(product.price)}
+                          </span>
+                        </td>
+                        <td className="px-6 py-4">
+                          <span
+                            className={`px-3 py-1 rounded-full text-xs font-medium ${
+                              (product.stockQuantity || 0) > 10
+                                ? "bg-green-100 text-green-800"
+                                : (product.stockQuantity || 0) > 0
+                                  ? "bg-yellow-100 text-yellow-800"
+                                  : "bg-red-100 text-red-800"
+                            }`}
+                          >
+                            {product.stockQuantity || 0}
+                          </span>
+                        </td>
+                        <td className="px-6 py-4 text-right space-x-2">
+                          <button
+                            onClick={() => handleOpenModal(product)}
+                            className="inline-flex items-center px-3 py-2 text-sm font-medium text-blue-600 hover:text-blue-800 hover:bg-blue-50 rounded-lg transition-colors"
+                          >
+                            <Edit className="w-4 h-4 mr-1" />
+                            Sửa
+                          </button>
+                          <button
+                            onClick={() => handleDelete(product.id)}
+                            className="inline-flex items-center px-3 py-2 text-sm font-medium text-red-600 hover:text-red-800 hover:bg-red-50 rounded-lg transition-colors"
+                          >
+                            <Trash2 className="w-4 h-4 mr-1" />
+                            Xóa
+                          </button>
+                        </td>
+                      </tr>
+                    ))
+                  ) : (
+                    <tr>
+                      <td colSpan="5" className="px-6 py-12 text-center text-gray-500">
+                        {searchTerm ? "Không tìm thấy sản phẩm nào" : "Chưa có sản phẩm nào"}
                       </td>
                     </tr>
-                  ))
-                ) : (
-                  <tr>
-                    <td
-                      colSpan="5"
-                      className="px-6 py-12 text-center text-gray-500"
-                    >
-                      {searchTerm
-                        ? "Không tìm thấy sản phẩm nào"
-                        : "Chưa có sản phẩm nào"}
-                    </td>
-                  </tr>
-                )}
-              </tbody>
-            </table>
-          </div>
+                  )}
+                </tbody>
+              </table>
+            </div>
+
+            {filteredProducts.length > PAGE_SIZE && (
+              <div className="flex flex-col gap-3 border-t border-gray-200 px-6 py-4 md:flex-row md:items-center md:justify-between">
+                <p className="text-sm text-gray-600">
+                  Hiển thị {(currentPage - 1) * PAGE_SIZE + 1}-
+                  {Math.min(currentPage * PAGE_SIZE, filteredProducts.length)} / {filteredProducts.length} sản phẩm
+                </p>
+                <div className="flex items-center gap-2">
+                  <Button
+                    variant="outline"
+                    onClick={() => setCurrentPage((page) => Math.max(1, page - 1))}
+                    disabled={currentPage === 1}
+                  >
+                    <ChevronLeft className="w-4 h-4 mr-1" />
+                    Trước
+                  </Button>
+                  <span className="min-w-[96px] text-center text-sm font-medium text-gray-700">
+                    Trang {currentPage}/{totalPages}
+                  </span>
+                  <Button
+                    variant="outline"
+                    onClick={() => setCurrentPage((page) => Math.min(totalPages, page + 1))}
+                    disabled={currentPage === totalPages}
+                  >
+                    Sau
+                    <ChevronRight className="w-4 h-4 ml-1" />
+                  </Button>
+                </div>
+              </div>
+            )}
+          </>
         )}
       </div>
 
-      {/* Add/Edit Modal */}
       <AnimatePresence>
         {showModal && (
           <div className="fixed inset-0 z-50 overflow-y-auto">
             <div className="flex items-center justify-center min-h-screen px-4 pt-4 pb-20 text-center sm:block sm:p-0">
-              {/* Overlay */}
               <motion.div
                 initial={{ opacity: 0 }}
                 animate={{ opacity: 1 }}
@@ -402,7 +436,6 @@ const AdminProductsPage = () => {
                 onClick={handleCloseModal}
               />
 
-              {/* Modal */}
               <motion.div
                 initial={{ opacity: 0, scale: 0.95 }}
                 animate={{ opacity: 1, scale: 1 }}
@@ -410,7 +443,6 @@ const AdminProductsPage = () => {
                 className="relative inline-block w-full max-w-2xl my-8 overflow-hidden text-left align-middle transition-all transform bg-white shadow-xl rounded-2xl z-50"
               >
                 <form onSubmit={handleSubmit}>
-                  {/* Modal Header */}
                   <div className="flex items-center justify-between p-6 border-b border-gray-200">
                     <h3 className="text-2xl font-bold text-gray-900">
                       {editingProduct ? "Sửa Sản Phẩm" : "Thêm Sản Phẩm Mới"}
@@ -424,24 +456,19 @@ const AdminProductsPage = () => {
                     </button>
                   </div>
 
-                  {/* Modal Body */}
                   <div className="p-6 space-y-4">
                     <Input
                       label="Tên Sản Phẩm"
                       name="name"
                       value={formData.name}
-                      onChange={(e) =>
-                        setFormData({ ...formData, name: e.target.value })
-                      }
+                      onChange={(e) => setFormData({ ...formData, name: e.target.value })}
                       required
                       icon={<Package className="w-5 h-5" />}
                       placeholder="Cà phê Robusta..."
                     />
 
                     <div>
-                      <label className="block text-sm font-medium text-gray-700 mb-2">
-                        Mô Tả
-                      </label>
+                      <label className="block text-sm font-medium text-gray-700 mb-2">Mô Tả</label>
                       <textarea
                         value={formData.description}
                         onChange={(e) =>
@@ -462,26 +489,17 @@ const AdminProductsPage = () => {
                         name="price"
                         type="number"
                         value={formData.price}
-                        onChange={(e) =>
-                          setFormData({ ...formData, price: e.target.value })
-                        }
+                        onChange={(e) => setFormData({ ...formData, price: e.target.value })}
                         required
                         icon={<DollarSign className="w-5 h-5" />}
                         placeholder="200000"
                       />
 
                       <div>
-                        <label className="block text-sm font-medium text-gray-700 mb-2">
-                          Danh Mục
-                        </label>
+                        <label className="block text-sm font-medium text-gray-700 mb-2">Danh Mục</label>
                         <select
                           value={formData.categoryId}
-                          onChange={(e) =>
-                            setFormData({
-                              ...formData,
-                              categoryId: e.target.value,
-                            })
-                          }
+                          onChange={(e) => setFormData({ ...formData, categoryId: e.target.value })}
                           required
                           className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-coffee-500"
                         >
@@ -496,23 +514,15 @@ const AdminProductsPage = () => {
                     </div>
 
                     <div>
-                      <label className="block text-sm font-medium text-gray-700 mb-2">
-                        Nhà Cung Cấp
-                      </label>
+                      <label className="block text-sm font-medium text-gray-700 mb-2">Nhà Cung Cấp</label>
                       <select
                         value={formData.supplierId}
-                        onChange={(e) =>
-                          setFormData({
-                            ...formData,
-                            supplierId: e.target.value,
-                          })
-                        }
+                        onChange={(e) => setFormData({ ...formData, supplierId: e.target.value })}
                         required
                         className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-coffee-500"
                       >
                         <option value="">Chọn nhà cung cấp</option>
-
-                         {suppliers?.data.map((sup) => (
+                        {suppliers.map((sup) => (
                           <option key={sup.id} value={sup.id}>
                             {sup.name}
                           </option>
@@ -521,9 +531,7 @@ const AdminProductsPage = () => {
                     </div>
 
                     <div>
-                      <label className="block text-sm font-medium text-gray-700 mb-2">
-                        Ảnh sản phẩm
-                      </label>
+                      <label className="block text-sm font-medium text-gray-700 mb-2">Ảnh sản phẩm</label>
                       <div className="flex items-center gap-2">
                         <input
                           type="file"
@@ -541,30 +549,21 @@ const AdminProductsPage = () => {
                           variant="outline"
                           onClick={async () => {
                             if (!selectedImageFile) {
-                              toast.error(
-                                "Vui lòng chọn tập tin trước khi tải lên"
-                              );
+                              toast.error("Vui lòng chọn tập tin trước khi tải lên");
                               return;
                             }
                             setUploadingImage(true);
                             try {
-                              const res = await productAPI.uploadImage(
-                                selectedImageFile
-                              );
-                              // Expect backend to return { filename: 'img.jpg' } or { path: './asset/products/img/img.jpg' }
+                              const res = await productAPI.uploadImage(selectedImageFile);
                               const data = res.data || res;
                               let imgPath = "";
                               if (data.path) imgPath = data.path;
-                              else if (data.filename)
-                                imgPath = `./asset/img/products/${data.filename}`;
-                              else if (data.fileName)
-                                imgPath = `./asset/img/products/${data.fileName}`;
+                              else if (data.filename) imgPath = `./asset/img/products/${data.filename}`;
+                              else if (data.fileName) imgPath = `./asset/img/products/${data.fileName}`;
                               else if (data.url) imgPath = data.url;
 
                               if (!imgPath) {
-                                toast.error(
-                                  "Không nhận được đường dẫn ảnh từ server"
-                                );
+                                toast.error("Không nhận được đường dẫn ảnh từ server");
                               } else {
                                 setFormData({ ...formData, imageUrl: imgPath });
                                 toast.success("Tải ảnh lên thành công");
@@ -610,13 +609,8 @@ const AdminProductsPage = () => {
                     </div>
                   </div>
 
-                  {/* Modal Footer */}
                   <div className="flex items-center justify-end gap-3 p-6 border-t border-gray-200 bg-gray-50">
-                    <Button
-                      type="button"
-                      onClick={handleCloseModal}
-                      variant="outline"
-                    >
+                    <Button type="button" onClick={handleCloseModal} variant="outline">
                       Hủy
                     </Button>
                     <Button type="submit" variant="primary">
