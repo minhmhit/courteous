@@ -1,11 +1,18 @@
 import { useState, useEffect } from "react";
 import { Link } from "react-router-dom";
 import { motion } from "framer-motion";
-import { Package, Clock, CheckCircle, XCircle, Truck, Eye } from "lucide-react";
+import { Package, Clock, CheckCircle, XCircle, Eye } from "lucide-react";
 import { orderAPI } from "../../services";
 import useToastStore from "../../stores/useToastStore";
 import SkeletonLoader from "../../components/ui/SkeletonLoader";
 import { formatCurrency } from "../../utils/formatDate";
+
+const statusOptions = [
+  { value: "all", label: "Tất cả" },
+  { value: "PENDING", label: "Chờ xác nhận" },
+  { value: "COMPLETED", label: "Đã giao" },
+  { value: "CANCELLED", label: "Đã hủy" },
+];
 
 const OrderHistoryPage = () => {
   const toast = useToastStore();
@@ -18,12 +25,11 @@ const OrderHistoryPage = () => {
       setIsLoading(true);
       try {
         const response = await orderAPI.getUserOrders();
-        const ordersList = response.data || response.orders || [];
-        setOrders(ordersList);
+        setOrders(response.data || []);
       } catch (error) {
         console.error("Fetch orders error:", error);
         toast.error("Không thể tải danh sách đơn hàng");
-        setOrders([]); // Set empty if error
+        setOrders([]);
       } finally {
         setIsLoading(false);
       }
@@ -53,6 +59,7 @@ const OrderHistoryPage = () => {
         bg: "bg-red-50",
       },
     };
+
     return (
       configs[status] || {
         label: "Không xác định",
@@ -63,15 +70,14 @@ const OrderHistoryPage = () => {
     );
   };
 
-  const formatDate = (dateString) => {
-    return new Date(dateString).toLocaleDateString("vi-VN", {
+  const formatDate = (dateString) =>
+    new Date(dateString).toLocaleDateString("vi-VN", {
       year: "numeric",
       month: "long",
       day: "numeric",
       hour: "2-digit",
       minute: "2-digit",
     });
-  };
 
   const filteredOrders =
     filterStatus === "all"
@@ -105,16 +111,9 @@ const OrderHistoryPage = () => {
           </Link>
         </div>
 
-        {/* Filter Tabs */}
         <div className="bg-white rounded-lg shadow-sm p-4 mb-6">
           <div className="flex gap-2 overflow-x-auto">
-            {[
-              { value: "all", label: "Tất cả" },
-              { value: "pending", label: "Chờ xác nhận" },
-              
-              { value: "delivered", label: "Đã giao" },
-              { value: "cancelled", label: "Đã hủy" },
-            ].map((filter) => (
+            {statusOptions.map((filter) => (
               <button
                 key={filter.value}
                 onClick={() => setFilterStatus(filter.value)}
@@ -130,13 +129,10 @@ const OrderHistoryPage = () => {
           </div>
         </div>
 
-        {/* Orders List */}
         {filteredOrders.length === 0 ? (
           <div className="bg-white rounded-lg shadow-sm p-12 text-center">
             <Package className="w-16 h-16 text-gray-400 mx-auto mb-4" />
-            <h2 className="text-xl font-semibold text-gray-900 mb-2">
-              Chưa có đơn hàng
-            </h2>
+            <h2 className="text-xl font-semibold text-gray-900 mb-2">Chưa có đơn hàng</h2>
             <p className="text-gray-600 mb-6">
               Bạn chưa có đơn hàng nào trong danh sách này
             </p>
@@ -160,7 +156,6 @@ const OrderHistoryPage = () => {
                   animate={{ opacity: 1, y: 0 }}
                   className="bg-white rounded-lg shadow-sm overflow-hidden"
                 >
-                  {/* Order Header */}
                   <div className="p-6 border-b border-gray-200">
                     <div className="flex items-center justify-between mb-4">
                       <div>
@@ -177,33 +172,26 @@ const OrderHistoryPage = () => {
                       <div
                         className={`flex items-center gap-2 px-4 py-2 rounded-full ${statusConfig.bg}`}
                       >
-                        <StatusIcon
-                          className={`w-5 h-5 ${statusConfig.color}`}
-                        />
+                        <StatusIcon className={`w-5 h-5 ${statusConfig.color}`} />
                         <span className={`font-semibold ${statusConfig.color}`}>
                           {statusConfig.label}
                         </span>
                       </div>
                     </div>
 
-                    {/* Order Items Preview */}
                     <div className="space-y-3">
                       {(order.items || []).slice(0, 2).map((item, index) => (
                         <div key={index} className="flex items-center gap-4">
                           <img
-                            src={
-                              `../.${item.imageUrl}`
-                            }
-                            alt={item.name || item.product?.name}
+                            src={`../.${item.imageUrl}`}
+                            alt={item.productName}
                             className="w-16 h-16 object-cover rounded-lg"
                           />
                           <div className="flex-1">
                             <p className="font-medium text-gray-900">
-                              {item.productName || item.product?.name || "Sản phẩm"}
+                              {item.productName || "Sản phẩm"}
                             </p>
-                            <p className="text-sm text-gray-600">
-                              x{item.quantity}
-                            </p>
+                            <p className="text-sm text-gray-600">x{item.quantity}</p>
                           </div>
                           <p className="font-semibold text-gray-900">
                             {formatCurrency(item.price * item.quantity)}
@@ -218,7 +206,6 @@ const OrderHistoryPage = () => {
                     </div>
                   </div>
 
-                  {/* Order Footer */}
                   <div className="p-6 bg-gray-50 flex items-center justify-between">
                     <div>
                       <p className="text-sm text-gray-600">Tổng tiền:</p>

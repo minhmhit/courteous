@@ -1,9 +1,9 @@
 import axios from "axios";
+import { normalizeUser } from "./apiUtils";
 
 const API_BASE_URL =
   import.meta.env.VITE_API_BASE_URL || "http://localhost:3000/api/v1";
 
-// Tạo axios instance
 const axiosInstance = axios.create({
   baseURL: API_BASE_URL,
   timeout: 30000,
@@ -12,7 +12,33 @@ const axiosInstance = axios.create({
   },
 });
 
-// Request interceptor - Thêm token vào header
+let isRefreshing = false;
+let pendingRequests = [];
+
+const flushPendingRequests = (error, token = null) => {
+  pendingRequests.forEach(({ resolve, reject }) => {
+    if (error) {
+      reject(error);
+      return;
+    }
+
+    resolve(token);
+  });
+  pendingRequests = [];
+};
+
+const clearSessionAndRedirect = () => {
+  localStorage.removeItem("token");
+  localStorage.removeItem("refreshToken");
+  localStorage.removeItem("user");
+
+  if (!window.location.pathname.includes("/login")) {
+    setTimeout(() => {
+      window.location.href = "/login";
+    }, 100);
+  }
+};
+
 axiosInstance.interceptors.request.use(
   (config) => {
     const token = localStorage.getItem("token");
@@ -21,60 +47,117 @@ axiosInstance.interceptors.request.use(
     }
     return config;
   },
-  (error) => {
-    return Promise.reject(error);
-  }
+  (error) => Promise.reject(error),
 );
 
-// Response interceptor - Xử lý lỗi tập trung
 axiosInstance.interceptors.response.use(
-  (response) => {
-    return response.data;
-  },
-  (error) => {
-    const skipAuthRedirect = error.config?.skipAuthRedirect;
+  (response) => response.data,
+  async (error) => {
+    const originalRequest = error.config || {};
+    const skipAuthRedirect = originalRequest.skipAuthRedirect;
+    const requestUrl = String(originalRequest.url || "");
 
-    // Xử lý các lỗi HTTP
     if (error.response) {
       const { status, data } = error.response;
 
-      switch (status) {
-        case 401:
-          // Token hết hạn hoặc không hợp lệ
-          // Một số request phụ trợ (ví dụ lấy giỏ hàng ở navbar) không nên làm mất phiên toàn cục.
-          if (!skipAuthRedirect && !window.location.pathname.includes("/login")) {
-            localStorage.removeItem("token");
-            localStorage.removeItem("user");
-            // Thêm timeout nhỏ để tránh race condition với initialize
-            setTimeout(() => {
-              window.location.href = "/login";
-            }, 100);
+      if (
+        status === 401 &&
+        !skipAuthRedirect &&
+        !originalRequest._retry &&
+        !requestUrl.includes("/auth/login") &&
+        !requestUrl.includes("/auth/refresh")
+      ) {
+        const refreshToken = localStorage.getItem("refreshToken");
+
+        if (!refreshToken) {
+          clearSessionAndRedirect();
+          return Promise.reject(data || error.message);
+        }
+
+        if (isRefreshing) {
+          return new Promise((resolve, reject) => {
+            pendingRequests.push({ resolve, reject });
+          }).then((token) => {
+            originalRequest.headers.Authorization = `Bearer ${token}`;
+            return axiosInstance(originalRequest);
+          });
+        }
+
+        originalRequest._retry = true;
+        isRefreshing = true;
+
+        try {
+          const refreshResponse = await axios.post(`${API_BASE_URL}/auth/refresh`, {
+            refreshToken,
+          });
+          const payload = refreshResponse.data?.data ?? refreshResponse.data ?? {};
+          const nextToken = payload.accessToken ?? payload.token;
+          const nextRefreshToken = payload.refreshToken ?? refreshToken;
+
+          if (!nextToken) {
+            throw new Error("Khong lay duoc access token moi");
           }
-          break;
+
+          localStorage.setItem("token", nextToken);
+          localStorage.setItem("refreshToken", nextRefreshToken);
+
+          const storedUser = localStorage.getItem("user");
+          if (storedUser) {
+            try {
+              localStorage.setItem(
+                "user",
+                JSON.stringify(normalizeUser(JSON.parse(storedUser))),
+              );
+            } catch {
+              // Ignore malformed cached user.
+            }
+          }
+
+          flushPendingRequests(null, nextToken);
+          originalRequest.headers.Authorization = `Bearer ${nextToken}`;
+          return axiosInstance(originalRequest);
+        } catch (refreshError) {
+          flushPendingRequests(refreshError, null);
+          clearSessionAndRedirect();
+          return Promise.reject(
+            refreshError.response?.data ||
+              refreshError.message ||
+              data ||
+              error.message,
+          );
+        } finally {
+          isRefreshing = false;
+        }
+      }
+
+      switch (status) {
         case 403:
-          console.error("Không có quyền truy cập");
+          console.error("Khong co quyen truy cap");
           break;
         case 404:
-          console.error("Không tìm thấy tài nguyên");
+          console.error("Khong tim thay tai nguyen");
           break;
         case 500:
-          console.error("Lỗi server");
+          console.error("Loi server");
           break;
         default:
-          console.error("Lỗi không xác định:", status);
+          console.error("Loi khong xac dinh:", status);
+      }
+
+      if (status === 401 && !skipAuthRedirect) {
+        clearSessionAndRedirect();
       }
 
       return Promise.reject(data || error.message);
     }
 
-    // Lỗi network
     if (error.request) {
-      console.error("Lỗi kết nối mạng");
-      return Promise.reject({ message: "Không thể kết nối đến server" });
+      console.error("Loi ket noi mang");
+      return Promise.reject({ message: "Khong the ket noi den server" });
     }
 
     return Promise.reject(error);
-  }
+  },
 );
 
 export default axiosInstance;

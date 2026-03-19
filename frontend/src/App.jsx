@@ -51,7 +51,7 @@ const RouteFallback = () => (
       <div className="h-10 w-10 animate-spin rounded-full border-2 border-coffee-300 border-t-coffee-700" />
       <div>
         <p className="font-semibold text-slate-900">Đang tải giao diện</p>
-        <p className="text-sm text-slate-500">Tách tải route để giảm bundle khởi tạo.</p>
+        <p className="text-sm text-slate-500">Chờ một chút...</p>
       </div>
     </div>
   </div>

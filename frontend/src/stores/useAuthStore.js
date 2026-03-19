@@ -1,80 +1,72 @@
 import { create } from "zustand";
 import { authAPI } from "../services";
+import { normalizeUser } from "../services/apiUtils";
 
-const useAuthStore = create((set, get) => ({
+const useAuthStore = create((set) => ({
   user: null,
   token: null,
   isAuthenticated: false,
   isLoading: false,
   error: null,
 
-  // Khởi tạo từ localStorage
   initialize: async () => {
     const token = localStorage.getItem("token");
-    const user = localStorage.getItem("user");
+    const storedUser = localStorage.getItem("user");
 
-    if (token && user) {
-      // Set state tạm thời để cho phép render
+    if (!token || !storedUser) {
+      return;
+    }
+
+    try {
+      const user = normalizeUser(JSON.parse(storedUser));
+      if (!user) {
+        localStorage.removeItem("user");
+        return;
+      }
+
+      localStorage.setItem("user", JSON.stringify(user));
       set({
         token,
-        user: JSON.parse(user),
+        user,
         isAuthenticated: true,
       });
 
-      // Verify token với backend (optional - để tránh delay UI)
-      // Nếu token invalid, axios interceptor sẽ tự động xóa và redirect
-      try {
-        await authAPI.getProfile();
-      } catch (error) {
-        // Token invalid - interceptor đã xử lý
-        console.log(
-          "Token verification failed - user will be redirected to login"
-        );
-      }
+      await authAPI.getProfile();
+    } catch {
+      localStorage.removeItem("token");
+      localStorage.removeItem("refreshToken");
+      localStorage.removeItem("user");
+      set({
+        token: null,
+        user: null,
+        isAuthenticated: false,
+      });
     }
   },
 
-  // Đăng nhập
   login: async (credentials) => {
     set({ isLoading: true, error: null });
     try {
       const response = await authAPI.login(credentials);
-
-      // Handle both response structures: { accessToken, user } or { data: { accessToken, user } }
-      const token =
-        response.token ||
-        response.accessToken ||
-        response.data?.token ||
-        response.data?.accessToken;
-      const user = response.user || response.data?.user;
-      const refreshToken = response.refreshToken || response.data?.refreshToken;
-
-      // Đảm bảo lưu vào localStorage
-      if (token) {
-        localStorage.setItem("token", token);
-      }
-      if (refreshToken) {
-        localStorage.setItem("refreshToken", refreshToken);
-      }
-      if (user) {
-        localStorage.setItem("user", JSON.stringify(user));
-      }
+      const token = response.token || response.accessToken || null;
+      const user = normalizeUser(response.user);
 
       set({
-        user: user,
-        token: token,
+        user,
+        token,
         isAuthenticated: true,
         isLoading: false,
       });
       return response;
     } catch (error) {
       set({
-        error: error.message || "Đăng nhập thất bại",
+        error: error.message || "Dang nhap that bai",
         isLoading: false,
       });
       throw error;
     }
-  }, // Đăng ký
+  },
+
   register: async (userData) => {
     set({ isLoading: true, error: null });
     try {
@@ -83,14 +75,13 @@ const useAuthStore = create((set, get) => ({
       return response;
     } catch (error) {
       set({
-        error: error.message || "Đăng ký thất bại",
+        error: error.message || "Dang ky that bai",
         isLoading: false,
       });
       throw error;
     }
   },
 
-  // Đăng xuất
   logout: () => {
     authAPI.logout();
     set({
@@ -101,15 +92,16 @@ const useAuthStore = create((set, get) => ({
     });
   },
 
-  // Cập nhật profile
   updateProfile: async (userData) => {
     set({ isLoading: true, error: null });
     try {
       const response = await authAPI.updateProfile(userData);
-      const updatedUser = response?.data || null;
-      if(updatedUser !== null){
+      const updatedUser = normalizeUser(response?.data);
+
+      if (updatedUser) {
         localStorage.setItem("user", JSON.stringify(updatedUser));
-      };
+      }
+
       set({
         user: updatedUser,
         isLoading: false,
@@ -117,14 +109,13 @@ const useAuthStore = create((set, get) => ({
       return response;
     } catch (error) {
       set({
-        error: error.message || "Cập nhật thất bại",
+        error: error.message || "Cap nhat that bai",
         isLoading: false,
       });
       throw error;
     }
   },
 
-  // Clear error
   clearError: () => set({ error: null }),
 }));
 

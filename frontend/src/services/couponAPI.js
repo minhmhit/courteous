@@ -1,35 +1,57 @@
 import axiosInstance from "./axiosConfig";
+import { normalizeCoupon, unwrapData } from "./apiUtils";
+
+const normalizeCouponCollection = (response) => {
+  const payload = unwrapData(response);
+  const coupons = Array.isArray(payload)
+    ? payload
+    : payload?.coupons || response?.coupons || [];
+
+  return {
+    ...response,
+    data: {
+      coupons: coupons.map(normalizeCoupon),
+      pagination: response?.pagination ?? payload?.pagination ?? null,
+    },
+  };
+};
 
 const couponAPI = {
-  // Lấy tất cả mã giảm giá
-  getAllCoupons: async () => {
-    return await axiosInstance.get("/coupons/");
+  getAllCoupons: async (page = 1, limit = 100) => {
+    const response = await axiosInstance.get("/coupons", {
+      params: { page, limit },
+    });
+    return normalizeCouponCollection(response);
   },
 
-  // Lấy mã giảm giá theo code
-  getCouponByCode: async (code) => {
-    return await axiosInstance.get(`/coupons/code/${code}`);
+  verifyCoupon: async (code) => {
+    const response = await axiosInstance.post("/coupons/verify", { code });
+    return {
+      ...response,
+      data: normalizeCoupon(unwrapData(response)),
+    };
   },
 
-  // Kiểm tra mã giảm giá có hợp lệ không
-  validateCoupon: async (code) => {
-    return await axiosInstance.get(`/coupons/validate/${code}`);
-  },
+  validateCoupon: async (code) => couponAPI.verifyCoupon(code),
 
-  // Admin: Thêm mã giảm giá mới
   createCoupon: async (couponData) => {
-    return await axiosInstance.post("/coupons/add", couponData);
+    const response = await axiosInstance.post("/coupons/add", couponData);
+    return {
+      ...response,
+      data: normalizeCoupon(unwrapData(response)),
+    };
   },
 
-  // Admin: Cập nhật mã giảm giá
   updateCoupon: async (couponId, couponData) => {
-    return await axiosInstance.put(`/coupons/update/${couponId}`, couponData);
+    const response = await axiosInstance.put(`/coupons/update/${couponId}`, couponData);
+    return {
+      ...response,
+      data: normalizeCoupon(unwrapData(response)),
+    };
   },
 
-  // Admin: Xóa mã giảm giá
-  deleteCoupon: async (couponId) => {
-    return await axiosInstance.delete(`/coupons/delete/${couponId}`);
-  },
+  deleteCoupon: async (couponId) =>
+    axiosInstance.delete(`/coupons/delete/${couponId}`),
 };
 
 export default couponAPI;

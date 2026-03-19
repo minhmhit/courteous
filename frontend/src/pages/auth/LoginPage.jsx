@@ -5,6 +5,7 @@ import useAuthStore from "../../stores/useAuthStore";
 import useToastStore from "../../stores/useToastStore";
 import Input from "../../components/ui/Input";
 import Button from "../../components/ui/Button";
+import { normalizeUser } from "../../services/apiUtils";
 
 const LoginPage = () => {
   const navigate = useNavigate();
@@ -34,8 +35,8 @@ const LoginPage = () => {
       toast.success("Đăng nhập thành công!");
 
       // Lấy roleId từ response
-      const user = response.user || response.data?.user;
-      const roleId = user?.roleId || user?.role_id || user?.role;
+      const user = normalizeUser(response.user || response.data?.user);
+      const roleId = user?.roleId || user?.role?.id;
 
       // Kiểm tra nếu có trang redirect trước đó (từ ProtectedRoute)
       const from = location.state?.from?.pathname || null;

@@ -1,91 +1,119 @@
 import axiosInstance from "./axiosConfig";
+import { normalizeUser, unwrapData } from "./apiUtils";
+
+const extractAuthPayload = (response) => {
+  const payload = unwrapData(response);
+  const user = normalizeUser(payload?.user);
+
+  return {
+    ...payload,
+    user,
+    token: payload?.token ?? payload?.accessToken ?? null,
+    accessToken: payload?.accessToken ?? payload?.token ?? null,
+    refreshToken: payload?.refreshToken ?? null,
+  };
+};
 
 const authAPI = {
-  // Đăng ký
   register: async (userData) => {
-    return await axiosInstance.post("/auth/register", userData, {
-      headers: { "Content-Type": "application/x-www-form-urlencoded" },
-    });
+    const response = await axiosInstance.post("/auth/register", userData);
+    const payload = unwrapData(response);
+    return {
+      ...response,
+      data: normalizeUser(payload),
+    };
   },
 
-  // Đăng nhập
   login: async (credentials) => {
-    const response = await axiosInstance.post("/auth/login", credentials, {
-      headers: { "Content-Type": "application/x-www-form-urlencoded" },
-    });
+    const response = await axiosInstance.post("/auth/login", credentials);
+    const payload = extractAuthPayload(response);
 
-
-    // Lưu token vào localStorage
-    const token = response.token || response.accessToken || response.data?.token || response.data?.accessToken;
-    const refreshToken = response.refreshToken || response.data?.refreshToken;
-    const user = response.user || response.data?.user;
-
-    if (token) {
-      localStorage.setItem("token", token);
+    if (payload.accessToken) {
+      localStorage.setItem("token", payload.accessToken);
     }
-    if (refreshToken) {
-      localStorage.setItem("refreshToken", refreshToken);
+    if (payload.refreshToken) {
+      localStorage.setItem("refreshToken", payload.refreshToken);
     }
-    if (user) {
-      localStorage.setItem("user", JSON.stringify(user));
+    if (payload.user) {
+      localStorage.setItem("user", JSON.stringify(payload.user));
     }
 
-    return response;
+    return payload;
   },
 
-  // Đăng xuất
-  logout: () => {
+  logout: async () => {
+    try {
+      await axiosInstance.post("/auth/logout");
+    } catch {
+      // Ignore logout request failure and clear local session anyway.
+    }
+
     localStorage.removeItem("token");
     localStorage.removeItem("refreshToken");
     localStorage.removeItem("user");
     window.location.href = "/login";
   },
 
-  // Lấy thông tin profile
-  getProfile: async () => {
-    return await axiosInstance.get("/auth/me");
-  },
+  logoutAll: async () => axiosInstance.post("/auth/logout-all"),
 
-  // Cập nhật profile
-  updateProfile: async (userData) => {
-    return await axiosInstance.patch("/auth/me/profile", userData, {
-      headers: { "Content-Type": "application/x-www-form-urlencoded" },
-    });
-  },
-
-  // Đổi mật khẩu
-  changePassword: async (passwordData) => {
-    return await axiosInstance.patch("/auth/me/password", passwordData, {
-      headers: { "Content-Type": "application/x-www-form-urlencoded" },
-    });
-  },
-
-  // Admin: Lấy tất cả người dùng
-  getAllUsers: async (page = 1, limit = 10) => {
-    return await axiosInstance.get("/auth/users/", {
-      params: { page, limit },
-    });
-  },
-
-  // Admin: Cập nhật trạng thái người dùng (ban/unban)
-  updateUserStatus: async (userId, isActive) => {
-    return await axiosInstance.put(
-      `/auth/users/${userId}/status`,
-      { isActive },
-      { headers: { "Content-Type": "application/x-www-form-urlencoded" } }
+  refresh: async (refreshToken) => {
+    const response = await axiosInstance.post(
+      "/auth/refresh",
+      { refreshToken },
+      { skipAuthRedirect: true },
     );
+    return extractAuthPayload(response);
   },
 
-  // Kiểm tra token còn hợp lệ không
-  isAuthenticated: () => {
-    const token = localStorage.getItem("token");
-    return !!token;
+  getProfile: async () => {
+    const response = await axiosInstance.get("/auth/me");
+    const payload = unwrapData(response);
+    return {
+      ...response,
+      data: normalizeUser(payload),
+    };
   },
 
-  // Lấy user từ localStorage
+  updateProfile: async (userData) => {
+    const response = await axiosInstance.patch("/auth/me/profile", userData);
+    const payload = unwrapData(response);
+    const user = normalizeUser(payload);
+
+    if (user) {
+      localStorage.setItem("user", JSON.stringify(user));
+    }
+
+    return {
+      ...response,
+      data: user,
+    };
+  },
+
+  changePassword: async (passwordData) =>
+    axiosInstance.patch("/auth/me/password", passwordData),
+
+  getSessions: async () => {
+    const response = await axiosInstance.get("/auth/sessions");
+    return {
+      ...response,
+      data: Array.isArray(unwrapData(response)) ? unwrapData(response) : [],
+    };
+  },
+
+  revokeSession: async (sessionId) =>
+    axiosInstance.delete(`/auth/sessions/${sessionId}`),
+
+  isAuthenticated: () => !!localStorage.getItem("token"),
+
   getCurrentUser: () => {
     const user = localStorage.getItem("user");
-    return user ? JSON.parse(user) : null;
+    if (!user) return null;
+
+    try {
+      return normalizeUser(JSON.parse(user));
+    } catch {
+      return null;
+    }
   },
 };
 
