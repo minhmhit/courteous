@@ -19,6 +19,18 @@ import useCartStore from "../../stores/useCartStore";
 import useToastStore from "../../stores/useToastStore";
 import { formatCurrency } from "../../utils/formatDate";
 
+const getProductImageSrc = (imageUrl) => {
+  if (!imageUrl) {
+    return "https://via.placeholder.com/900x900?text=Coffee";
+  }
+
+  if (imageUrl.startsWith("http")) {
+    return imageUrl;
+  }
+
+  return imageUrl.replace(/^\.\//, "/");
+};
+
 const ProductDetailPage = () => {
   const { id } = useParams();
   const navigate = useNavigate();
@@ -51,8 +63,9 @@ const ProductDetailPage = () => {
         }
       } catch (error) {
         console.error("Lỗi khi tải chi tiết sản phẩm:", error);
+        setProduct(null);
+        setRelatedProducts([]);
         toast.error("Không thể tải thông tin sản phẩm");
-        navigate("/products");
       } finally {
         setIsLoading(false);
       }
@@ -93,14 +106,30 @@ const ProductDetailPage = () => {
   }
 
   if (!product) {
-    return null;
+    return (
+      <div className="min-h-screen bg-gray-50 py-8">
+        <div className="container mx-auto px-4">
+          <div className="rounded-xl bg-white p-8 text-center shadow-sm">
+            <h1 className="mb-3 text-2xl font-bold text-gray-900">
+              Không tìm thấy sản phẩm
+            </h1>
+            <p className="mb-6 text-gray-600">
+              Sản phẩm này chưa có dữ liệu hoặc đã bị xóa.
+            </p>
+            <Button onClick={() => navigate("/products")} variant="primary">
+              Quay lại danh sách sản phẩm
+            </Button>
+          </div>
+        </div>
+      </div>
+    );
   }
   // console.log(product);
 
   // Mock images array (in real app, comes from backend)
-  const images = product.images || [
-    `../.${product.imageUrl}`,
-  ];
+  const images = product.images?.length
+    ? product.images.map(getProductImageSrc)
+    : [getProductImageSrc(product.imageUrl)];
 
   return (
     <div className="min-h-screen bg-gray-50">

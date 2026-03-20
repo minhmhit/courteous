@@ -16,9 +16,10 @@ const authAPI = {
 
 
     // Lưu token vào localStorage
-    const token = response.token || response.accessToken || response.data?.token || response.data?.accessToken;
-    const refreshToken = response.refreshToken || response.data?.refreshToken;
-    const user = response.user || response.data?.user;
+    const payload = response?.data || response;
+    const token = payload?.accessToken || payload?.token;
+    const refreshToken = payload?.refreshToken;
+    const user = payload?.user;
 
     if (token) {
       localStorage.setItem("token", token);

@@ -12,6 +12,7 @@ const ProductsPage = lazy(() => import("./pages/customer/ProductsPage"));
 const ProductDetailPage = lazy(() => import("./pages/customer/ProductDetailPage"));
 const CartPage = lazy(() => import("./pages/customer/CartPage"));
 const CheckoutPage = lazy(() => import("./pages/customer/CheckoutPage"));
+const VnpayReturnPage = lazy(() => import("./pages/customer/VnpayReturnPage"));
 const ProfilePage = lazy(() => import("./pages/customer/ProfilePage"));
 const OrderHistoryPage = lazy(() => import("./pages/customer/OrderHistoryPage"));
 const OrderDetailPage = lazy(() => import("./pages/customer/OrderDetailPage"));
@@ -103,6 +104,7 @@ function App() {
                   </ProtectedRoute>
                 }
               />
+              <Route path="/payment/vnpay/return" element={<VnpayReturnPage />} />
               <Route
                 path="/profile"
                 element={

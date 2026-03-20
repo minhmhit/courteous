@@ -28,13 +28,14 @@ const LoginPage = () => {
     e.preventDefault();
     try {
       const response = await login(formData);
-      if(response?.error){
-        throw new Error(response.message);
+      const payload = response?.data || response;
+      if (payload?.error) {
+        throw new Error(payload.message);
       }
       toast.success("Đăng nhập thành công!");
 
       // Lấy roleId từ response
-      const user = response.user || response.data?.user;
+      const user = payload?.user;
       const roleId = user?.roleId || user?.role_id || user?.role;
 
       // Kiểm tra nếu có trang redirect trước đó (từ ProtectedRoute)
@@ -77,8 +78,8 @@ const LoginPage = () => {
 
         <form onSubmit={handleSubmit} className="space-y-4">
           <Input
-            label="Email"
-            type="email"
+            label="Email hoáº·c username"
+            type="text"
             name="email"
             value={formData.email}
             onChange={handleChange}
