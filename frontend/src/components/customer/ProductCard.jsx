@@ -5,6 +5,18 @@ import { Link } from "react-router-dom";
 import useCartStore from "../../stores/useCartStore";
 import useToastStore from "../../stores/useToastStore";
 
+const getProductImageSrc = (imageUrl) => {
+  if (!imageUrl) {
+    return "https://via.placeholder.com/600x600?text=Coffee";
+  }
+
+  if (imageUrl.startsWith("http")) {
+    return imageUrl;
+  }
+
+  return imageUrl.replace(/^\.\//, "/");
+};
+
 const ProductCard = ({ product }) => {
   const [isLiked, setIsLiked] = useState(false);
   const { addToCart } = useCartStore();
@@ -35,7 +47,7 @@ const ProductCard = ({ product }) => {
       >
         <div className="relative aspect-square overflow-hidden bg-white/30">
           <img
-            src={`../.${product.imageUrl}`}
+            src={getProductImageSrc(product.imageUrl)}
             alt={product.name}
             className="h-full w-full object-cover"
           />

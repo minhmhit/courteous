@@ -11,17 +11,32 @@ import Button from "../../components/ui/Button";
 import Input from "../../components/ui/Input";
 import { formatCurrency } from "../../utils/formatDate";
 
-const fallbackPaymentMethods = [
-  { code: "CASH", name: "Thanh toán khi nhận hàng" },
-  { code: "VNPAY", name: "VNPay" },
+const PAYMENT_METHOD_CONFIG = {
+  CASH: {
+    title: "Thanh toán khi nhận hàng (COD)",
+    description: "Tạo đơn hàng và ghi nhận thanh toán tiền mặt khi giao hàng.",
+  },
+  VNPAY: {
+    title: "Thanh toán qua VNPay",
+    description: "Chuyển sang cổng VNPay để thanh toán trực tuyến an toàn.",
+  },
+};
+
+const DEFAULT_PAYMENT_METHODS = [
+  { code: "CASH", name: "Tiền mặt", enabled: true },
+  { code: "VNPAY", name: "VNPay", enabled: false },
 ];
 
-const paymentDescriptions = {
-  CASH: "Thanh toán bằng tiền mặt khi nhận hàng",
-  VNPAY: "Thanh toán trực tuyến qua cổng VNPay",
-  MOMO: "Thanh toán qua ví điện tử MoMo",
-  CARD: "Thanh toán bằng thẻ",
-  PAYPAL: "Thanh toán qua PayPal",
+const getImageSrc = (imageUrl) => {
+  if (!imageUrl) {
+    return "https://via.placeholder.com/120x120?text=Coffee";
+  }
+
+  if (imageUrl.startsWith("http")) {
+    return imageUrl;
+  }
+
+  return imageUrl.replace(/^\.\//, "/");
 };
 
 const CheckoutPage = () => {
@@ -33,13 +48,7 @@ const CheckoutPage = () => {
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [orderSuccess, setOrderSuccess] = useState(false);
   const [orderId, setOrderId] = useState(null);
-
-  const [couponCode, setCouponCode] = useState("");
-  const [appliedCoupon, setAppliedCoupon] = useState(null);
-  const [isValidatingCoupon, setIsValidatingCoupon] = useState(false);
-  const [discountAmount, setDiscountAmount] = useState(0);
-  const [availableCoupons, setAvailableCoupons] = useState([]);
-  const [paymentMethods, setPaymentMethods] = useState(fallbackPaymentMethods);
+  const [paymentMethods, setPaymentMethods] = useState(DEFAULT_PAYMENT_METHODS);
 
   const [provinces, setProvinces] = useState([]);
   const [districts, setDistricts] = useState([]);
@@ -85,18 +94,23 @@ const CheckoutPage = () => {
   useEffect(() => {
     const fetchPaymentMethods = async () => {
       try {
-        const response = await paymentAPI.getMethods();
-        const methods = response.data?.length ? response.data : fallbackPaymentMethods;
-        setPaymentMethods(methods);
+        const response = await paymentAPI.getPaymentMethods();
+        const methods = response?.data || [];
+        const enabledCodes = new Set(methods.map((method) => method.code));
 
-        const defaultMethod = methods.find((method) => method.code === "CASH") || methods[0];
-        if (defaultMethod) {
-          setFormData((prev) => ({ ...prev, paymentMethod: defaultMethod.code }));
-        }
+        setPaymentMethods(
+          DEFAULT_PAYMENT_METHODS.map((method) => ({
+            ...method,
+            enabled:
+              method.code === "CASH" ? true : enabledCodes.has(method.code),
+          })),
+        );
       } catch (error) {
         console.error("Error fetching payment methods:", error);
+        setPaymentMethods(DEFAULT_PAYMENT_METHODS);
       }
     };
+
     fetchPaymentMethods();
   }, []);
 
@@ -229,6 +243,8 @@ const CheckoutPage = () => {
   };
 
   const finalPrice = totalPrice - discountAmount;
+  const selectedPaymentConfig =
+    PAYMENT_METHOD_CONFIG[formData.paymentMethod] || PAYMENT_METHOD_CONFIG.CASH;
 
   const handleSubmit = async (e) => {
     e.preventDefault();
@@ -251,6 +267,7 @@ const CheckoutPage = () => {
     }
 
     setIsSubmitting(true);
+    let createdOrderId = null;
 
     try {
       const fullAddress = [
@@ -273,6 +290,7 @@ const CheckoutPage = () => {
         shipAddress: fullAddress,
         phoneNumber: formData.phoneNumber || null,
       };
+<<<<<<< HEAD
 
       const orderResponse = await orderAPI.createOrder(orderData);
       const newOrder = orderResponse.data || orderResponse;
@@ -291,6 +309,38 @@ const CheckoutPage = () => {
       const paymentData = paymentResponse.data || {};
 
       setOrderId(newOrderId);
+=======
+      const response = await orderAPI.createOrder(orderData);
+
+      createdOrderId =
+        response.data?.id || response.data?.orderId || response.id;
+      if (!createdOrderId) {
+        throw new Error("Không thể lấy mã đơn hàng sau khi tạo đơn");
+      }
+
+      const paymentResponse = await paymentAPI.createPayment({
+        orderId: createdOrderId,
+        paymentMethodCode: formData.paymentMethod,
+        orderInfo: `Thanh toan don hang #${createdOrderId}`,
+        locale: "vn",
+      });
+
+      const paymentData = paymentResponse?.data || paymentResponse;
+
+      if (formData.paymentMethod === "VNPAY") {
+        if (!paymentData?.paymentUrl) {
+          throw new Error("Không nhận được đường dẫn thanh toán VNPay");
+        }
+
+        clearCart();
+        toast.success("Đơn hàng đã được tạo. Đang chuyển sang VNPay...");
+        window.location.assign(paymentData.paymentUrl);
+        return;
+      }
+
+      setOrderId(createdOrderId);
+      setOrderSuccess(true);
+>>>>>>> c5c530c2ffa2a35728ac02318abe71a73335400b
       clearCart();
 
       if (paymentData.paymentUrl) {
@@ -307,7 +357,18 @@ const CheckoutPage = () => {
       }, 3000);
     } catch (error) {
       console.error("Lỗi khi đặt hàng:", error);
+<<<<<<< HEAD
       toast.error(error.message || "Không thể đặt hàng. Vui lòng thử lại");
+=======
+      toast.error(
+        error?.message ||
+          (createdOrderId
+            ? `Đơn hàng #${createdOrderId} đã tạo nhưng chưa khởi tạo được thanh toán. Bạn có thể thanh toán lại sau.`
+            : null) ||
+          error.message ||
+          "Không thể đặt hàng. Vui lòng thử lại"
+      );
+>>>>>>> c5c530c2ffa2a35728ac02318abe71a73335400b
     } finally {
       setIsSubmitting(false);
     }
@@ -482,6 +543,7 @@ const CheckoutPage = () => {
                 </div>
 
                 <div className="space-y-3">
+<<<<<<< HEAD
                   {paymentMethods.map((method) => (
                     <label
                       key={method.code}
@@ -503,7 +565,51 @@ const CheckoutPage = () => {
                       </div>
                     </label>
                   ))}
+=======
+                  {paymentMethods.map((method) => {
+                    const config =
+                      PAYMENT_METHOD_CONFIG[method.code] ||
+                      PAYMENT_METHOD_CONFIG.CASH;
+
+                    return (
+                      <label
+                        key={method.code}
+                        className={`glass-card flex items-center gap-3 rounded-[24px] p-4 transition-all ${
+                          method.enabled
+                            ? "cursor-pointer hover:-translate-y-0.5"
+                            : "cursor-not-allowed opacity-60"
+                        }`}
+                      >
+                        <input
+                          type="radio"
+                          name="paymentMethod"
+                          value={method.code}
+                          checked={formData.paymentMethod === method.code}
+                          onChange={handleInputChange}
+                          disabled={!method.enabled}
+                          className="w-5 h-5 text-coffee-600 focus:ring-coffee-500"
+                        />
+                        <div>
+                          <p className="font-semibold text-gray-900">
+                            {config.title}
+                          </p>
+                          <p className="text-sm text-gray-600">
+                            {config.description}
+                          </p>
+                          {!method.enabled && method.code === "VNPAY" && (
+                            <p className="mt-1 text-xs text-amber-700">
+                              VNPay chưa sẵn sàng vì server chưa cấu hình `VNPAY_*`.
+                            </p>
+                          )}
+                        </div>
+                      </label>
+                    );
+                  })}
+>>>>>>> c5c530c2ffa2a35728ac02318abe71a73335400b
                 </div>
+                <p className="mt-4 text-sm text-slate-500">
+                  {selectedPaymentConfig.description}
+                </p>
               </div>
             </div>
 
@@ -515,7 +621,7 @@ const CheckoutPage = () => {
                   {items?.map((item) => (
                     <div key={item.id} className="flex gap-3">
                       <img
-                        src={`../.${item.imageUrl}`}
+                        src={getImageSrc(item.imageUrl)}
                         alt={item.name}
                         className="w-16 h-16 object-cover rounded-lg"
                       />
@@ -599,7 +705,11 @@ const CheckoutPage = () => {
                   isLoading={isSubmitting}
                   disabled={isSubmitting}
                 >
-                  {isSubmitting ? "Đang xử lý..." : "Đặt hàng"}
+                  {isSubmitting
+                    ? "Đang xử lý..."
+                    : formData.paymentMethod === "VNPAY"
+                      ? "Tiếp tục đến VNPay"
+                      : "Đặt hàng"}
                 </Button>
 
                 <p className="mt-4 text-center text-xs text-slate-500">

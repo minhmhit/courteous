@@ -2,7 +2,7 @@ import axiosInstance from "./axiosConfig";
 import { normalizePaymentMethod, unwrapData } from "./apiUtils";
 
 const paymentAPI = {
-  getMethods: async () => {
+  getPaymentMethods: async () => {
     const response = await axiosInstance.get("/payments/methods");
     const payload = unwrapData(response);
     const methods = Array.isArray(payload) ? payload : payload?.methods || [];
@@ -65,6 +65,10 @@ const paymentAPI = {
     axiosInstance.get(`/payments/vnpay/query/${orderId}`, {
       params: transactionDate ? { transactionDate } : {},
     }),
+
+  verifyVnpayReturn: async (params) => {
+    return await axiosInstance.get("/payments/vnpay/return", { params });
+  },
 };
 
 export default paymentAPI;

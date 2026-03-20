@@ -29,8 +29,9 @@ const LoginPage = () => {
     e.preventDefault();
     try {
       const response = await login(formData);
-      if(response?.error){
-        throw new Error(response.message);
+      const payload = response?.data || response;
+      if (payload?.error) {
+        throw new Error(payload.message);
       }
       toast.success("Đăng nhập thành công!");
 
@@ -78,8 +79,8 @@ const LoginPage = () => {
 
         <form onSubmit={handleSubmit} className="space-y-4">
           <Input
-            label="Email"
-            type="email"
+            label="Email hoáº·c username"
+            type="text"
             name="email"
             value={formData.email}
             onChange={handleChange}
