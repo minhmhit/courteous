@@ -32,6 +32,8 @@ axiosInstance.interceptors.response.use(
     return response.data;
   },
   (error) => {
+    const skipAuthRedirect = error.config?.skipAuthRedirect;
+
     // Xử lý các lỗi HTTP
     if (error.response) {
       const { status, data } = error.response;
@@ -39,8 +41,8 @@ axiosInstance.interceptors.response.use(
       switch (status) {
         case 401:
           // Token hết hạn hoặc không hợp lệ
-          // Chỉ xóa localStorage và redirect nếu đang không ở trang login
-          if (!window.location.pathname.includes("/login")) {
+          // Một số request phụ trợ (ví dụ lấy giỏ hàng ở navbar) không nên làm mất phiên toàn cục.
+          if (!skipAuthRedirect && !window.location.pathname.includes("/login")) {
             localStorage.removeItem("token");
             localStorage.removeItem("user");
             // Thêm timeout nhỏ để tránh race condition với initialize

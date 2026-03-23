@@ -1,15 +1,43 @@
-import { useState, useEffect } from "react";
+﻿import { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import { motion } from "framer-motion";
 import { CreditCard, MapPin, Phone, User, CheckCircle } from "lucide-react";
 import useCartStore from "../../stores/useCartStore";
 import useAuthStore from "../../stores/useAuthStore";
 import useToastStore from "../../stores/useToastStore";
-import { couponAPI, orderAPI } from "../../services";
+import { couponAPI, orderAPI, paymentAPI } from "../../services";
 import provinceAPI from "../../services/provinceAPI";
 import Button from "../../components/ui/Button";
 import Input from "../../components/ui/Input";
 import { formatCurrency } from "../../utils/formatDate";
+
+const PAYMENT_METHOD_CONFIG = {
+  CASH: {
+    title: "Thanh toán khi nhận hàng (COD)",
+    description: "Tạo đơn hàng và ghi nhận thanh toán tiền mặt khi giao hàng.",
+  },
+  VNPAY: {
+    title: "Thanh toán qua VNPay",
+    description: "Chuyển sang cổng VNPay để thanh toán trực tuyến an toàn.",
+  },
+};
+
+const DEFAULT_PAYMENT_METHODS = [
+  { code: "CASH", name: "Tiền mặt", enabled: true },
+  { code: "VNPAY", name: "VNPay", enabled: false },
+];
+
+const getImageSrc = (imageUrl) => {
+  if (!imageUrl) {
+    return "https://via.placeholder.com/120x120?text=Coffee";
+  }
+
+  if (imageUrl.startsWith("http")) {
+    return imageUrl;
+  }
+
+  return imageUrl.replace(/^\.\//, "/");
+};
 
 const CheckoutPage = () => {
   const navigate = useNavigate();
@@ -20,6 +48,7 @@ const CheckoutPage = () => {
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [orderSuccess, setOrderSuccess] = useState(false);
   const [orderId, setOrderId] = useState(null);
+  const [paymentMethods, setPaymentMethods] = useState(DEFAULT_PAYMENT_METHODS);
 
   // Coupon state
   const [couponCode, setCouponCode] = useState("");
@@ -43,7 +72,7 @@ const CheckoutPage = () => {
     email: user?.email || "",
     shipAddress: "",
     note: "",
-    paymentMethod: "cod", // cod hoặc banking
+    paymentMethod: "CASH",
   });
 
   // Fetch provinces on mount
@@ -73,6 +102,29 @@ const CheckoutPage = () => {
       }
     };
     fetchCoupons();
+  }, []);
+
+  useEffect(() => {
+    const fetchPaymentMethods = async () => {
+      try {
+        const response = await paymentAPI.getPaymentMethods();
+        const methods = response?.data || [];
+        const enabledCodes = new Set(methods.map((method) => method.code));
+
+        setPaymentMethods(
+          DEFAULT_PAYMENT_METHODS.map((method) => ({
+            ...method,
+            enabled:
+              method.code === "CASH" ? true : enabledCodes.has(method.code),
+          })),
+        );
+      } catch (error) {
+        console.error("Error fetching payment methods:", error);
+        setPaymentMethods(DEFAULT_PAYMENT_METHODS);
+      }
+    };
+
+    fetchPaymentMethods();
   }, []);
 
   useEffect(() => {
@@ -217,6 +269,8 @@ const CheckoutPage = () => {
 
   // Tính tổng tiền sau giảm giá
   const finalPrice = totalPrice - discountAmount;
+  const selectedPaymentConfig =
+    PAYMENT_METHOD_CONFIG[formData.paymentMethod] || PAYMENT_METHOD_CONFIG.CASH;
 
   const handleSubmit = async (e) => {
     e.preventDefault();
@@ -240,6 +294,7 @@ const CheckoutPage = () => {
     }
 
     setIsSubmitting(true);
+    let createdOrderId = null;
 
     try {
       // Ghép địa chỉ đầy đủ
@@ -262,28 +317,50 @@ const CheckoutPage = () => {
         shipAddress: fullAddress,
         phoneNumber: formData?.phoneNumber || null,
       };
-      // console.log(orderData);
       const response = await orderAPI.createOrder(orderData);
-      // console.log("✅ Order response:", response); // Debug log
 
-      const newOrderId =
+      createdOrderId =
         response.data?.id || response.data?.orderId || response.id;
+      if (!createdOrderId) {
+        throw new Error("Không thể lấy mã đơn hàng sau khi tạo đơn");
+      }
 
-      setOrderId(newOrderId);
+      const paymentResponse = await paymentAPI.createPayment({
+        orderId: createdOrderId,
+        paymentMethodCode: formData.paymentMethod,
+        orderInfo: `Thanh toan don hang #${createdOrderId}`,
+        locale: "vn",
+      });
+
+      const paymentData = paymentResponse?.data || paymentResponse;
+
+      if (formData.paymentMethod === "VNPAY") {
+        if (!paymentData?.paymentUrl) {
+          throw new Error("Không nhận được đường dẫn thanh toán VNPay");
+        }
+
+        clearCart();
+        toast.success("Đơn hàng đã được tạo. Đang chuyển sang VNPay...");
+        window.location.assign(paymentData.paymentUrl);
+        return;
+      }
+
+      setOrderId(createdOrderId);
       setOrderSuccess(true);
       clearCart();
 
       toast.success("Đặt hàng thành công!");
 
-      // Redirect sau 3 giây
       setTimeout(() => {
         navigate(`/profile/orders`);
       }, 3000);
     } catch (error) {
-      console.error("❌ Lỗi khi đặt hàng:", error);
-      console.error("Error response:", error.response?.data);
+      console.error("Lỗi khi đặt hàng:", error);
       toast.error(
-        error.response?.data?.message ||
+        error?.message ||
+          (createdOrderId
+            ? `Đơn hàng #${createdOrderId} đã tạo nhưng chưa khởi tạo được thanh toán. Bạn có thể thanh toán lại sau.`
+            : null) ||
           error.message ||
           "Không thể đặt hàng. Vui lòng thử lại"
       );
@@ -294,14 +371,14 @@ const CheckoutPage = () => {
 
   if (orderSuccess) {
     return (
-      <div className="min-h-screen bg-gray-50 py-16">
+      <div className="min-h-screen px-3 py-10 md:px-6">
         <div className="container mx-auto px-4">
           <motion.div
             initial={{ scale: 0.8, opacity: 0 }}
             animate={{ scale: 1, opacity: 1 }}
-            className="max-w-md mx-auto bg-white rounded-2xl shadow-lg p-12 text-center"
+            className="glass-panel-strong max-w-md mx-auto rounded-[32px] p-12 text-center"
           >
-            <div className="w-20 h-20 bg-green-100 rounded-full flex items-center justify-center mx-auto mb-6">
+            <div className="mx-auto mb-6 flex h-20 w-20 items-center justify-center rounded-full bg-emerald-100/80">
               <CheckCircle className="w-12 h-12 text-green-600" />
             </div>
             <h2 className="text-2xl font-bold text-gray-900 mb-3">
@@ -332,7 +409,7 @@ const CheckoutPage = () => {
   }
 
   return (
-    <div className="min-h-screen bg-gray-50 py-8">
+    <div className="min-h-screen px-3 py-6 md:px-6 md:py-8">
       <div className="container mx-auto px-4">
         <h1 className="text-3xl font-bold text-gray-900 mb-8">Thanh toán</h1>
 
@@ -341,9 +418,9 @@ const CheckoutPage = () => {
             {/* Shipping & Payment Info */}
             <div className="lg:col-span-2 space-y-6">
               {/* Shipping shipAddress */}
-              <div className="bg-white rounded-lg shadow-sm p-6">
+              <div className="glass-card rounded-[28px] p-6">
                 <div className="flex items-center gap-3 mb-6">
-                  <div className="p-2 bg-coffee-50 rounded-lg">
+                  <div className="glass-card rounded-2xl p-2">
                     <MapPin className="w-6 h-6 text-coffee-600" />
                   </div>
                   <h2 className="text-xl font-bold text-gray-900">
@@ -398,7 +475,7 @@ const CheckoutPage = () => {
                       value={selectedProvince?.code || ""}
                       onChange={handleProvinceChange}
                       required
-                      className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-coffee-500 focus:border-transparent"
+                      className="glass-textarea w-full"
                     >
                       <option value="">Chọn tỉnh/thành phố</option>
                       {provinces.map((province) => (
@@ -419,7 +496,7 @@ const CheckoutPage = () => {
                       onChange={handleDistrictChange}
                       disabled={!selectedProvince}
                       required
-                      className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-coffee-500 focus:border-transparent disabled:bg-gray-100 disabled:cursor-not-allowed"
+                      className="glass-select w-full disabled:bg-gray-100 disabled:cursor-not-allowed"
                     >
                       <option value="">Chọn quận/huyện</option>
                       {districts.map((district) => (
@@ -440,7 +517,7 @@ const CheckoutPage = () => {
                       onChange={handleWardChange}
                       disabled={!selectedDistrict}
                       required
-                      className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-coffee-500 focus:border-transparent disabled:bg-gray-100 disabled:cursor-not-allowed"
+                      className="glass-select w-full disabled:bg-gray-100 disabled:cursor-not-allowed"
                     >
                       <option value="">Chọn phường/xã</option>
                       {wards.map((ward) => (
@@ -459,7 +536,7 @@ const CheckoutPage = () => {
                       value={formData.note}
                       onChange={handleInputChange}
                       rows="3"
-                      className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-coffee-500 focus:border-transparent"
+                      className="glass-textarea w-full"
                       placeholder="Ghi chú về đơn hàng (thời gian giao, yêu cầu đặc biệt...)"
                     />
                   </div>
@@ -467,9 +544,9 @@ const CheckoutPage = () => {
               </div>
 
               {/* Payment Method */}
-              <div className="bg-white rounded-lg shadow-sm p-6">
+              <div className="glass-card rounded-[28px] p-6">
                 <div className="flex items-center gap-3 mb-6">
-                  <div className="p-2 bg-coffee-50 rounded-lg">
+                  <div className="glass-card rounded-2xl p-2">
                     <CreditCard className="w-6 h-6 text-coffee-600" />
                   </div>
                   <h2 className="text-xl font-bold text-gray-900">
@@ -478,50 +555,55 @@ const CheckoutPage = () => {
                 </div>
 
                 <div className="space-y-3">
-                  <label className="flex items-center gap-3 p-4 border-2 border-gray-200 rounded-lg cursor-pointer hover:border-coffee-500 transition-colors">
-                    <input
-                      type="radio"
-                      name="paymentMethod"
-                      value="cod"
-                      checked={formData.paymentMethod === "cod"}
-                      onChange={handleInputChange}
-                      className="w-5 h-5 text-coffee-600 focus:ring-coffee-500"
-                    />
-                    <div>
-                      <p className="font-semibold text-gray-900">
-                        Thanh toán khi nhận hàng (COD)
-                      </p>
-                      <p className="text-sm text-gray-600">
-                        Thanh toán bằng tiền mặt khi nhận hàng
-                      </p>
-                    </div>
-                  </label>
+                  {paymentMethods.map((method) => {
+                    const config =
+                      PAYMENT_METHOD_CONFIG[method.code] ||
+                      PAYMENT_METHOD_CONFIG.CASH;
 
-                  <label className="flex items-center gap-3 p-4 border-2 border-gray-200 rounded-lg cursor-pointer hover:border-coffee-500 transition-colors">
-                    <input
-                      type="radio"
-                      name="paymentMethod"
-                      value="banking"
-                      checked={formData.paymentMethod === "banking"}
-                      onChange={handleInputChange}
-                      className="w-5 h-5 text-coffee-600 focus:ring-coffee-500"
-                    />
-                    <div>
-                      <p className="font-semibold text-gray-900">
-                        Chuyển khoản ngân hàng
-                      </p>
-                      <p className="text-sm text-gray-600">
-                        Thanh toán qua chuyển khoản ngân hàng
-                      </p>
-                    </div>
-                  </label>
+                    return (
+                      <label
+                        key={method.code}
+                        className={`glass-card flex items-center gap-3 rounded-[24px] p-4 transition-all ${
+                          method.enabled
+                            ? "cursor-pointer hover:-translate-y-0.5"
+                            : "cursor-not-allowed opacity-60"
+                        }`}
+                      >
+                        <input
+                          type="radio"
+                          name="paymentMethod"
+                          value={method.code}
+                          checked={formData.paymentMethod === method.code}
+                          onChange={handleInputChange}
+                          disabled={!method.enabled}
+                          className="w-5 h-5 text-coffee-600 focus:ring-coffee-500"
+                        />
+                        <div>
+                          <p className="font-semibold text-gray-900">
+                            {config.title}
+                          </p>
+                          <p className="text-sm text-gray-600">
+                            {config.description}
+                          </p>
+                          {!method.enabled && method.code === "VNPAY" && (
+                            <p className="mt-1 text-xs text-amber-700">
+                              VNPay chưa sẵn sàng vì server chưa cấu hình `VNPAY_*`.
+                            </p>
+                          )}
+                        </div>
+                      </label>
+                    );
+                  })}
                 </div>
+                <p className="mt-4 text-sm text-slate-500">
+                  {selectedPaymentConfig.description}
+                </p>
               </div>
             </div>
 
             {/* Order Summary */}
             <div className="lg:col-span-1">
-              <div className="bg-white rounded-lg shadow-sm p-6 sticky top-24">
+              <div className="glass-panel sticky top-28 rounded-[32px] p-6">
                 <h2 className="text-xl font-bold text-gray-900 mb-6">
                   Đơn hàng của bạn
                 </h2>
@@ -531,7 +613,7 @@ const CheckoutPage = () => {
                   {items?.map((item) => (
                     <div key={item.id} className="flex gap-3">
                       <img
-                        src={`../.${item.imageUrl}`}
+                        src={getImageSrc(item.imageUrl)}
                         alt={item.name}
                         className="w-16 h-16 object-cover rounded-lg"
                       />
@@ -548,12 +630,12 @@ const CheckoutPage = () => {
                 </div>
 
                 {/* Coupon */}
-                <div className="border-t border-gray-200 pt-4 mb-4">
+                <div className="border-t border-white/25 pt-4 mb-4">
                   <label className="block text-sm font-medium text-gray-700 mb-2">
                     Mã giảm giá
                   </label>
                   {appliedCoupon ? (
-                    <div className="flex items-center justify-between p-3 bg-green-50 border border-green-200 rounded-lg">
+                    <div className="glass-card flex items-center justify-between rounded-[20px] border border-emerald-200/70 p-3">
                       <div>
                         <p className="font-semibold text-green-700">
                           {appliedCoupon.code}
@@ -577,7 +659,7 @@ const CheckoutPage = () => {
                         value={couponCode}
                         onChange={(e) => setCouponCode(e.target.value.trim())}
                         placeholder="Nhập mã giảm giá"
-                        className="flex-1 px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-coffee-500 focus:border-transparent"
+                        className="glass-input flex-1"
                       />
                       <Button
                         type="button"
@@ -593,7 +675,7 @@ const CheckoutPage = () => {
                 </div>
 
                 {/* Price Summary */}
-                <div className="border-t border-gray-200 pt-4 space-y-2 mb-6">
+                <div className="border-t border-white/25 pt-4 space-y-2 mb-6">
                   <div className="flex justify-between text-gray-600">
                     <span>Tạm tính</span>
                     <span>{formatCurrency(totalPrice)}</span>
@@ -608,7 +690,7 @@ const CheckoutPage = () => {
                     <span>Phí vận chuyển</span>
                     <span className="text-green-600">Miễn phí</span>
                   </div>
-                  <div className="border-t border-gray-200 pt-2">
+                  <div className="border-t border-white/25 pt-2">
                     <div className="flex justify-between text-lg font-bold text-gray-900">
                       <span>Tổng cộng</span>
                       <span className="text-coffee-600">
@@ -625,10 +707,14 @@ const CheckoutPage = () => {
                   isLoading={isSubmitting}
                   disabled={isSubmitting}
                 >
-                  {isSubmitting ? "Đang xử lý..." : "Đặt hàng"}
+                  {isSubmitting
+                    ? "Đang xử lý..."
+                    : formData.paymentMethod === "VNPAY"
+                      ? "Tiếp tục đến VNPay"
+                      : "Đặt hàng"}
                 </Button>
 
-                <p className="text-xs text-gray-500 text-center mt-4">
+                <p className="mt-4 text-center text-xs text-slate-500">
                   Bằng việc đặt hàng, bạn đồng ý với{" "}
                   <a href="/terms" className="text-coffee-600 hover:underline">
                     Điều khoản sử dụng
@@ -645,3 +731,4 @@ const CheckoutPage = () => {
 };
 
 export default CheckoutPage;
+

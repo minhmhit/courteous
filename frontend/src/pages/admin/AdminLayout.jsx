@@ -1,5 +1,4 @@
-import { Outlet, useNavigate } from "react-router-dom";
-import { Link } from "react-router-dom";
+﻿import { Outlet, useNavigate, useLocation, Link } from "react-router-dom";
 import { useEffect } from "react";
 import {
   LayoutDashboard,
@@ -20,31 +19,24 @@ import useAuthStore from "../../stores/useAuthStore";
 const AdminLayout = () => {
   const { user, logout } = useAuthStore();
   const navigate = useNavigate();
+  const location = useLocation();
 
-  // Lấy roleId từ user (với fallback từ localStorage)
   let userRole = user?.roleId || user?.role_id || user?.role;
 
-  // Fallback: Nếu store chưa initialize, lấy từ localStorage
   if (!userRole) {
     const storedUser = localStorage.getItem("user");
     if (storedUser) {
       try {
         const parsedUser = JSON.parse(storedUser);
-        userRole =
-          parsedUser?.roleId || parsedUser?.role_id || parsedUser?.role;
+        userRole = parsedUser?.roleId || parsedUser?.role_id || parsedUser?.role;
       } catch (e) {
         console.error("Failed to parse stored user:", e);
       }
     }
   }
 
-  // Redirect to role-specific dashboard when accessing /admin
   useEffect(() => {
-    // Only redirect if on exactly /admin (not sub-routes)
-    if (
-      window.location.pathname === "/admin" ||
-      window.location.pathname === "/admin/"
-    ) {
+    if (window.location.pathname === "/admin" || window.location.pathname === "/admin/") {
       if (userRole === 3) {
         navigate("/admin/warehouse-dashboard", { replace: true });
       } else if (userRole === 4) {
@@ -57,158 +49,84 @@ const AdminLayout = () => {
     }
   }, [userRole, navigate]);
 
-  // Định nghĩa menu items với allowedRoles
   const allMenuItems = [
-    {
-      icon: LayoutDashboard,
-      label: "Dashboard Admin",
-      path: "/admin/dashboard",
-      allowedRoles: [1], // Admin only
-    },
-    {
-      icon: LayoutDashboard,
-      label: "Dashboard Kho",
-      path: "/admin/warehouse-dashboard",
-      allowedRoles: [3], // Warehouse only
-    },
-    {
-      icon: LayoutDashboard,
-      label: "Dashboard Bán Hàng",
-      path: "/admin/sales-dashboard",
-      allowedRoles: [4], // Sales only
-    },
-    {
-      icon: LayoutDashboard,
-      label: "Dashboard Nhân Sự",
-      path: "/admin/hrm-dashboard",
-      allowedRoles: [5], // HRM only
-    },
-    {
-      icon: TrendingUp,
-      label: "Phân tích",
-      path: "/admin/analytics",
-      allowedRoles: [1], // Admin only
-    },
-    {
-      icon: Package,
-      label: "Sản phẩm",
-      path: "/admin/products",
-      allowedRoles: [1, 3, 4], // Admin & Warehouse & Sales
-    },
-    {
-      icon: Tag,
-      label: "Mã giảm giá",
-      path: "/admin/coupons",
-      allowedRoles: [1, 4], // Admin & Sales
-    },
-    {
-      icon: FolderOpen,
-      label: "Danh mục",
-      path: "/admin/categories",
-      allowedRoles: [1, 3], // Admin & Warehouse
-    },
-    {
-      icon: ShoppingCart,
-      label: "Đơn hàng",
-      path: "/admin/orders",
-      allowedRoles: [1, 4], // Admin & Sales
-    },
-    {
-      icon: Warehouse,
-      label: "Kho hàng",
-      path: "/admin/warehouse",
-      allowedRoles: [1, 3], // Admin & Warehouse
-    },
-    {
-      icon: Truck,
-      label: "Nhà cung cấp",
-      path: "/admin/suppliers",
-      allowedRoles: [1, 3], // Admin & Warehouse
-    },
-    {
-      icon: Users,
-      label: "Người dùng",
-      path: "/admin/users",
-      allowedRoles: [1, 5], // Admin & HRM
-    },
-    {
-      icon: UserCog,
-      label: "Nhân sự (HRM)",
-      path: "/admin/hrm",
-      allowedRoles: [1, 5], // Admin & HRM
-    },
-    {
-      icon: Settings,
-      label: "Cài đặt",
-      path: "/admin/settings",
-      allowedRoles: [1], // Admin only
-    },
+    { icon: LayoutDashboard, label: "Dashboard Admin", path: "/admin/dashboard", allowedRoles: [1] },
+    { icon: LayoutDashboard, label: "Dashboard Kho", path: "/admin/warehouse-dashboard", allowedRoles: [3] },
+    { icon: LayoutDashboard, label: "Dashboard Bán Hàng", path: "/admin/sales-dashboard", allowedRoles: [4] },
+    { icon: LayoutDashboard, label: "Dashboard Nhân Sự", path: "/admin/hrm-dashboard", allowedRoles: [5] },
+    { icon: TrendingUp, label: "Phân tích", path: "/admin/analytics", allowedRoles: [1] },
+    { icon: Package, label: "Sản phẩm", path: "/admin/products", allowedRoles: [1, 3, 4] },
+    { icon: Tag, label: "Mã giảm giá", path: "/admin/coupons", allowedRoles: [1, 4] },
+    { icon: FolderOpen, label: "Danh mục", path: "/admin/categories", allowedRoles: [1, 3] },
+    { icon: ShoppingCart, label: "Đơn hàng", path: "/admin/orders", allowedRoles: [1, 4] },
+    { icon: Warehouse, label: "Kho hàng", path: "/admin/warehouse", allowedRoles: [1, 3] },
+    { icon: Truck, label: "Nhà cung cấp", path: "/admin/suppliers", allowedRoles: [1, 3] },
+    { icon: Users, label: "Người dùng", path: "/admin/users", allowedRoles: [1, 5] },
+    { icon: UserCog, label: "Nhân sự (HRM)", path: "/admin/hrm", allowedRoles: [1, 5] },
+    { icon: Settings, label: "Cài đặt", path: "/admin/settings", allowedRoles: [1] },
   ];
 
-  // Lọc menu items theo role
-  const menuItems = allMenuItems.filter((item) =>
-    item.allowedRoles.includes(userRole)
-  );
+  const menuItems = allMenuItems.filter((item) => item.allowedRoles.includes(userRole));
 
-  // Get role name
   const getRoleName = (roleId) => {
     const roles = {
-      1: { name: "Admin", color: "bg-red-100 text-red-800" },
-      2: { name: "Customer", color: "bg-blue-100 text-blue-800" },
-      3: { name: "Warehouse", color: "bg-green-100 text-green-800" },
-      4: { name: "Sales", color: "bg-purple-100 text-purple-800" },
-      5: { name: "HRM", color: "bg-yellow-100 text-yellow-800" },
+      1: { name: "Admin", color: "bg-rose-100/80 text-rose-700" },
+      2: { name: "Customer", color: "bg-sky-100/80 text-sky-700" },
+      3: { name: "Warehouse", color: "bg-emerald-100/80 text-emerald-700" },
+      4: { name: "Sales", color: "bg-violet-100/80 text-violet-700" },
+      5: { name: "HRM", color: "bg-amber-100/80 text-amber-700" },
     };
-    return (
-      roles[roleId] || { name: "Unknown", color: "bg-gray-100 text-gray-800" }
-    );
+    return roles[roleId] || { name: "Unknown", color: "bg-slate-100/80 text-slate-700" };
   };
 
   const roleInfo = getRoleName(userRole);
 
   return (
-    <div className="flex h-screen bg-gray-100">
-      {/* Sidebar */}
-      <div className="w-64 bg-white shadow-lg">
-        <div className="p-6 border-b">
-          <h1 className="text-2xl font-bold text-coffee-600">Admin Panel</h1>
-          <p className="text-sm text-gray-600 mt-1">
-            {user?.name || user?.username}
-          </p>
-          <span
-            className={`inline-block mt-2 px-3 py-1 text-xs font-semibold rounded-full ${roleInfo.color}`}
-          >
-            {roleInfo.name}
-          </span>
-        </div>
+    <div className="min-h-screen px-3 py-3 md:px-6 md:py-5">
+      <div className="mx-auto flex min-h-[calc(100vh-1.5rem)] max-w-7xl flex-col gap-4 lg:flex-row">
+        <aside className="glass-panel-strong w-full rounded-[32px] p-4 lg:w-72 lg:p-5">
+          <div className="mb-5 rounded-[28px] bg-white/25 p-5">
+            <h1 className="text-2xl font-bold text-coffee-950">Admin Panel</h1>
+            <p className="mt-1 text-sm text-slate-600">{user?.name || user?.username}</p>
+            <span className={`mt-3 inline-flex rounded-full px-3 py-1 text-xs font-semibold ${roleInfo.color}`}>
+              {roleInfo.name}
+            </span>
+          </div>
 
-        <nav className="p-4">
-          {menuItems.map((item) => (
-            <Link
-              key={item.path}
-              to={item.path}
-              className="flex items-center gap-3 px-4 py-3 mb-2 text-gray-700 hover:bg-coffee-50 hover:text-coffee-600 rounded-lg transition-colors"
+          <nav className="space-y-2">
+            {menuItems.map((item) => {
+              const isActive = location.pathname === item.path;
+              return (
+                <Link
+                  key={item.path}
+                  to={item.path}
+                  className={`flex items-center gap-3 rounded-2xl px-4 py-3 text-sm font-medium transition-all ${
+                    isActive
+                      ? "bg-white/65 text-coffee-800 shadow-[0_10px_30px_rgba(72,45,24,0.12)]"
+                      : "text-slate-700 hover:bg-white/35 hover:text-coffee-700"
+                  }`}
+                >
+                  <item.icon className="h-5 w-5" />
+                  <span>{item.label}</span>
+                </Link>
+              );
+            })}
+
+            <button
+              onClick={logout}
+              className="mt-4 flex w-full items-center gap-3 rounded-2xl px-4 py-3 text-sm font-medium text-rose-600 transition-colors hover:bg-rose-50/80"
             >
-              <item.icon className="w-5 h-5" />
-              <span>{item.label}</span>
-            </Link>
-          ))}
+              <LogOut className="h-5 w-5" />
+              <span>Đăng xuất</span>
+            </button>
+          </nav>
+        </aside>
 
-          <button
-            onClick={logout}
-            className="flex items-center gap-3 px-4 py-3 w-full text-gray-700 hover:bg-red-50 hover:text-red-600 rounded-lg transition-colors mt-4"
-          >
-            <LogOut className="w-5 h-5" />
-            <span>Đăng xuất</span>
-          </button>
-        </nav>
-      </div>
-
-      {/* Main Content */}
-      <div className="flex-1 overflow-auto">
-        <div className="p-8">
-          <Outlet />
-        </div>
+        <main className="glass-panel flex-1 overflow-hidden rounded-[32px]">
+          <div className="h-full overflow-auto p-5 md:p-8">
+            <Outlet />
+          </div>
+        </main>
       </div>
     </div>
   );

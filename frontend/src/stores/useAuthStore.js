@@ -39,14 +39,18 @@ const useAuthStore = create((set, get) => ({
     set({ isLoading: true, error: null });
     try {
       const response = await authAPI.login(credentials);
+      const payload = response?.data || response;
 
-      // Handle both response structures: { token, user } or { data: { token, user } }
-      const token = response.token || response.data?.token;
-      const user = response.user || response.data?.user;
+      const token = payload?.accessToken || payload?.token;
+      const user = payload?.user;
+      const refreshToken = payload?.refreshToken;
 
       // Đảm bảo lưu vào localStorage
       if (token) {
         localStorage.setItem("token", token);
+      }
+      if (refreshToken) {
+        localStorage.setItem("refreshToken", refreshToken);
       }
       if (user) {
         localStorage.setItem("user", JSON.stringify(user));
@@ -55,7 +59,7 @@ const useAuthStore = create((set, get) => ({
       set({
         user: user,
         token: token,
-        isAuthenticated: true,
+        isAuthenticated: !!token && !!user,
         isLoading: false,
       });
       return response;

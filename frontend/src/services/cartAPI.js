@@ -3,7 +3,9 @@ import axiosInstance from './axiosConfig';
 const cartAPI = {
   // Lấy giỏ hàng
   getCart: async () => {
-    return await axiosInstance.get('/cart/');
+    return await axiosInstance.get('/cart/', {
+      skipAuthRedirect: true,
+    });
   },
 
   // Thêm sản phẩm vào giỏ hàng

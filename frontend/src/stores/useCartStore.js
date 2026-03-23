@@ -38,7 +38,6 @@ const useCartStore = create((set, get) => ({
         isLoading: false,
       });
     } catch (error) {
-      console.error("Fetch cart error:", error);
       // Nếu backend chưa có cart API, set empty cart
       set({
         cart: null,

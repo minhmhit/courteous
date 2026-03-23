@@ -1,23 +1,56 @@
 import axiosInstance from "./axiosConfig";
 
+const normalizeProductListResponse = (response) => {
+  const data = response?.data ?? response;
+  const products = Array.isArray(data)
+    ? data
+    : data?.products || response?.products || [];
+
+  const total =
+    data?.total ||
+    data?.pagination?.total ||
+    response?.total ||
+    products.length;
+
+  return {
+    ...response,
+    data: products,
+    total,
+  };
+};
+
+const normalizeProductDetailResponse = (response) => {
+  const data = response?.data ?? response;
+  const product =
+    data && !Array.isArray(data) ? data?.product || data : response?.product || null;
+
+  return {
+    ...response,
+    data: product,
+  };
+};
+
 const productAPI = {
   // Lấy tất cả sản phẩm
   getAllProducts: async (page = 1, limit = 20) => {
-    return await axiosInstance.get("/product/", {
+    const response = await axiosInstance.get("/product/", {
       params: { page, limit },
     });
+    return normalizeProductListResponse(response);
   },
 
   // Lấy sản phẩm theo ID
   getProductById: async (productId) => {
-    return await axiosInstance.get(`/product/${productId}`);
+    const response = await axiosInstance.get(`/product/${productId}`);
+    return normalizeProductDetailResponse(response);
   },
 
   // Tìm kiếm sản phẩm
   searchProducts: async (keyword, page = 1, limit = 10) => {
-    return await axiosInstance.get("/product/search", {
+    const response = await axiosInstance.get("/product/search", {
       params: { keyword, page, limit },
     });
+    return normalizeProductListResponse(response);
   },
 
   // Admin: Thêm sản phẩm mới

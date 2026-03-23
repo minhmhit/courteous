@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+﻿import { useState, useEffect } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import { motion, AnimatePresence } from "framer-motion";
 import {
@@ -15,6 +15,13 @@ import {
 import useAuthStore from "../../stores/useAuthStore";
 import useCartStore from "../../stores/useCartStore";
 
+const navLinks = [
+  { to: "/", label: "Trang chủ" },
+  { to: "/products", label: "Sản phẩm" },
+  { to: "/policy/about", label: "Về chúng tôi" },
+  { to: "/policy/contact", label: "Liên hệ" },
+];
+
 const Navbar = () => {
   const [isScrolled, setIsScrolled] = useState(false);
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
@@ -23,25 +30,21 @@ const Navbar = () => {
 
   const navigate = useNavigate();
   const { user, logout } = useAuthStore();
-  const { totalItems, fetchCart } = useCartStore();
+  const { totalItems, fetchCart, clearCart } = useCartStore();
 
-  // Lấy roleId từ user
   const roleId = user?.roleId || user?.role_id || user?.role;
-  const isEnterpriseUser = [1, 3, 4, 5].includes(roleId); // Admin, Warehouse, Sales, HRM
+  const isEnterpriseUser = [1, 3, 4, 5].includes(roleId);
+  const canUseCart = roleId === 2;
 
-  // Debug log
   useEffect(() => {
-    // console.log("Navbar user state:", user);
-  }, [user]);
-
-  // Fetch cart khi component mount
-  useEffect(() => {
-    if (user) {
+    if (user && canUseCart) {
       fetchCart();
+      return;
     }
-  }, [user, fetchCart]);
 
-  // Scroll effect
+    clearCart();
+  }, [user, canUseCart, fetchCart, clearCart]);
+
   useEffect(() => {
     const handleScroll = () => {
       setIsScrolled(window.scrollY > 20);
@@ -55,6 +58,7 @@ const Navbar = () => {
     if (searchQuery.trim()) {
       navigate(`/products?search=${encodeURIComponent(searchQuery)}`);
       setSearchQuery("");
+      setIsMobileMenuOpen(false);
     }
   };
 
@@ -66,82 +70,72 @@ const Navbar = () => {
   };
 
   return (
-    <nav
-      className={`fixed top-0 left-0 right-0 z-50 transition-all duration-300 ${
-        isScrolled
-          ? "bg-white shadow-md py-3"
-          : "bg-white/95 backdrop-blur-sm py-4"
-      }`}
-    >
-      <div className="container mx-auto px-4">
-        <div className="flex items-center justify-between">
-          {/* Logo */}
-          <Link to="/" className="flex items-center gap-2 group">
+    <nav className="fixed left-0 right-0 top-0 z-50 px-3 pt-3 md:px-6 md:pt-5">
+      <div
+        className={`mx-auto max-w-7xl rounded-[28px] border border-white/35 px-4 transition-all duration-300 md:px-6 ${
+          isScrolled
+            ? "glass-panel-strong py-3 shadow-[0_24px_60px_rgba(63,35,16,0.18)]"
+            : "glass-panel py-4"
+        }`}
+      >
+        <div className="flex items-center justify-between gap-4">
+          <Link to="/" className="group flex items-center gap-3">
             <motion.div
-              whileHover={{ rotate: 360 }}
-              transition={{ duration: 0.5 }}
-              className="p-2 bg-coffee-600 rounded-lg"
+              whileHover={{ rotate: 12, scale: 1.05 }}
+              transition={{ duration: 0.35 }}
+              className="flex h-11 w-11 items-center justify-center rounded-2xl border border-white/50 bg-white/45 text-coffee-700 shadow-[inset_0_1px_0_rgba(255,255,255,0.7)]"
             >
-              <Coffee className="w-6 h-6 text-white" />
+              <Coffee className="h-5 w-5" />
             </motion.div>
-            <span className="text-xl font-bold text-coffee-800 group-hover:text-coffee-600 transition-colors">
-              CoffeeBot
-            </span>
+            <div>
+              <span className="block font-display text-xl font-bold tracking-tight text-coffee-950">
+                CoffeeBot
+              </span>
+              <span className="hidden text-xs uppercase tracking-[0.28em] text-coffee-700/75 md:block">
+                Premium Beans
+              </span>
+            </div>
           </Link>
 
-          {/* Search Bar - Desktop */}
           <form
             onSubmit={handleSearch}
-            className="hidden md:flex items-center flex-1 max-w-xs mx-6"
+            className="hidden max-w-md flex-1 items-center md:flex"
           >
             <div className="relative w-full">
               <input
                 type="text"
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
-                placeholder="Tìm kiếm..."
-                className="w-full pl-9 pr-3 py-1.5 text-sm border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-coffee-500 focus:border-transparent"
+                placeholder="Tìm kiếm cà phê, combo, phụ kiện..."
+                className="glass-input w-full pl-11 pr-4"
               />
-              <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
+              <Search className="absolute left-4 top-1/2 h-4 w-4 -translate-y-1/2 text-coffee-700/60" />
             </div>
           </form>
 
-          {/* Desktop Menu */}
-          <div className="hidden md:flex items-center gap-6">
-            <Link
-              to="/"
-              className="text-gray-700 hover:text-coffee-600 font-medium transition-colors"
-            >
-              Trang chủ
-            </Link>
-            <Link
-              to="/products"
-              className="text-gray-700 hover:text-coffee-600 font-medium transition-colors"
-            >
-              Sản phẩm
-            </Link>
-            <Link
-              to="/policy/about"
-              className="text-gray-700 hover:text-coffee-600 font-medium transition-colors"
-            >
-              Về chúng tôi
-            </Link>
-            <Link
-              to="/policy/contact"
-              className="text-gray-700 hover:text-coffee-600 font-medium transition-colors"
-            >
-              Liên hệ
-            </Link>
+          <div className="hidden items-center gap-2 md:flex">
+            {navLinks.map((link) => (
+              <Link
+                key={link.to}
+                to={link.to}
+                className="rounded-2xl px-4 py-2 text-sm font-medium text-slate-700 hover:bg-white/35 hover:text-coffee-700"
+              >
+                {link.label}
+              </Link>
+            ))}
 
-            {/* Cart */}
             <Link to="/cart" className="relative">
-              <motion.div whileHover={{ scale: 1.1 }} whileTap={{ scale: 0.9 }}>
-                <ShoppingCart className="w-6 h-6 text-gray-700 hover:text-coffee-600 transition-colors" />
+              <motion.div
+                whileHover={{ scale: 1.04 }}
+                whileTap={{ scale: 0.96 }}
+                className="glass-card flex h-11 w-11 items-center justify-center rounded-2xl"
+              >
+                <ShoppingCart className="h-5 w-5 text-slate-700" />
                 {totalItems > 0 && (
                   <motion.span
                     initial={{ scale: 0 }}
                     animate={{ scale: 1 }}
-                    className="absolute -top-2 -right-2 bg-red-500 text-white text-xs font-bold rounded-full w-5 h-5 flex items-center justify-center"
+                    className="absolute -right-2 -top-2 flex h-5 min-w-5 items-center justify-center rounded-full bg-rose-500 px-1 text-[10px] font-bold text-white"
                   >
                     {totalItems > 99 ? "99+" : totalItems}
                   </motion.span>
@@ -149,21 +143,21 @@ const Navbar = () => {
               </motion.div>
             </Link>
 
-            {/* User Menu */}
             {user ? (
               <div className="relative">
                 <button
                   onClick={() => setIsUserMenuOpen(!isUserMenuOpen)}
-                  className="flex items-center gap-2 p-2 rounded-lg hover:bg-gray-100 transition-colors"
+                  className="glass-card flex items-center gap-3 rounded-2xl px-3 py-2 text-left"
                 >
-                  <div className="w-8 h-8 bg-coffee-600 rounded-full flex items-center justify-center">
-                    <span className="text-white font-semibold text-sm">
-                      {user.name?.charAt(0).toUpperCase() || "U"}
-                    </span>
+                  <div className="flex h-9 w-9 items-center justify-center rounded-full bg-coffee-700 text-sm font-semibold text-white shadow-lg">
+                    {user.name?.charAt(0).toUpperCase() || "U"}
                   </div>
-                  <span className="text-sm font-medium text-gray-700">
-                    {user.name}
-                  </span>
+                  <div>
+                    <span className="block text-sm font-semibold text-slate-800">
+                      {user.name}
+                    </span>
+                    <span className="block text-xs text-slate-500">Tài khoản</span>
+                  </div>
                 </button>
 
                 <AnimatePresence>
@@ -172,43 +166,41 @@ const Navbar = () => {
                       initial={{ opacity: 0, y: -10 }}
                       animate={{ opacity: 1, y: 0 }}
                       exit={{ opacity: 0, y: -10 }}
-                      className="absolute right-0 mt-2 w-48 bg-white rounded-lg shadow-lg py-2 border border-gray-100"
+                      className="glass-popover absolute right-0 mt-3 w-56 rounded-3xl p-2"
                     >
                       <Link
                         to="/profile"
                         onClick={() => setIsUserMenuOpen(false)}
-                        className="flex items-center gap-3 px-4 py-2 hover:bg-gray-50 transition-colors"
+                        className="flex items-center gap-3 rounded-2xl px-4 py-3 text-sm text-slate-700 hover:bg-white/35"
                       >
-                        <User className="w-4 h-4 text-gray-600" />
-                        <span className="text-sm text-gray-700">Tài khoản</span>
+                        <User className="h-4 w-4 text-coffee-700" />
+                        <span>Tài khoản</span>
                       </Link>
                       <Link
                         to="/profile/orders"
                         onClick={() => setIsUserMenuOpen(false)}
-                        className="flex items-center gap-3 px-4 py-2 hover:bg-gray-50 transition-colors"
+                        className="flex items-center gap-3 rounded-2xl px-4 py-3 text-sm text-slate-700 hover:bg-white/35"
                       >
-                        <Package className="w-4 h-4 text-gray-600" />
-                        <span className="text-sm text-gray-700">Đơn hàng</span>
+                        <Package className="h-4 w-4 text-coffee-700" />
+                        <span>Đơn hàng</span>
                       </Link>
                       {isEnterpriseUser && (
                         <Link
                           to="/admin"
                           onClick={() => setIsUserMenuOpen(false)}
-                          className="flex items-center gap-3 px-4 py-2 hover:bg-gray-50 transition-colors"
+                          className="flex items-center gap-3 rounded-2xl px-4 py-3 text-sm text-slate-700 hover:bg-white/35"
                         >
-                          <Settings className="w-4 h-4 text-gray-600" />
-                          <span className="text-sm text-gray-700">
-                            Quản trị
-                          </span>
+                          <Settings className="h-4 w-4 text-coffee-700" />
+                          <span>Quản trị</span>
                         </Link>
                       )}
-                      <hr className="my-2" />
+                      <div className="my-2 border-t border-white/25" />
                       <button
                         onClick={handleLogout}
-                        className="w-full flex items-center gap-3 px-4 py-2 hover:bg-red-50 transition-colors text-red-600"
+                        className="flex w-full items-center gap-3 rounded-2xl px-4 py-3 text-sm text-rose-600 hover:bg-rose-50/80"
                       >
-                        <LogOut className="w-4 h-4" />
-                        <span className="text-sm">Đăng xuất</span>
+                        <LogOut className="h-4 w-4" />
+                        <span>Đăng xuất</span>
                       </button>
                     </motion.div>
                   )}
@@ -217,126 +209,107 @@ const Navbar = () => {
             ) : (
               <Link
                 to="/login"
-                className="px-4 py-2 bg-coffee-600 text-white rounded-lg hover:bg-coffee-700 transition-colors font-medium"
+                className="glass-button px-5 py-2.5 text-sm font-semibold text-white"
               >
                 Đăng nhập
               </Link>
             )}
           </div>
 
-          {/* Mobile Menu Button */}
           <button
             onClick={() => setIsMobileMenuOpen(!isMobileMenuOpen)}
-            className="md:hidden p-2"
+            className="glass-card flex h-11 w-11 items-center justify-center rounded-2xl md:hidden"
           >
             {isMobileMenuOpen ? (
-              <X className="w-6 h-6 text-gray-700" />
+              <X className="h-6 w-6 text-slate-700" />
             ) : (
-              <Menu className="w-6 h-6 text-gray-700" />
+              <Menu className="h-6 w-6 text-slate-700" />
             )}
           </button>
         </div>
 
-        {/* Mobile Search */}
-        <form onSubmit={handleSearch} className="md:hidden mt-4 relative">
+        <form onSubmit={handleSearch} className="relative mt-4 md:hidden">
           <input
             type="text"
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
             placeholder="Tìm kiếm cà phê..."
-            className="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-coffee-500"
+            className="glass-input w-full pl-11 pr-4"
           />
-          <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-400" />
+          <Search className="absolute left-4 top-1/2 h-5 w-5 -translate-y-1/2 text-coffee-700/60" />
         </form>
 
-        {/* Mobile Menu */}
         <AnimatePresence>
           {isMobileMenuOpen && (
             <motion.div
               initial={{ opacity: 0, height: 0 }}
               animate={{ opacity: 1, height: "auto" }}
               exit={{ opacity: 0, height: 0 }}
-              className="md:hidden mt-4 pb-4 border-t border-gray-200 pt-4"
+              className="mt-4 overflow-hidden rounded-[24px] border border-white/20 bg-white/12 px-4 pb-4 pt-3 md:hidden"
             >
-              <Link
-                to="/"
-                onClick={() => setIsMobileMenuOpen(false)}
-                className="block py-2 text-gray-700 hover:text-coffee-600 font-medium"
-              >
-                Trang chủ
-              </Link>
-              <Link
-                to="/products"
-                onClick={() => setIsMobileMenuOpen(false)}
-                className="block py-2 text-gray-700 hover:text-coffee-600 font-medium"
-              >
-                Sản phẩm
-              </Link>
-              <Link
-                to="/policy/about"
-                onClick={() => setIsMobileMenuOpen(false)}
-                className="block py-2 text-gray-700 hover:text-coffee-600 font-medium"
-              >
-                Về chúng tôi
-              </Link>
-              <Link
-                to="/policy/contact"
-                onClick={() => setIsMobileMenuOpen(false)}
-                className="block py-2 text-gray-700 hover:text-coffee-600 font-medium"
-              >
-                Liên hệ
-              </Link>
-              <Link
-                to="/cart"
-                onClick={() => setIsMobileMenuOpen(false)}
-                className="block py-2 text-gray-700 hover:text-coffee-600 font-medium"
-              >
-                Giỏ hàng ({totalItems})
-              </Link>
-              {user ? (
-                <>
+              <div className="space-y-1">
+                {navLinks.map((link) => (
                   <Link
-                    to="/profile"
+                    key={link.to}
+                    to={link.to}
                     onClick={() => setIsMobileMenuOpen(false)}
-                    className="block py-2 text-gray-700 hover:text-coffee-600 font-medium"
+                    className="block rounded-2xl px-3 py-3 text-sm font-medium text-slate-700 hover:bg-white/35"
                   >
-                    Tài khoản
+                    {link.label}
                   </Link>
-                  <Link
-                    to="/profile/orders"
-                    onClick={() => setIsMobileMenuOpen(false)}
-                    className="block py-2 text-gray-700 hover:text-coffee-600 font-medium"
-                  >
-                    Đơn hàng
-                  </Link>
-                  {isEnterpriseUser && (
-                    <Link
-                      to="/admin"
-                      onClick={() => setIsMobileMenuOpen(false)}
-                      className="block py-2 text-gray-700 hover:text-coffee-600 font-medium"
-                    >
-                      Quản trị
-                    </Link>
-                  )}
-                  <button
-                    onClick={() => {
-                      handleLogout();
-                      setIsMobileMenuOpen(false);
-                    }}
-                    className="block w-full text-left py-2 text-red-600 font-medium"
-                  >
-                    Đăng xuất
-                  </button>
-                </>
-              ) : (
+                ))}
                 <Link
-                  to="/login"
+                  to="/cart"
                   onClick={() => setIsMobileMenuOpen(false)}
-                  className="block py-2 text-coffee-600 font-medium"
+                  className="block rounded-2xl px-3 py-3 text-sm font-medium text-slate-700 hover:bg-white/35"
                 >
-                  Đăng nhập
+                  Giỏ hàng ({totalItems})
                 </Link>
-              )}
+                {user ? (
+                  <>
+                    <Link
+                      to="/profile"
+                      onClick={() => setIsMobileMenuOpen(false)}
+                      className="block rounded-2xl px-3 py-3 text-sm font-medium text-slate-700 hover:bg-white/35"
+                    >
+                      Tài khoản
+                    </Link>
+                    <Link
+                      to="/profile/orders"
+                      onClick={() => setIsMobileMenuOpen(false)}
+                      className="block rounded-2xl px-3 py-3 text-sm font-medium text-slate-700 hover:bg-white/35"
+                    >
+                      Đơn hàng
+                    </Link>
+                    {isEnterpriseUser && (
+                      <Link
+                        to="/admin"
+                        onClick={() => setIsMobileMenuOpen(false)}
+                        className="block rounded-2xl px-3 py-3 text-sm font-medium text-slate-700 hover:bg-white/35"
+                      >
+                        Quản trị
+                      </Link>
+                    )}
+                    <button
+                      onClick={() => {
+                        handleLogout();
+                        setIsMobileMenuOpen(false);
+                      }}
+                      className="block w-full rounded-2xl px-3 py-3 text-left text-sm font-medium text-rose-600 hover:bg-rose-50/80"
+                    >
+                      Đăng xuất
+                    </button>
+                  </>
+                ) : (
+                  <Link
+                    to="/login"
+                    onClick={() => setIsMobileMenuOpen(false)}
+                    className="block rounded-2xl px-3 py-3 text-sm font-medium text-coffee-700 hover:bg-white/35"
+                  >
+                    Đăng nhập
+                  </Link>
+                )}
+              </div>
             </motion.div>
           )}
         </AnimatePresence>
