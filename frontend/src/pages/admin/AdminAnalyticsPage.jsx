@@ -58,12 +58,12 @@ const AdminAnalyticsPage = () => {
       const [ordersRes, productsRes, usersRes] = await Promise.all([
         orderAPI.getAllOrders(1, 500).catch(() => ({ data: [] })),
         productAPI.getAllProducts().catch(() => ({ data: [] })),
-        userAPI.getAllUsers().catch(() => ({ data: [] })),
+        userAPI.getAllUsers({ page: 1, limit: 500 }).catch(() => ({ data: [] })),
       ]);
 
       const orders = ordersRes.data || [];
       const products = productsRes.data || [];
-      const users = usersRes.data || [];
+      const users = usersRes.data || usersRes.users || [];
       
 
       // Calculate revenue over time
@@ -152,7 +152,9 @@ const AdminAnalyticsPage = () => {
         .filter((o) => o.status === "COMPLETED" || o.status === "completed")
         .reduce((sum, order) => sum + Number(order.totalAmount || 0), 0);
       const totalOrders = orders.length;
-      const totalCustomers = users.filter((u) => u.roleName === "user").length;
+      const totalCustomers = users.filter(
+        (u) => (u.roleCode || u.roleName || "").toLowerCase() === "user"
+      ).length;
       const averageOrderValue =
         totalOrders > 0 ? totalRevenue / totalOrders : 0;
       const conversionRate =

@@ -7,13 +7,10 @@ import {
   Shield,
   Mail,
   Phone,
-  Calendar,
 } from "lucide-react";
 import { userAPI } from "../../services";
 import useToastStore from "../../stores/useToastStore";
 import Input from "../../components/ui/Input";
-import Button from "../../components/ui/Button";
-import { formatDate } from "../../utils/formatDate";
 
 const AdminUsersPage = () => {
   const toast = useToastStore();
@@ -28,8 +25,8 @@ const AdminUsersPage = () => {
   const fetchUsers = async () => {
     setIsLoading(true);
     try {
-      const response = await userAPI.getAllUsers();
-      setUsers(response.data || []);
+      const response = await userAPI.getAllUsers({ page: 1, limit: 200 });
+      setUsers(response.data || response.users || []);
     } catch (error) {
       console.error("Error fetching users:", error);
       toast.error("Không thể tải danh sách người dùng");
@@ -45,7 +42,7 @@ const AdminUsersPage = () => {
     if (!confirm(`Bạn có chắc muốn ${action} người dùng này?`)) return;
 
     try {
-      await userAPI.updateUserStatus(userId, newStatus);
+      await userAPI.updateUserStatus(userId, newStatus === 1);
       toast.success(`Đã ${action} người dùng thành công`);
       fetchUsers();
     } catch (error) {
@@ -56,22 +53,22 @@ const AdminUsersPage = () => {
 
   const getRoleName = (roleId) => {
     const roleMap = {
-      "admin": "Admin",
-      "user": "Khách hàng",
-      "sale": "Nhân viên sale",
-      "hrm": "Nhân viên nhân sự",
-      "warehouse": "Nhân viên kho",
+      admin: "Admin",
+      user: "Khách hàng",
+      sale: "Nhân viên sale",
+      hrm: "Nhân viên nhân sự",
+      warehouse: "Nhân viên kho",
     };
     return roleMap[roleId] || "Không xác định";
   };
 
   const getRoleColor = (roleId) => {
     const colorMap = {
-      "admin": "bg-red-100 text-red-800",
-      "user": "bg-blue-100 text-blue-800",
-      "sale": "bg-green-100 text-green-800",
-      "hrm": "bg-purple-100 text-purple-800",
-      "warehouse": "bg-purple-100 text-purple-800",
+      admin: "bg-red-100 text-red-800",
+      user: "bg-blue-100 text-blue-800",
+      sale: "bg-green-100 text-green-800",
+      hrm: "bg-purple-100 text-purple-800",
+      warehouse: "bg-purple-100 text-purple-800",
     };
     return colorMap[roleId] || "bg-gray-100 text-gray-800";
   };
@@ -81,22 +78,28 @@ const AdminUsersPage = () => {
     return (
       user.name?.toLowerCase().includes(searchLower) ||
       user.email?.toLowerCase().includes(searchLower) ||
-      user.phone?.includes(searchTerm)
+      user.phoneNumber?.includes(searchTerm)
     );
   });
 
   const stats = {
     total: users.length,
-    active: users.filter((u) => u.isActive === 1 ).length,
-    inactive: users.filter((u) => u.isActive === 0 ).length,
-    admins: users.filter((u) => u.roleName === "admin" ).length,
-    users: users.filter((u) => u.roleName === "user" ).length,
-    staff: users.filter((u) => u.roleName !== "user" && u.roleName !== "admin" ).length,
+    active: users.filter((u) => u.isActive === 1).length,
+    inactive: users.filter((u) => u.isActive === 0).length,
+    admins: users.filter(
+      (u) => (u.roleCode || u.roleName || "").toLowerCase() === "admin"
+    ).length,
+    users: users.filter(
+      (u) => (u.roleCode || u.roleName || "").toLowerCase() === "user"
+    ).length,
+    staff: users.filter((u) => {
+      const roleKey = (u.roleCode || u.roleName || "").toLowerCase();
+      return roleKey !== "user" && roleKey !== "admin";
+    }).length,
   };
 
   return (
     <div className="space-y-6">
-      {/* Header */}
       <div>
         <h1 className="text-3xl font-bold text-gray-900">Quản Lý Người Dùng</h1>
         <p className="text-gray-600 mt-1">
@@ -104,7 +107,6 @@ const AdminUsersPage = () => {
         </p>
       </div>
 
-      {/* Stats Cards */}
       <div className="grid grid-cols-1 md:grid-cols-5 gap-6">
         <motion.div
           initial={{ opacity: 0, y: 20 }}
@@ -121,6 +123,7 @@ const AdminUsersPage = () => {
           </div>
           <p className="text-3xl font-bold text-gray-900">{stats.users}</p>
         </motion.div>
+
         <motion.div
           initial={{ opacity: 0, y: 20 }}
           animate={{ opacity: 1, y: 0 }}
@@ -136,6 +139,7 @@ const AdminUsersPage = () => {
           </div>
           <p className="text-3xl font-bold text-gray-900">{stats.staff}</p>
         </motion.div>
+
         <motion.div
           initial={{ opacity: 0, y: 20 }}
           animate={{ opacity: 1, y: 0 }}
@@ -150,6 +154,7 @@ const AdminUsersPage = () => {
           </div>
           <p className="text-3xl font-bold text-purple-600">{stats.admins}</p>
         </motion.div>
+
         <motion.div
           initial={{ opacity: 0, y: 20 }}
           animate={{ opacity: 1, y: 0 }}
@@ -183,7 +188,6 @@ const AdminUsersPage = () => {
         </motion.div>
       </div>
 
-      {/* Search */}
       <div className="bg-white rounded-lg shadow-sm p-4">
         <Input
           placeholder="Tìm kiếm theo tên, email hoặc số điện thoại..."
@@ -193,7 +197,6 @@ const AdminUsersPage = () => {
         />
       </div>
 
-      {/* Users Table */}
       <div className="bg-white rounded-lg shadow-sm overflow-hidden">
         {isLoading ? (
           <div className="flex items-center justify-center h-64">
@@ -216,9 +219,6 @@ const AdminUsersPage = () => {
                   <th className="px-6 py-4 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                     Vai Trò
                   </th>
-                  {/* <th className="px-6 py-4 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                    Ngày Tạo
-                  </th> */}
                   <th className="px-6 py-4 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                     Trạng Thái
                   </th>
@@ -232,8 +232,7 @@ const AdminUsersPage = () => {
                   filteredUsers.map((user) => {
                     const isActive =
                       user.isActive === 1 || user.is_active === 1;
-                    // console.log(user);
-                    const roleId = user.roleName;
+                    const roleId = (user.roleCode || user.roleName || "").toLowerCase();
 
                     return (
                       <tr key={user.id} className="hover:bg-gray-50">
@@ -279,12 +278,6 @@ const AdminUsersPage = () => {
                             {getRoleName(roleId)}
                           </span>
                         </td>
-                        {/* <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-600">
-                          <div className="flex items-center gap-2">
-                            <Calendar className="w-4 h-4" />
-                            {formatDate(user.createdAt || user.created_at)}
-                          </div>
-                        </td> */}
                         <td className="px-6 py-4 whitespace-nowrap">
                           <span
                             className={`px-3 py-1 rounded-full text-xs font-medium ${
@@ -297,7 +290,7 @@ const AdminUsersPage = () => {
                           </span>
                         </td>
                         <td className="px-6 py-4 whitespace-nowrap text-right">
-                          {roleId !== "admin" && ( // Don't allow banning admin
+                          {roleId !== "admin" ? (
                             <button
                               onClick={() =>
                                 handleToggleUserStatus(
@@ -323,8 +316,7 @@ const AdminUsersPage = () => {
                                 </>
                               )}
                             </button>
-                          )}
-                          {roleId === 1 && (
+                          ) : (
                             <span className="text-sm text-gray-400 italic">
                               Admin
                             </span>
@@ -336,7 +328,7 @@ const AdminUsersPage = () => {
                 ) : (
                   <tr>
                     <td
-                      colSpan="7"
+                      colSpan="6"
                       className="px-6 py-12 text-center text-gray-500"
                     >
                       {searchTerm

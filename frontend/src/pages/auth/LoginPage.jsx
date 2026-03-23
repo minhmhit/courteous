@@ -78,7 +78,7 @@ const LoginPage = () => {
 
         <form onSubmit={handleSubmit} className="space-y-4">
           <Input
-            label="Email hoáº·c username"
+            label="Email hoặc username"
             type="text"
             name="email"
             value={formData.email}

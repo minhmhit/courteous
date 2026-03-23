@@ -1,41 +1,54 @@
 import axiosInstance from "./axiosConfig";
 
 const userAPI = {
+  // Admin: Danh sách users
+  getAllUsers: async (params = {}) => {
+    return await axiosInstance.get("/admin/users", { params });
+  },
+
+  // Admin: Chi tiết user
+  getUserById: async (userId) => {
+    return await axiosInstance.get(`/admin/users/${userId}`);
+  },
 
   // Admin: Tạo user mới
-  registerUser: async (userData) => {
-    return await axiosInstance.post("/auth/register", userData, {
-      headers: { "Content-Type": "application/x-www-form-urlencoded" },
-    });
+  createUser: async (userData) => {
+    return await axiosInstance.post("/admin/users", userData);
   },
 
-  // Admin: Lấy tất cả users
-  getAllUsers: async () => {
-    return await axiosInstance.get("/auth/users/");
+  // Admin: Cập nhật user
+  updateUser: async (userId, userData) => {
+    return await axiosInstance.patch(`/admin/users/${userId}`, userData);
   },
 
-  // Admin: Ban/Unban user
+  // Admin: Xóa (soft delete)
+  deleteUser: async (userId) => {
+    return await axiosInstance.delete(`/admin/users/${userId}`);
+  },
+
+  // Admin: Kích hoạt / vô hiệu hóa
   updateUserStatus: async (userId, isActive) => {
-    return await axiosInstance.put(`/auth/users/${userId}/status`, {
+    return await axiosInstance.patch(`/admin/users/${userId}/active`, {
       isActive,
     });
   },
 
-  // Get user profile
+  // Self: Get profile
   getProfile: async () => {
-    return await axiosInstance.get("/auth/users/profile");
+    return await axiosInstance.get("/users/me");
   },
 
-  // Update user profile
+  // Self: Update profile
   updateProfile: async (profileData) => {
-    return await axiosInstance.put("/auth/users/profile", profileData);
+    return await axiosInstance.patch("/users/me", profileData);
   },
 
-  // Change password
-  changePassword: async (currentPassword, newPassword) => {
-    return await axiosInstance.put("/auth/users/password", {
+  // Self: Change password
+  changePassword: async (currentPassword, newPassword, confirmPassword) => {
+    return await axiosInstance.patch("/auth/me/password", {
       currentPassword,
       newPassword,
+      confirmPassword,
     });
   },
 };

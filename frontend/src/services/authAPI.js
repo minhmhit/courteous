@@ -14,7 +14,6 @@ const authAPI = {
       headers: { "Content-Type": "application/x-www-form-urlencoded" },
     });
 
-
     // Lưu token vào localStorage
     const payload = response?.data || response;
     const token = payload?.accessToken || payload?.token;
@@ -63,18 +62,16 @@ const authAPI = {
 
   // Admin: Lấy tất cả người dùng
   getAllUsers: async (page = 1, limit = 10) => {
-    return await axiosInstance.get("/auth/users/", {
+    return await axiosInstance.get("/admin/users", {
       params: { page, limit },
     });
   },
 
   // Admin: Cập nhật trạng thái người dùng (ban/unban)
   updateUserStatus: async (userId, isActive) => {
-    return await axiosInstance.put(
-      `/auth/users/${userId}/status`,
-      { isActive },
-      { headers: { "Content-Type": "application/x-www-form-urlencoded" } }
-    );
+    return await axiosInstance.patch(`/admin/users/${userId}/active`, {
+      isActive,
+    });
   },
 
   // Kiểm tra token còn hợp lệ không

@@ -10,6 +10,8 @@ import importAPI from "./importAPI";
 import couponAPI from "./couponAPI";
 import receiptAPI from "./receiptAPI";
 import paymentAPI from "./paymentAPI";
+import attendanceAPI from "./attendanceAPI";
+import employeeAPI from "./employeeAPI";
 
 export {
   authAPI,
@@ -24,6 +26,8 @@ export {
   couponAPI,
   receiptAPI,
   paymentAPI,
+  attendanceAPI,
+  employeeAPI,
 };
 
 export default {
@@ -39,4 +43,6 @@ export default {
   coupon: couponAPI,
   receipt: receiptAPI,
   payment: paymentAPI,
+  attendance: attendanceAPI,
+  employee: employeeAPI,
 };

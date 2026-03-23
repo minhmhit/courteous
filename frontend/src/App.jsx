@@ -36,6 +36,9 @@ const SalesDashboardPage = lazy(() => import("./pages/admin/SalesDashboardPage")
 const HRMDashboardPage = lazy(() => import("./pages/admin/HRMDashboardPage"));
 const AdminCouponsPage = lazy(() => import("./pages/admin/AdminCouponsPage"));
 const AdminSuppliersPage = lazy(() => import("./pages/admin/AdminSuppliersPage"));
+const AdminAttendancePage = lazy(() =>
+  import("./pages/admin/AdminAttendancePage")
+);
 
 const queryClient = new QueryClient({
   defaultOptions: {
@@ -241,6 +244,14 @@ function App() {
                 element={
                   <ProtectedRoute allowedRoles={[1, 5]}>
                     <AdminHRMPage />
+                  </ProtectedRoute>
+                }
+              />
+              <Route
+                path="attendance"
+                element={
+                  <ProtectedRoute allowedRoles={[1, 5]}>
+                    <AdminAttendancePage />
                   </ProtectedRoute>
                 }
               />

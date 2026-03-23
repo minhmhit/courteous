@@ -44,12 +44,12 @@ const DashboardPage = () => {
       const [ordersRes, productsRes, usersRes] = await Promise.all([
         orderAPI.getAllOrders(1, 100).catch(() => ({ data: [] })),
         productAPI.getAllProducts().catch(() => ({ data: [] })),
-        userAPI.getAllUsers().catch(() => ({ data: [] })),
+        userAPI.getAllUsers({ page: 1, limit: 500 }).catch(() => ({ data: [] })),
       ]);
 
       const orders = ordersRes.data || [];
       const products = productsRes.data || [];
-      const users = usersRes.data || [];
+      const users = usersRes.data || usersRes.users || [];
 
       // Calculate stats
       const totalRevenue = orders.reduce(

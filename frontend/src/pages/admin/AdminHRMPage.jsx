@@ -43,11 +43,14 @@ const AdminHRMPage = () => {
   const fetchEmployees = async () => {
     setIsLoading(true);
     try {
-      const response = await userAPI.getAllUsers();
-      // Filter out customers (role 0) to show only staff
-      const staffOnly = (response.data || []).filter(
-        (user) => user.roleName !== "user"
-      );
+      const response = await userAPI.getAllUsers({ page: 1, limit: 200 });
+      const list = response?.data || response?.users || [];
+      const staffOnly = Array.isArray(list)
+        ? list.filter((user) => {
+            const roleCode = (user.roleCode || user.roleName || "").toLowerCase();
+            return roleCode !== "user";
+          })
+        : [];
       setEmployees(staffOnly);
     } catch (error) {
       console.error("Error fetching employees:", error);
@@ -66,7 +69,7 @@ const AdminHRMPage = () => {
         password: "", // Don't show password
         fullName: employee.fullName || employee.full_name || "",
         phoneNumber: employee.phone || "",
-        role: employee.role || "",
+        roleId: employee.roleId || employee.role_id || "",
         address: employee.address || "",
       });
     } else {
@@ -89,7 +92,7 @@ const AdminHRMPage = () => {
     setFormData({
       email: "",
       password: "",
-      name: "",
+      fullName: "",
       phoneNumber: "",
       roleId: "",
       address: "",
@@ -111,6 +114,7 @@ const AdminHRMPage = () => {
         ...formData,
         name: formData.fullName,
       };
+      delete submitData.fullName;
       // console.log("Submitting Employee Data:", submitData); // Debug log
 
       if (editingEmployee) {
@@ -122,7 +126,7 @@ const AdminHRMPage = () => {
         toast.success("Cập nhật nhân viên thành công");
       } else {
         // Create new employee
-        await userAPI.registerUser(submitData);
+        await userAPI.createUser(submitData);
         toast.success("Thêm nhân viên thành công");
         // console.log(submitData);
       }
@@ -154,6 +158,7 @@ const AdminHRMPage = () => {
       warehouse: "Nhân Viên Kho",
       sale: "Nhân Viên Bán Hàng",
       hrm: "Quản Lý",
+      user: "Khách hàng",
     };
     return roleMap[role] || "Nhân Viên";
   };
@@ -164,6 +169,7 @@ const AdminHRMPage = () => {
       warehouse: "bg-blue-100 text-blue-800",
       sale: "bg-green-100 text-green-800",
       hrm: "bg-orange-100 text-orange-800",
+      user: "bg-gray-100 text-gray-800",
     };
     return colorMap[role] || "bg-gray-100 text-gray-800";
   };
@@ -175,7 +181,8 @@ const AdminHRMPage = () => {
       employee.fullName?.toLowerCase().includes(searchTerm.toLowerCase()) ||
       employee.full_name?.toLowerCase().includes(searchTerm.toLowerCase());
 
-    const roleMatch = roleFilter === "all" || employee.roleName === roleFilter;
+    const roleKey = (employee.roleCode || employee.roleName || "").toLowerCase();
+    const roleMatch = roleFilter === "all" || roleKey === roleFilter;
 
     return searchMatch && roleMatch;
   });
@@ -185,22 +192,30 @@ const AdminHRMPage = () => {
     {
       value: "admin",
       label: "Admin",
-      count: employees.filter((e) => e.roleName === "admin").length,
+      count: employees.filter(
+        (e) => (e.roleCode || e.roleName || "").toLowerCase() === "admin"
+      ).length,
     },
     {
       value: "warehouse",
       label: "Kho",
-      count: employees.filter((e) => e.roleName === "warehouse").length,
+      count: employees.filter(
+        (e) => (e.roleCode || e.roleName || "").toLowerCase() === "warehouse"
+      ).length,
     },
     {
       value: "sale",
       label: "Bán Hàng",
-      count: employees.filter((e) => e.roleName === "sale").length,
+      count: employees.filter(
+        (e) => (e.roleCode || e.roleName || "").toLowerCase() === "sale"
+      ).length,
     },
     {
       value: "hrm",
       label: "Quản Lý",
-      count: employees.filter((e) => e.roleName === "hrm").length,
+      count: employees.filter(
+        (e) => (e.roleCode || e.roleName || "").toLowerCase() === "hrm"
+      ).length,
     },
   ];
 
@@ -244,38 +259,46 @@ const AdminHRMPage = () => {
             <div>
               <p className="text-sm text-gray-600">Admin</p>
               <p className="text-2xl font-bold text-gray-900">
-                {employees.filter((e) => e.roleName === "admin").length}
+                {
+                  employees.filter(
+                    (e) => (e.roleCode || e.roleName || "").toLowerCase() === "admin"
+                  ).length
+                }
               </p>
             </div>
           </div>
         </div>
         <div className="bg-white rounded-xl shadow-sm p-6 border border-gray-100">
-          <div className="p-3 bg-green-100 rounded-lg">
-            <Award className="w-6 h-6 text-green-600" />
-          </div>
-          <div className="mt-3">
-            <p className="text-sm text-gray-600">Nhân Viên Hoạt Động</p>
-            <p className="text-2xl font-bold text-gray-900">
-              {employees.filter((e) => e.isActive !== 0).length}
-            </p>
+          <div className="flex items-center gap-4">
+            <div className="p-3 bg-green-100 rounded-lg">
+              <Award className="w-6 h-6 text-green-600" />
+            </div>
+            <div>
+              <p className="text-sm text-gray-600">Nhân Viên Hoạt Động</p>
+              <p className="text-2xl font-bold text-gray-900">
+                {employees.filter((e) => e.isActive !== 0).length}
+              </p>
+            </div>
           </div>
         </div>
 
         <div className="bg-white rounded-xl shadow-sm p-6 border border-gray-100">
-          <div className="p-3 bg-orange-100 rounded-lg">
-            <Calendar className="w-6 h-6 text-orange-600" />
-          </div>
-          <div className="mt-3">
-            <p className="text-sm text-gray-600">Tháng Này</p>
-            <p className="text-2xl font-bold text-gray-900">
-              {new Date().toLocaleDateString("vi-VN", { month: "long" })}
-            </p>
+          <div className="flex items-center gap-4">
+            <div className="p-3 bg-orange-100 rounded-lg">
+              <Calendar className="w-6 h-6 text-orange-600" />
+            </div>
+            <div>
+              <p className="text-sm text-gray-600">Tháng Này</p>
+              <p className="text-2xl font-bold text-gray-900">
+                {new Date().toLocaleDateString("vi-VN", { month: "long" })}
+              </p>
+            </div>
           </div>
         </div>
       </div>
 
       {/* Filters */}
-      <div className="bg-white rounded-lg shadow-sm p-4">
+      <div className="glass-card rounded-2xl p-4">
         <div className="flex items-center gap-3 mb-4">
           <Clock className="w-5 h-5 text-gray-500" />
           {roleOptions.map((option) => (
@@ -284,8 +307,8 @@ const AdminHRMPage = () => {
               onClick={() => setRoleFilter(option.value)}
               className={`px-4 py-2 rounded-lg font-medium transition-colors ${
                 roleFilter === option.value
-                  ? "bg-coffee-600 text-white"
-                  : "bg-gray-100 text-gray-700 hover:bg-gray-200"
+                  ? "bg-coffee-600 text-white shadow-[0_12px_30px_rgba(85,50,27,0.25)]"
+                  : "bg-white/55 text-gray-700 hover:bg-white/70 border border-white/40"
               }`}
             >
               {option.label} ({option.count})
@@ -302,14 +325,14 @@ const AdminHRMPage = () => {
       </div>
 
       {/* Employees Table */}
-      <div className="bg-white rounded-lg shadow-sm overflow-hidden">
+      <div className="admin-table-shell">
         {isLoading ? (
           <div className="flex items-center justify-center h-64">
             <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-coffee-600"></div>
           </div>
         ) : (
           <table className="w-full">
-            <thead className="bg-gray-50">
+            <thead className="bg-white/60">
               <tr>
                 <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">
                   Nhân Viên
@@ -328,10 +351,10 @@ const AdminHRMPage = () => {
                 </th>
               </tr>
             </thead>
-            <tbody className="divide-y divide-gray-200">
+            <tbody className="divide-y divide-white/60">
               {filteredEmployees.length > 0 ? (
                 filteredEmployees.map((employee) => (
-                  <tr key={employee.id} className="hover:bg-gray-50">
+                  <tr key={employee.id} className="hover:bg-white/40">
                     <td className="px-6 py-4">
                       <div>
                         <p className="font-bold text-gray-900">
@@ -359,10 +382,12 @@ const AdminHRMPage = () => {
                     <td className="px-6 py-4">
                       <span
                         className={`px-3 py-1 rounded-full text-xs font-medium ${getRoleBadgeColor(
-                          employee.roleName
+                          (employee.roleCode || employee.roleName || "").toLowerCase()
                         )}`}
                       >
-                        {getRoleName(employee.roleName)}
+                        {getRoleName(
+                          (employee.roleCode || employee.roleName || "").toLowerCase()
+                        )}
                       </span>
                     </td>
                     <td className="px-6 py-4">

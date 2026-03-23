@@ -41,16 +41,16 @@ const HRMDashboardPage = () => {
     setIsLoading(true);
     try {
       const usersRes = await userAPI
-        .getAllUsers(1, 100)
+        .getAllUsers({ page: 1, limit: 200 })
         .catch(() => ({ data: [] }));
 
       // Normalize data
       const usersData = Array.isArray(usersRes.data)
         ? usersRes.data
-        : usersRes.data?.users || [];
+        : usersRes.data?.users || usersRes.users || [];
 
       const employees = usersData.filter(
-        (u) => (u.roleName) !== "user"
+        (u) => (u.roleCode || u.roleName || "").toLowerCase() !== "user"
       );
       
 
@@ -72,17 +72,17 @@ const HRMDashboardPage = () => {
 
       // Calculate role distribution
       const roleMap = {
-        "user": { name: "Guest", color: "#9ca3af" },
-        "admin": { name: "Admin", color: "#ef4444" },
-        "warehouse": { name: "Warehouse", color: "#8b5cf6" },
-        "sale": { name: "Sales", color: "#3b82f6" },
-        "hrm": { name: "HRM", color: "#10b981" },
+        user: { name: "Guest", color: "#9ca3af" },
+        admin: { name: "Admin", color: "#ef4444" },
+        warehouse: { name: "Warehouse", color: "#8b5cf6" },
+        sale: { name: "Sales", color: "#3b82f6" },
+        hrm: { name: "HRM", color: "#10b981" },
       };
 
       const roleCounts = employees.reduce((acc, emp) => {
-        const roleId = emp.roleName;
-        if (roleMap[roleId]) {
-          acc[roleId] = (acc[roleId] || 0) + 1;
+        const roleKey = (emp.roleCode || emp.roleName || "").toLowerCase();
+        if (roleMap[roleKey]) {
+          acc[roleKey] = (acc[roleKey] || 0) + 1;
         }
         return acc;
       }, {});
@@ -244,7 +244,6 @@ const HRMDashboardPage = () => {
             </div>
           </div>
           <div className="p-6">
-            {console.log(recentEmployees)}
             {recentEmployees.length > 0 ? (
               <div className="space-y-3">
                 {recentEmployees.map((employee, index) => (

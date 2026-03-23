@@ -99,6 +99,14 @@
     -webkit-backdrop-filter: blur(20px);
   }
 
+  .glass-card-neutral {
+    background: linear-gradient(180deg, rgba(255, 255, 255, 0.66), rgba(255, 255, 255, 0.36));
+    border: 1px solid rgba(255, 255, 255, 0.5);
+    box-shadow: var(--glass-shadow-soft);
+    backdrop-filter: blur(22px) saturate(180%);
+    -webkit-backdrop-filter: blur(22px) saturate(180%);
+  }
+
   .admin-card {
     @apply glass-card rounded-[28px] p-6;
   }
