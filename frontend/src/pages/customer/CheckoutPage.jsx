@@ -559,7 +559,7 @@ const CheckoutPage = () => {
                           {appliedCoupon.code}
                         </p>
                         <p className="text-xs text-green-600">
-                          Giảm {appliedCoupon.discountPercentage}%
+                          Giảm {appliedCoupon.discountPercent}%
                         </p>
                       </div>
                       <button
@@ -600,9 +600,7 @@ const CheckoutPage = () => {
                   </div>
                   {appliedCoupon && (
                     <div className="flex justify-between text-green-600">
-                      <span>
-                        Giảm giá ({appliedCoupon.discountPercentage}%)
-                      </span>
+                      <span>Giảm giá ({appliedCoupon.discountPercent}%)</span>
                       <span>-{formatCurrency(discountAmount)}</span>
                     </div>
                   )}
