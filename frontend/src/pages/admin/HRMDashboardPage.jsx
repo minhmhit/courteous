@@ -283,7 +283,7 @@ const HRMDashboardPage = () => {
 
       {/* Quick Actions */}
       <div className="bg-gradient-to-r from-coffee-600 to-coffee-800 rounded-xl p-8 text-white">
-        <h2 className="text-2xl font-bold mb-4">Thao Tác Nhanh</h2>
+        <h2 className="text-2xl font-bold mb-4">Thao tác nhanh</h2>
         <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
           <Link
             to="/admin/hrm"

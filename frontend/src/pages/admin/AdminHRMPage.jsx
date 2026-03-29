@@ -14,14 +14,17 @@ import {
   Phone,
   Shield,
 } from "lucide-react";
-import { userAPI } from "../../services";
+import { departmentAPI, employeeAPI, positionAPI } from "../../services";
 import useToastStore from "../../stores/useToastStore";
 import Button from "../../components/ui/Button";
 import Input from "../../components/ui/Input";
+import { formatCurrency } from "../../utils/formatDate";
 
 const AdminHRMPage = () => {
   const toast = useToastStore();
   const [employees, setEmployees] = useState([]);
+  const [departments, setDepartments] = useState([]);
+  const [positions, setPositions] = useState([]);
   const [isLoading, setIsLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState("");
   const [roleFilter, setRoleFilter] = useState("all");
@@ -34,24 +37,27 @@ const AdminHRMPage = () => {
     phoneNumber: "",
     roleId: "",
     address: "",
+    departmentId: "",
+    positionId: "",
+    baseSalary: "",
+    roleEffectiveDate: "",
   });
 
   useEffect(() => {
     fetchEmployees();
+    fetchDepartments();
+    fetchPositions();
   }, []);
 
   const fetchEmployees = async () => {
     setIsLoading(true);
     try {
-      const response = await userAPI.getAllUsers({ page: 1, limit: 200 });
-      const list = response?.data || response?.users || [];
-      const staffOnly = Array.isArray(list)
-        ? list.filter((user) => {
-            const roleCode = (user.roleCode || user.roleName || "").toLowerCase();
-            return roleCode !== "user";
-          })
-        : [];
-      setEmployees(staffOnly);
+      const response = await employeeAPI.getAllEmployees({
+        page: 1,
+        limit: 200,
+      });
+      const list = response?.data || response?.employees || response?.items || [];
+      setEmployees(Array.isArray(list) ? list : []);
     } catch (error) {
       console.error("Error fetching employees:", error);
       toast.error("Không thể tải danh sách nhân viên");
@@ -60,18 +66,95 @@ const AdminHRMPage = () => {
     }
   };
 
-  const handleOpenModal = (employee = null) => {
+  const fetchDepartments = async () => {
+    try {
+      const response = await departmentAPI.getAllDepartments();
+      const list = response?.data || response?.departments || response || [];
+      setDepartments(Array.isArray(list) ? list : []);
+    } catch (error) {
+      console.error("Error fetching departments:", error);
+    }
+  };
+
+  const fetchPositions = async () => {
+    try {
+      const response = await positionAPI.getAllPositions();
+      const list = response?.data || response?.positions || response || [];
+      setPositions(Array.isArray(list) ? list : []);
+    } catch (error) {
+      console.error("Error fetching positions:", error);
+    }
+  };
+
+  const handleOpenModal = async (employee = null) => {
     if (employee) {
       setEditingEmployee(employee);
       setFormData({
-        username: employee.username || "",
-        email: employee.email || "",
-        password: "", // Don't show password
-        fullName: employee.fullName || employee.full_name || "",
-        phoneNumber: employee.phone || "",
-        roleId: employee.roleId || employee.role_id || "",
-        address: employee.address || "",
+        email: employee.email || employee.user_email || employee.user?.email || "",
+        password: "",
+        fullName:
+          employee.name ||
+          employee.fullName ||
+          employee.employee_name ||
+          employee.user_name ||
+          "",
+        phoneNumber:
+          employee.phoneNumber || employee.phone || employee.user_phone || "",
+        roleId:
+          employee.roleId ||
+          employee.role_id ||
+          employee.user?.roleId ||
+          employee.user?.role_id ||
+          "",
+        address: employee.address || employee.user_address || "",
+        departmentId:
+          employee.departmentId ||
+          employee.department_id ||
+          employee.department?.id ||
+          "",
+        positionId:
+          employee.positionId ||
+          employee.position_id ||
+          employee.position?.id ||
+          "",
+        baseSalary:
+          employee.baseSalary ||
+          employee.base_salary ||
+          employee.currentSalary ||
+          employee.current_salary ||
+          employee.positionSalary ||
+          employee.position?.baseSalary ||
+          "",
+        roleEffectiveDate:
+          employee.roleEffectiveDate ||
+          employee.effectiveDate ||
+          employee.positionEffectiveDate ||
+          "",
       });
+
+      try {
+        const historyRes = await employeeAPI.getPositionHistory(employee.id);
+        const historyList =
+          historyRes?.data || historyRes?.items || historyRes?.history || [];
+        if (Array.isArray(historyList) && historyList.length > 0) {
+          const latest = [...historyList].sort((a, b) => {
+            const da = new Date(a.effectiveDate || a.effective_date || a.startDate || 0).getTime();
+            const db = new Date(b.effectiveDate || b.effective_date || b.startDate || 0).getTime();
+            return db - da;
+          })[0];
+          setFormData((prev) => ({
+            ...prev,
+            positionId:
+              latest.positionId || latest.position_id || latest.position?.id || prev.positionId,
+            baseSalary:
+              latest.baseSalary || latest.base_salary || latest.salary || prev.baseSalary,
+            roleEffectiveDate:
+              latest.effectiveDate || latest.effective_date || latest.startDate || prev.roleEffectiveDate,
+          }));
+        }
+      } catch (error) {
+        console.error("Error fetching position history:", error);
+      }
     } else {
       setEditingEmployee(null);
       setFormData({
@@ -81,6 +164,10 @@ const AdminHRMPage = () => {
         phoneNumber: "",
         roleId: "",
         address: "",
+        departmentId: "",
+        positionId: "",
+        baseSalary: "",
+        roleEffectiveDate: "",
       });
     }
     setShowModal(true);
@@ -96,13 +183,15 @@ const AdminHRMPage = () => {
       phoneNumber: "",
       roleId: "",
       address: "",
+      departmentId: "",
+      positionId: "",
+      baseSalary: "",
+      roleEffectiveDate: "",
     });
   };
 
   const handleSubmit = async (e) => {
     e.preventDefault();
-
-   
 
     if (!editingEmployee && !formData.password) {
       toast.error("Vui lòng nhập mật khẩu cho nhân viên mới");
@@ -110,25 +199,61 @@ const AdminHRMPage = () => {
     }
 
     try {
-      const submitData = {
-        ...formData,
+      const payload = {
+        email: formData.email,
+        password: formData.password,
         name: formData.fullName,
+        phoneNumber: formData.phoneNumber,
+        roleId: formData.roleId ? Number(formData.roleId) : undefined,
+        address: formData.address,
+        departmentId: formData.departmentId
+          ? Number(formData.departmentId)
+          : undefined,
+        positionId: formData.positionId ? Number(formData.positionId) : undefined,
+        baseSalary: formData.baseSalary ? Number(formData.baseSalary) : undefined,
+        effectiveDate: formData.roleEffectiveDate || undefined,
       };
-      delete submitData.fullName;
-      // console.log("Submitting Employee Data:", submitData); // Debug log
+
+      const submitData = Object.fromEntries(
+        Object.entries(payload).filter(
+          ([, value]) => value !== "" && value !== undefined && value !== null
+        )
+      );
 
       if (editingEmployee) {
-        // Update - don't send password if empty
         if (!formData.password) {
           delete submitData.password;
         }
-        await userAPI.updateUser(editingEmployee.id, submitData);
+        await employeeAPI.updateEmployee(editingEmployee.id, submitData);
+
+        if (formData.roleEffectiveDate && formData.positionId) {
+          await employeeAPI.addPositionHistory(editingEmployee.id, {
+            positionId: Number(formData.positionId),
+            baseSalary: Number(formData.baseSalary || 0),
+            effectiveDate: formData.roleEffectiveDate,
+          });
+        }
+
         toast.success("Cập nhật nhân viên thành công");
       } else {
-        // Create new employee
-        await userAPI.createUser(submitData);
+        const res = await employeeAPI.createEmployee(submitData);
+        const payloadRes = res?.data || res;
+        const newEmployeeId =
+          payloadRes?.id ||
+          payloadRes?.employeeId ||
+          payloadRes?.employee?.id ||
+          payloadRes?.userId ||
+          null;
+
+        if (newEmployeeId && formData.roleEffectiveDate && formData.positionId) {
+          await employeeAPI.addPositionHistory(newEmployeeId, {
+            positionId: Number(formData.positionId),
+            baseSalary: Number(formData.baseSalary || 0),
+            effectiveDate: formData.roleEffectiveDate,
+          });
+        }
+
         toast.success("Thêm nhân viên thành công");
-        // console.log(submitData);
       }
       handleCloseModal();
       fetchEmployees();
@@ -143,12 +268,15 @@ const AdminHRMPage = () => {
     if (!confirm("Bạn có chắc muốn xóa nhân viên này?")) return;
 
     try {
-      await userAPI.deleteUser(employeeId);
-      toast.success("Xóa nhân viên thành công");
+      await employeeAPI.updateEmployeeStatus(employeeId, {
+        status: "TERMINATED",
+        isActive: 0,
+      });
+      toast.success("Đã cập nhật trạng thái nhân viên");
       fetchEmployees();
     } catch (error) {
       console.error("Error deleting employee:", error);
-      toast.error("Không thể xóa nhân viên");
+      toast.error("Không thể cập nhật nhân viên");
     }
   };
 
@@ -174,14 +302,58 @@ const AdminHRMPage = () => {
     return colorMap[role] || "bg-gray-100 text-gray-800";
   };
 
+  const getRoleKey = (employee) => {
+    return (
+      employee.roleCode ||
+      employee.roleName ||
+      employee.user?.roleCode ||
+      employee.user?.roleName ||
+      employee.role?.code ||
+      employee.role?.name ||
+      ""
+    ).toLowerCase();
+  };
+
+  const getBaseSalary = (employee) => {
+    const value =
+      employee.baseSalary ||
+      employee.base_salary ||
+      employee.currentSalary ||
+      employee.current_salary ||
+      employee.positionSalary ||
+      employee.position?.baseSalary ||
+      employee.position?.salary ||
+      0;
+    return Number(value || 0);
+  };
+
+  const getStatusLabel = (employee) => {
+    const status =
+      employee.status ||
+      employee.employee_status ||
+      employee.user_status ||
+      (employee.isActive === 0 ? "INACTIVE" : "ACTIVE");
+    const normalized = String(status).toUpperCase();
+    if (["INACTIVE", "TERMINATED", "RESIGNED"].includes(normalized)) {
+      return { label: "Đã khóa", className: "bg-red-100 text-red-800" };
+    }
+    if (["ON_LEAVE"].includes(normalized)) {
+      return { label: "Đang nghỉ", className: "bg-yellow-100 text-yellow-800" };
+    }
+    return { label: "Hoạt động", className: "bg-green-100 text-green-800" };
+  };
+
   const filteredEmployees = employees.filter((employee) => {
     const searchMatch =
       employee.username?.toLowerCase().includes(searchTerm.toLowerCase()) ||
       employee.email?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      employee.user_email?.toLowerCase().includes(searchTerm.toLowerCase()) ||
       employee.fullName?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      employee.full_name?.toLowerCase().includes(searchTerm.toLowerCase());
+      employee.full_name?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      employee.name?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      employee.user_name?.toLowerCase().includes(searchTerm.toLowerCase());
 
-    const roleKey = (employee.roleCode || employee.roleName || "").toLowerCase();
+    const roleKey = getRoleKey(employee);
     const roleMatch = roleFilter === "all" || roleKey === roleFilter;
 
     return searchMatch && roleMatch;
@@ -193,28 +365,28 @@ const AdminHRMPage = () => {
       value: "admin",
       label: "Admin",
       count: employees.filter(
-        (e) => (e.roleCode || e.roleName || "").toLowerCase() === "admin"
+        (e) => getRoleKey(e) === "admin"
       ).length,
     },
     {
       value: "warehouse",
       label: "Kho",
       count: employees.filter(
-        (e) => (e.roleCode || e.roleName || "").toLowerCase() === "warehouse"
+        (e) => getRoleKey(e) === "warehouse"
       ).length,
     },
     {
       value: "sale",
       label: "Bán Hàng",
       count: employees.filter(
-        (e) => (e.roleCode || e.roleName || "").toLowerCase() === "sale"
+        (e) => getRoleKey(e) === "sale"
       ).length,
     },
     {
       value: "hrm",
       label: "Quản Lý",
       count: employees.filter(
-        (e) => (e.roleCode || e.roleName || "").toLowerCase() === "hrm"
+        (e) => getRoleKey(e) === "hrm"
       ).length,
     },
   ];
@@ -261,7 +433,7 @@ const AdminHRMPage = () => {
               <p className="text-2xl font-bold text-gray-900">
                 {
                   employees.filter(
-                    (e) => (e.roleCode || e.roleName || "").toLowerCase() === "admin"
+                    (e) => getRoleKey(e) === "admin"
                   ).length
                 }
               </p>
@@ -276,7 +448,16 @@ const AdminHRMPage = () => {
             <div>
               <p className="text-sm text-gray-600">Nhân Viên Hoạt Động</p>
               <p className="text-2xl font-bold text-gray-900">
-                {employees.filter((e) => e.isActive !== 0).length}
+                {
+                  employees.filter((e) => {
+                    const status =
+                      e.status ||
+                      e.employee_status ||
+                      e.user_status ||
+                      (e.isActive === 0 ? "INACTIVE" : "ACTIVE");
+                    return String(status).toUpperCase() !== "INACTIVE";
+                  }).length
+                }
               </p>
             </div>
           </div>
@@ -344,6 +525,9 @@ const AdminHRMPage = () => {
                   Vai Trò
                 </th>
                 <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">
+                  Lương Cơ Bản
+                </th>
+                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">
                   Trạng Thái
                 </th>
                 <th className="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase">
@@ -353,15 +537,28 @@ const AdminHRMPage = () => {
             </thead>
             <tbody className="divide-y divide-white/60">
               {filteredEmployees.length > 0 ? (
-                filteredEmployees.map((employee) => (
+                filteredEmployees.map((employee) => {
+                  const displayName =
+                    employee.name ||
+                    employee.fullName ||
+                    employee.employee_name ||
+                    employee.user_name ||
+                    "N/A";
+                  const displayEmail =
+                    employee.email || employee.user_email || employee.user?.email || "";
+                  const displayPhone =
+                    employee.phone || employee.phoneNumber || employee.user_phone || "";
+                  const roleKey = getRoleKey(employee);
+                  const statusInfo = getStatusLabel(employee);
+                  return (
                   <tr key={employee.id} className="hover:bg-white/40">
                     <td className="px-6 py-4">
                       <div>
                         <p className="font-bold text-gray-900">
-                          {employee.name}
+                          {displayName}
                         </p>
                         <p className="text-sm text-gray-600">
-                          @{employee.name}
+                          @{displayName}
                         </p>
                       </div>
                     </td>
@@ -369,12 +566,12 @@ const AdminHRMPage = () => {
                       <div className="space-y-1">
                         <div className="flex items-center gap-2 text-sm text-gray-600">
                           <Mail className="w-4 h-4" />
-                          {employee.email}
+                          {displayEmail}
                         </div>
-                        {employee.phone && (
+                        {displayPhone && (
                           <div className="flex items-center gap-2 text-sm text-gray-600">
                             <Phone className="w-4 h-4" />
-                            {employee.phone}
+                            {displayPhone}
                           </div>
                         )}
                       </div>
@@ -382,24 +579,23 @@ const AdminHRMPage = () => {
                     <td className="px-6 py-4">
                       <span
                         className={`px-3 py-1 rounded-full text-xs font-medium ${getRoleBadgeColor(
-                          (employee.roleCode || employee.roleName || "").toLowerCase()
+                          roleKey
                         )}`}
                       >
-                        {getRoleName(
-                          (employee.roleCode || employee.roleName || "").toLowerCase()
-                        )}
+                        {getRoleName(roleKey)}
                       </span>
                     </td>
                     <td className="px-6 py-4">
-                      {employee.isActive === 0 ? (
-                        <span className="px-3 py-1 bg-red-100 text-red-800 rounded-full text-xs font-medium">
-                          Đã khóa
-                        </span>
-                      ) : (
-                        <span className="px-3 py-1 bg-green-100 text-green-800 rounded-full text-xs font-medium">
-                          Hoạt động
-                        </span>
-                      )}
+                      <span className="text-sm font-semibold text-gray-900">
+                        {formatCurrency(getBaseSalary(employee))}
+                      </span>
+                    </td>
+                    <td className="px-6 py-4">
+                      <span
+                        className={`px-3 py-1 rounded-full text-xs font-medium ${statusInfo.className}`}
+                      >
+                        {statusInfo.label}
+                      </span>
                     </td>
                     <td className="px-6 py-4 text-right">
                       <div className="flex items-center justify-end gap-2">
@@ -418,11 +614,11 @@ const AdminHRMPage = () => {
                       </div>
                     </td>
                   </tr>
-                ))
+                )})
               ) : (
                 <tr>
                   <td
-                    colSpan="5"
+                    colSpan="6"
                     className="px-6 py-12 text-center text-gray-500"
                   >
                     Không tìm thấy nhân viên nào
@@ -538,6 +734,74 @@ const AdminHRMPage = () => {
                         <option value={4}>Nhân Viên Bán Hàng</option>
                         <option value={5}>Quản Lý</option>
                       </select>
+                    </div>
+                    <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
+                      <div>
+                        <label className="block text-sm font-medium text-gray-700 mb-2">
+                          Phòng ban
+                        </label>
+                        <select
+                          value={formData.departmentId}
+                          onChange={(e) =>
+                            setFormData({
+                              ...formData,
+                              departmentId: e.target.value,
+                            })
+                          }
+                          className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-coffee-500"
+                        >
+                          <option value="">-- Chọn phòng ban --</option>
+                          {departments.map((dept) => (
+                            <option key={dept.id} value={dept.id}>
+                              {dept.name || dept.department_name}
+                            </option>
+                          ))}
+                        </select>
+                      </div>
+                      <div>
+                        <label className="block text-sm font-medium text-gray-700 mb-2">
+                          Chức vụ
+                        </label>
+                        <select
+                          value={formData.positionId}
+                          onChange={(e) =>
+                            setFormData({
+                              ...formData,
+                              positionId: e.target.value,
+                            })
+                          }
+                          className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-coffee-500"
+                        >
+                          <option value="">-- Chọn chức vụ --</option>
+                          {positions.map((pos) => (
+                            <option key={pos.id} value={pos.id}>
+                              {pos.name || pos.position_name}
+                            </option>
+                          ))}
+                        </select>
+                      </div>
+                    </div>
+                    <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
+                      <Input
+                        label="Lương cơ bản (VNĐ)"
+                        name="baseSalary"
+                        type="number"
+                        value={formData.baseSalary}
+                        onChange={(e) =>
+                          setFormData({ ...formData, baseSalary: e.target.value })
+                        }
+                        min="0"
+                        step="1000"
+                        icon={<Award className="w-5 h-5" />}
+                      />
+                      <Input
+                        label="Hiệu lực chức vụ"
+                        type="date"
+                        value={formData.roleEffectiveDate}
+                        onChange={(e) =>
+                          setFormData({ ...formData, roleEffectiveDate: e.target.value })
+                        }
+                      />
                     </div>
                   </div>
 

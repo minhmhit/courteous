@@ -55,7 +55,7 @@ const AdminUsersPage = () => {
     const roleMap = {
       admin: "Admin",
       user: "Khách hàng",
-      sale: "Nhân viên sale",
+      sale: "Nhân viên bán hàng",
       hrm: "Nhân viên nhân sự",
       warehouse: "Nhân viên kho",
     };
@@ -134,7 +134,7 @@ const AdminUsersPage = () => {
               <Shield className="w-5 h-5 text-blue-600" />
             </div>
             <h3 className="text-sm font-medium text-gray-600">
-              Tổng Nhân viên
+              Tổng Nhân Viên
             </h3>
           </div>
           <p className="text-3xl font-bold text-gray-900">{stats.staff}</p>

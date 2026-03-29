@@ -25,6 +25,15 @@ const AdminProductsPage = () => {
   const [suppliers, setSuppliers] = useState([]);
   const [isLoading, setIsLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState("");
+  const [showAdvanced, setShowAdvanced] = useState(false);
+  const [filters, setFilters] = useState({
+    categoryId: "all",
+    supplierId: "all",
+    stock: "all",
+    priceMin: "",
+    priceMax: "",
+    sort: "name-asc",
+  });
   const [showModal, setShowModal] = useState(false);
   const [editingProduct, setEditingProduct] = useState(null);
   const [selectedImageFile, setSelectedImageFile] = useState(null);
@@ -34,6 +43,7 @@ const AdminProductsPage = () => {
     name: "",
     description: "",
     price: "",
+    costPrice: "",
     categoryId: "",
     supplierId: "",
     imageUrl: "",
@@ -93,6 +103,17 @@ const AdminProductsPage = () => {
     }
   };
 
+  const resetFilters = () => {
+    setFilters({
+      categoryId: "all",
+      supplierId: "all",
+      stock: "all",
+      priceMin: "",
+      priceMax: "",
+      sort: "name-asc",
+    });
+  };
+
   const handleOpenModal = (product = null) => {
     if (product) {
       setEditingProduct(product);
@@ -100,6 +121,11 @@ const AdminProductsPage = () => {
         name: product.name || "",
         description: product.description || "",
         price: product.price || "",
+        costPrice:
+          product.costPrice ||
+          product.cost_price ||
+          product.importPrice ||
+          "",
         categoryId: product.categoryId || product.category_id || "",
         supplierId: product.supplierId || product.supplier_id || "",
         imageUrl: product.imageUrl || product.image_url || "",
@@ -111,6 +137,7 @@ const AdminProductsPage = () => {
         name: "",
         description: "",
         price: "",
+        costPrice: "",
         categoryId: "",
         supplierId: "",
         imageUrl: "",
@@ -128,6 +155,7 @@ const AdminProductsPage = () => {
       name: "",
       description: "",
       price: "",
+      costPrice: "",
       categoryId: "",
       supplierId: "",
       imageUrl: "",
@@ -174,7 +202,11 @@ const AdminProductsPage = () => {
         }
       }
       if (editingProduct) {
-        await productAPI.updateProduct(editingProduct.id, formData);
+        const productId =
+          editingProduct.id ||
+          editingProduct.productId ||
+          editingProduct.product_id;
+        await productAPI.updateProduct(productId, formData);
         toast.success("Cập nhật sản phẩm thành công");
       } else {
         await productAPI.createProduct(formData);
@@ -192,7 +224,9 @@ const AdminProductsPage = () => {
     if (!confirm("Bạn có chắc muốn xóa sản phẩm này?")) return;
 
     try {
-      await productAPI.deleteProduct(productId);
+      const resolvedId =
+        productId?.id || productId?.productId || productId?.product_id || productId;
+      await productAPI.deleteProduct(resolvedId);
       toast.success("Xóa sản phẩm thành công");
       fetchProducts();
     } catch (error) {
@@ -206,6 +240,7 @@ const AdminProductsPage = () => {
       "Mã SP": product.id,
       "Tên Sản Phẩm": product.name,
       "Danh Mục": product.categoryName,
+      "Giá Nhập": product.costPrice || product.cost_price || "",
       "Giá": product.price,
       "Tồn Kho": product.stockQuantity || 0,
       "Nhà Cung Cấp": product.supplierName || "",
@@ -227,9 +262,78 @@ const AdminProductsPage = () => {
     return category?.name || "N/A";
   };
 
-  const filteredProducts = products.filter((product) =>
-    product.name?.toLowerCase().includes(searchTerm.toLowerCase())
-  );
+  const supplierList = Array.isArray(suppliers?.data)
+    ? suppliers.data
+    : Array.isArray(suppliers?.suppliers)
+    ? suppliers.suppliers
+    : Array.isArray(suppliers)
+    ? suppliers
+    : [];
+
+  const getSupplierName = (supplierId) => {
+    const supplier = supplierList.find((s) => s.id === supplierId);
+    return supplier?.name || "N/A";
+  };
+
+  const filteredProducts = products
+    .filter((product) => {
+      const term = searchTerm.trim().toLowerCase();
+      const nameMatch = product.name?.toLowerCase().includes(term);
+      const codeMatch = String(product.id || product.productId || "").includes(term);
+      const supplierMatch =
+        product.supplierName?.toLowerCase().includes(term) || false;
+      const categoryMatch =
+        product.categoryName?.toLowerCase().includes(term) || false;
+
+      const searchOk = !term || nameMatch || codeMatch || supplierMatch || categoryMatch;
+
+      const categoryOk =
+        filters.categoryId === "all" ||
+        String(product.categoryId || product.category_id) ===
+          String(filters.categoryId);
+
+      const supplierOk =
+        filters.supplierId === "all" ||
+        String(product.supplierId || product.supplier_id) ===
+          String(filters.supplierId);
+
+      const stockQty = Number(product.stockQuantity || 0);
+      const stockOk =
+        filters.stock === "all" ||
+        (filters.stock === "in" && stockQty > 10) ||
+        (filters.stock === "low" && stockQty > 0 && stockQty <= 10) ||
+        (filters.stock === "out" && stockQty === 0);
+
+      const priceValue = Number(product.price || 0);
+      const minOk =
+        !filters.priceMin || priceValue >= Number(filters.priceMin);
+      const maxOk =
+        !filters.priceMax || priceValue <= Number(filters.priceMax);
+
+      return searchOk && categoryOk && supplierOk && stockOk && minOk && maxOk;
+    })
+    .sort((a, b) => {
+      const sortKey = filters.sort;
+      if (sortKey === "name-asc") {
+        return (a.name || "").localeCompare(b.name || "");
+      }
+      if (sortKey === "name-desc") {
+        return (b.name || "").localeCompare(a.name || "");
+      }
+      if (sortKey === "price-asc") {
+        return Number(a.price || 0) - Number(b.price || 0);
+      }
+      if (sortKey === "price-desc") {
+        return Number(b.price || 0) - Number(a.price || 0);
+      }
+      if (sortKey === "stock-asc") {
+        return Number(a.stockQuantity || 0) - Number(b.stockQuantity || 0);
+      }
+      if (sortKey === "stock-desc") {
+        return Number(b.stockQuantity || 0) - Number(a.stockQuantity || 0);
+      }
+      return 0;
+    });
 
   return (
     <div className="space-y-6">
@@ -251,12 +355,12 @@ const AdminProductsPage = () => {
         </div>
       </div>
 
-      {/* Search */}
+      {/* Search & Filters */}
       <div className="bg-white rounded-lg shadow-sm p-4">
-        <div className="flex gap-3">
-          <div className="flex-1">
+        <div className="flex flex-wrap items-center gap-3">
+          <div className="flex-1 min-w-[220px]">
             <Input
-              placeholder="Tìm kiếm sản phẩm..."
+              placeholder="Tìm kiếm sản phẩm, nhà cung cấp..."
               value={searchTerm}
               onChange={(e) => setSearchTerm(e.target.value)}
               onKeyPress={(e) => e.key === "Enter" && handleSearch()}
@@ -266,10 +370,17 @@ const AdminProductsPage = () => {
           <Button onClick={handleSearch} variant="primary">
             Tìm Kiếm
           </Button>
-          {searchTerm && (
+          <Button
+            onClick={() => setShowAdvanced((prev) => !prev)}
+            variant="outline"
+          >
+            {showAdvanced ? "Ẩn Bộ Lọc" : "Bộ Lọc Nâng Cao"}
+          </Button>
+          {(searchTerm || filters.categoryId !== "all" || filters.supplierId !== "all" || filters.stock !== "all" || filters.priceMin || filters.priceMax) && (
             <Button
               onClick={() => {
                 setSearchTerm("");
+                resetFilters();
                 fetchProducts();
               }}
               variant="outline"
@@ -278,6 +389,112 @@ const AdminProductsPage = () => {
             </Button>
           )}
         </div>
+
+        {showAdvanced && (
+          <div className="mt-4 grid grid-cols-1 gap-3 md:grid-cols-2 lg:grid-cols-3">
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-2">
+                Danh Mục
+              </label>
+              <select
+                value={filters.categoryId}
+                onChange={(e) =>
+                  setFilters((prev) => ({ ...prev, categoryId: e.target.value }))
+                }
+                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-coffee-500"
+              >
+                <option value="all">Tất cả danh mục</option>
+                {categories.map((cat) => (
+                  <option key={cat.id} value={cat.id}>
+                    {cat.name}
+                  </option>
+                ))}
+              </select>
+            </div>
+
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-2">
+                Nhà cung cấp
+              </label>
+              <select
+                value={filters.supplierId}
+                onChange={(e) =>
+                  setFilters((prev) => ({ ...prev, supplierId: e.target.value }))
+                }
+                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-coffee-500"
+              >
+                <option value="all">Tất cả nhà cung cấp</option>
+                {(suppliers?.data || []).map((sup) => (
+                  <option key={sup.id} value={sup.id}>
+                    {sup.name}
+                  </option>
+                ))}
+              </select>
+            </div>
+
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-2">
+                Tồn kho
+              </label>
+              <select
+                value={filters.stock}
+                onChange={(e) =>
+                  setFilters((prev) => ({ ...prev, stock: e.target.value }))
+                }
+                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-coffee-500"
+              >
+                <option value="all">Tất cả</option>
+                <option value="in">Còn nhiều</option>
+                <option value="low">Sắp hết</option>
+                <option value="out">Hết hàng</option>
+              </select>
+            </div>
+
+            <Input
+              label="Giá từ"
+              type="number"
+              min="0"
+              step="1000"
+              value={filters.priceMin}
+              onChange={(e) =>
+                setFilters((prev) => ({ ...prev, priceMin: e.target.value }))
+              }
+              placeholder="VD: 50000"
+            />
+
+            <Input
+              label="Giá đến"
+              type="number"
+              min="0"
+              step="1000"
+              value={filters.priceMax}
+              onChange={(e) =>
+                setFilters((prev) => ({ ...prev, priceMax: e.target.value }))
+              }
+              placeholder="VD: 500000"
+            />
+
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-2">
+                S?p x?p
+              </label>
+              <select
+                value={filters.sort}
+                onChange={(e) =>
+                  setFilters((prev) => ({ ...prev, sort: e.target.value }))
+                }
+                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-coffee-500"
+              >
+                <option value="name-asc">Tên (A→Z)</option>
+                <option value="name-desc">Tên (Z→A)</option>
+                <option value="price-asc">Giá tăng dần</option>
+                <option value="price-desc">Giá giảm dần</option>
+                <option value="stock-asc">Tồn kho tăng dần</option>
+                <option value="stock-desc">Tồn kho giảm dần</option>
+              </select>
+            </div>
+          </div>
+        )}
       </div>
 
       {/* Products Table */}
@@ -298,7 +515,13 @@ const AdminProductsPage = () => {
                     Danh Mục
                   </th>
                   <th className="px-6 py-4 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                    Giá
+                    Nhà Cung Cấp
+                  </th>
+                  <th className="px-6 py-4 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                    Giá Nhập
+                  </th>
+                  <th className="px-6 py-4 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                    Giá Bán
                   </th>
                   <th className="px-6 py-4 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                     Tồn Kho
@@ -335,6 +558,20 @@ const AdminProductsPage = () => {
                         )}
                       </td>
                       <td className="px-6 py-4">
+                        <span className="text-sm text-gray-700">
+                          {getSupplierName(
+                            product.supplierId || product.supplier_id
+                          )}
+                        </span>
+                      </td>
+                      <td className="px-6 py-4">
+                        <span className="font-semibold text-slate-700">
+                          {formatPrice(
+                            product.costPrice || product.cost_price || 0
+                          )}
+                        </span>
+                      </td>
+                      <td className="px-6 py-4">
                         <span className="font-semibold text-coffee-600">
                           {formatPrice(product.price)}
                         </span>
@@ -361,7 +598,7 @@ const AdminProductsPage = () => {
                           Sửa
                         </button>
                         <button
-                          onClick={() => handleDelete(product.id)}
+                          onClick={() => handleDelete(product)}
                           className="inline-flex items-center px-3 py-2 text-sm font-medium text-red-600 hover:text-red-800 hover:bg-red-50 rounded-lg transition-colors"
                         >
                           <Trash2 className="w-4 h-4 mr-1" />
@@ -373,7 +610,7 @@ const AdminProductsPage = () => {
                 ) : (
                   <tr>
                     <td
-                      colSpan="5"
+                      colSpan="7"
                       className="px-6 py-12 text-center text-gray-500"
                     >
                       {searchTerm
@@ -456,9 +693,23 @@ const AdminProductsPage = () => {
                       />
                     </div>
 
-                    <div className="grid grid-cols-2 gap-4">
+                    <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                       <Input
-                        label="Giá (VNĐ)"
+                        label="Giá Nhập (VNĐ)"
+                        name="costPrice"
+                        type="number"
+                        value={formData.costPrice}
+                        onChange={(e) =>
+                          setFormData({ ...formData, costPrice: e.target.value })
+                        }
+                        icon={<DollarSign className="w-5 h-5" />}
+                        placeholder="150000"
+                        min="0"
+                        step="1000"
+                      />
+
+                      <Input
+                        label="Giá Bán (VNĐ)"
                         name="price"
                         type="number"
                         value={formData.price}
@@ -468,6 +719,8 @@ const AdminProductsPage = () => {
                         required
                         icon={<DollarSign className="w-5 h-5" />}
                         placeholder="200000"
+                        min="0"
+                        step="1000"
                       />
 
                       <div>
@@ -512,7 +765,7 @@ const AdminProductsPage = () => {
                       >
                         <option value="">Chọn nhà cung cấp</option>
 
-                         {suppliers?.data.map((sup) => (
+                         {supplierList.map((sup) => (
                           <option key={sup.id} value={sup.id}>
                             {sup.name}
                           </option>

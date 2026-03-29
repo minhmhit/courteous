@@ -283,13 +283,7 @@ const AdminOrdersPage = () => {
                           </span>
                         </td>
                         <td className="px-6 py-4 whitespace-nowrap text-right space-x-2">
-                          <button
-                            onClick={() => handleViewDetail(order.id)}
-                            className="inline-flex items-center px-3 py-2 text-sm font-medium text-blue-600 hover:text-blue-800 hover:bg-blue-50 rounded-lg transition-colors"
-                          >
-                            <Eye className="w-4 h-4 mr-1" />
-                            Chi tiết
-                          </button>
+
 
                           {order.status !== "COMPLETED" &&
                             order.status !== "completed" &&
@@ -307,6 +301,13 @@ const AdminOrdersPage = () => {
                                 <option value="CANCELLED">Hủy</option>
                               </select>
                             )}
+                                                      <button
+                            onClick={() => handleViewDetail(order.id)}
+                            className="inline-flex items-center px-3 py-2 text-sm font-medium text-blue-600 hover:text-blue-800 hover:bg-blue-50 rounded-lg transition-colors"
+                          >
+                            <Eye className="w-4 h-4 mr-1" />
+                            Chi tiết
+                          </button>
                         </td>
                       </tr>
                     );
@@ -401,31 +402,48 @@ const AdminOrdersPage = () => {
                     </div>
                   </div>
 
-                  <div className="border-t pt-4">
+                                    <div className="border-t pt-4">
                     <h4 className="font-semibold mb-3">Sản phẩm</h4>
-                    <div className="space-y-2">
-                      {(selectedOrder.items || []).map((item, index) => (
-                        <div
-                          key={index}
-                          className="flex justify-between items-center py-2 border-b"
-                        >
-                          <div className="flex-1">
-                            <p className="font-medium">
-                              {item.productName}
-                            </p>
-                            <p className="text-sm text-gray-600">
-                              Số lượng: {item.quantity}
-                            </p>
-                          </div>
-                          <p className="font-semibold">
-                            {formatCurrency(item.unitPrice * item.quantity)}
-                          </p>
-                        </div>
-                      ))}
+                    <div className="overflow-hidden rounded-lg border border-gray-200">
+                      <table className="w-full">
+                        <thead className="bg-gray-50">
+                          <tr>
+                            <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">
+                              Sản phẩm
+                            </th>
+                            <th className="px-4 py-3 text-right text-xs font-medium text-gray-500 uppercase">
+                              Số lượng
+                            </th>
+                            <th className="px-4 py-3 text-right text-xs font-medium text-gray-500 uppercase">
+                              Giá bán
+                            </th>
+                            <th className="px-4 py-3 text-right text-xs font-medium text-gray-500 uppercase">
+                              Thành tiền
+                            </th>
+                          </tr>
+                        </thead>
+                        <tbody className="divide-y divide-gray-200">
+                          {(selectedOrder.items || []).map((item, index) => (
+                            <tr key={index}>
+                              <td className="px-4 py-3 text-gray-900">
+                                {item.productName}
+                              </td>
+                              <td className="px-4 py-3 text-right text-gray-900">
+                                {item.quantity}
+                              </td>
+                              <td className="px-4 py-3 text-right text-gray-900">
+                                {formatCurrency(item.unitPrice)}
+                              </td>
+                              <td className="px-4 py-3 text-right font-semibold text-gray-900">
+                                {formatCurrency(item.unitPrice * item.quantity)}
+                              </td>
+                            </tr>
+                          ))}
+                        </tbody>
+                      </table>
                     </div>
                   </div>
-
-                  <div className="border-t pt-4">
+<div className="border-t pt-4">
                     <div className="flex justify-between items-center text-lg font-bold">
                       <span>Tổng cộng</span>
                       <span className="text-coffee-600">

@@ -23,6 +23,11 @@ const AdminSuppliersPage = () => {
   const [suppliers, setSuppliers] = useState([]);
   const [isLoading, setIsLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState("");
+  const [showAdvanced, setShowAdvanced] = useState(false);
+  const [filters, setFilters] = useState({
+    status: "all",
+    sort: "name-asc",
+  });
   const [showModal, setShowModal] = useState(false);
   const [editingSupplier, setEditingSupplier] = useState(null);
   const [formData, setFormData] = useState({
@@ -40,10 +45,8 @@ const AdminSuppliersPage = () => {
     setIsLoading(true);
     try {
       const response = await supplierAPI.getAllSuppliers();
-      const supplierData = Array.isArray(response.suppliers.data)
-        ? response.suppliers.data.filter(supplier => supplier.isActive === 1)
-        : [];
-        // const isActive = supplierData.filter(supplier => supplier.isActive === 1);
+      const raw = response?.suppliers?.data || response?.suppliers || response?.data || response || [];
+      const supplierData = Array.isArray(raw) ? raw : [];
       setSuppliers(supplierData);
     } catch (error) {
       console.error("Error fetching suppliers:", error);
@@ -122,7 +125,12 @@ const AdminSuppliersPage = () => {
     if (!confirm("Bạn có chắc muốn xóa nhà cung cấp này?")) return;
 
     try {
-      await supplierAPI.deleteSupplier(supplierId);
+      const resolvedId =
+        supplierId?.id ||
+        supplierId?.supplierId ||
+        supplierId?.supplier_id ||
+        supplierId;
+      await supplierAPI.deleteSupplier(resolvedId);
       toast.success("Xóa nhà cung cấp thành công");
       fetchSuppliers();
     } catch (error) {
@@ -131,15 +139,40 @@ const AdminSuppliersPage = () => {
     }
   };
 
-  const filteredSuppliers = suppliers.filter((supplier) => {
-    const searchLower = searchTerm.toLowerCase();
-    return (
-      supplier.name.toLowerCase().includes(searchLower) ||
-      supplier.code.toLowerCase().includes(searchLower) ||
-      supplier.address.toLowerCase().includes(searchLower) ||
-      supplier.contactInfo?.toLowerCase().includes(searchLower)
-    );
-  });
+  const filteredSuppliers = suppliers
+    .filter((supplier) => {
+      const searchLower = searchTerm.trim().toLowerCase();
+      const searchMatch =
+        !searchLower ||
+        supplier.name?.toLowerCase().includes(searchLower) ||
+        supplier.code?.toLowerCase().includes(searchLower) ||
+        supplier.address?.toLowerCase().includes(searchLower) ||
+        supplier.contactInfo?.toLowerCase().includes(searchLower);
+
+      const status =
+        supplier.isActive === 0 || supplier.isActive === false
+          ? "inactive"
+          : "active";
+      const statusMatch =
+        filters.status === "all" || filters.status === status;
+
+      return searchMatch && statusMatch;
+    })
+    .sort((a, b) => {
+      if (filters.sort === "name-asc") {
+        return (a.name || "").localeCompare(b.name || "");
+      }
+      if (filters.sort === "name-desc") {
+        return (b.name || "").localeCompare(a.name || "");
+      }
+      if (filters.sort === "code-asc") {
+        return (a.code || "").localeCompare(b.code || "");
+      }
+      if (filters.sort === "code-desc") {
+        return (b.code || "").localeCompare(a.code || "");
+      }
+      return 0;
+    });
 
   return (
     <div className="space-y-6">
@@ -183,23 +216,93 @@ const AdminSuppliersPage = () => {
             <div>
               <p className="text-sm text-gray-600">Đang Hoạt Động</p>
               <p className="text-2xl font-bold text-gray-900">
-                {suppliers.length}
+                {suppliers.filter((s) => s.isActive !== 0 && s.isActive !== false).length}
               </p>
             </div>
           </div>
         </div>
 
-        
+        <div className="bg-white rounded-xl shadow-sm p-6 border border-gray-100">
+          <div className="flex items-center gap-4">
+            <div className="p-3 bg-red-100 rounded-lg">
+              <Users className="w-6 h-6 text-red-600" />
+            </div>
+            <div>
+              <p className="text-sm text-gray-600">Ngừng Hoạt Động</p>
+              <p className="text-2xl font-bold text-gray-900">
+                {suppliers.filter((s) => s.isActive === 0 || s.isActive === false).length}
+              </p>
+            </div>
+          </div>
+        </div>
       </div>
 
-      {/* Search */}
+      {/* Search & Filters */}
       <div className="bg-white rounded-lg shadow-sm p-4">
-        <Input
-          placeholder="Tìm kiếm nhà cung cấp..."
-          value={searchTerm}
-          onChange={(e) => setSearchTerm(e.target.value)}
-          icon={<Search className="w-5 h-5" />}
-        />
+        <div className="flex flex-wrap items-center gap-3">
+          <div className="flex-1 min-w-[220px]">
+            <Input
+              placeholder="Tìm kiếm nhà cung cấp..."
+              value={searchTerm}
+              onChange={(e) => setSearchTerm(e.target.value)}
+              icon={<Search className="w-5 h-5" />}
+            />
+          </div>
+          <Button
+            onClick={() => setShowAdvanced((prev) => !prev)}
+            variant="outline"
+          >
+            {showAdvanced ? "Ẩn Bộ Lọc" : "Bộ Lọc Nâng Cao"}
+          </Button>
+          {(searchTerm || filters.status !== "all") && (
+            <Button
+              onClick={() => {
+                setSearchTerm("");
+                setFilters({ status: "all", sort: "name-asc" });
+              }}
+              variant="outline"
+            >
+              Xóa Lọc
+            </Button>
+          )}
+        </div>
+        {showAdvanced && (
+          <div className="mt-4 grid grid-cols-1 gap-3 md:grid-cols-2">
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-2">
+                Trạng thái
+              </label>
+              <select
+                value={filters.status}
+                onChange={(e) =>
+                  setFilters((prev) => ({ ...prev, status: e.target.value }))
+                }
+                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-coffee-500"
+              >
+                <option value="all">Tất cả</option>
+                <option value="active">Đang hoạt động</option>
+                <option value="inactive">Ngừng hoạt động</option>
+              </select>
+            </div>
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-2">
+                Sắp xếp
+              </label>
+              <select
+                value={filters.sort}
+                onChange={(e) =>
+                  setFilters((prev) => ({ ...prev, sort: e.target.value }))
+                }
+                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-coffee-500"
+              >
+                <option value="name-asc">Tên (A→Z)</option>
+                <option value="name-desc">Tên (Z→A)</option>
+                <option value="code-asc">Mã tăng dần</option>
+                <option value="code-desc">Mã giảm dần</option>
+              </select>
+            </div>
+          </div>
+        )}
       </div>
 
       {/* Suppliers Table */}
@@ -270,7 +373,7 @@ const AdminSuppliersPage = () => {
                           <Edit className="w-4 h-4" />
                         </button>
                         <button
-                          onClick={() => handleDelete(supplier.id)}
+                          onClick={() => handleDelete(supplier)}
                           className="p-2 text-red-600 hover:bg-red-50 rounded-lg transition-colors"
                         >
                           <Trash2 className="w-4 h-4" />

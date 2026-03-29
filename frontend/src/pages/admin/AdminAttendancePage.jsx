@@ -76,7 +76,7 @@ const AdminAttendancePage = () => {
         page: 1,
         limit: 200,
       });
-      const list = response?.data || response?.employees || [];
+      const list = response?.data || response?.employees || response?.items || [];
       setEmployees(Array.isArray(list) ? list : []);
     } catch (error) {
       console.error("Error fetching employees:", error);
@@ -85,7 +85,9 @@ const AdminAttendancePage = () => {
 
   const getEmployeeInfo = (item) => {
     const employeeId = item.employeeId || item.employee_id;
-    const employee = employees.find((emp) => emp.id === employeeId);
+    const employee = employees.find(
+      (emp) => (emp.id || emp.employeeId) === employeeId
+    );
     return {
       id: employeeId,
       name:
@@ -94,9 +96,34 @@ const AdminAttendancePage = () => {
         item.name ||
         employee?.user_name ||
         employee?.name ||
+        employee?.fullName ||
+        employee?.employee_name ||
+        employee?.user?.name ||
         "N/A",
-      email: employee?.user_email,
+      email: employee?.user_email || employee?.email || employee?.user?.email,
     };
+  };
+
+  const getEmployeeOptionLabel = (emp) => {
+    const name =
+      emp.name ||
+      emp.fullName ||
+      emp.employee_name ||
+      emp.userName ||
+      emp.user_name ||
+      emp.user?.name ||
+      emp.user?.fullName ||
+      "";
+    const email =
+      emp.email ||
+      emp.user_email ||
+      emp.userEmail ||
+      emp.user?.email ||
+      "";
+    if (name && email) return `${name} - ${email}`;
+    if (name) return name;
+    if (email) return email;
+    return `Nhân viên #${emp.userId || emp.id || emp.employeeId || "?"}`;
   };
 
   const formatTime = (value) => {
@@ -444,11 +471,20 @@ const AdminAttendancePage = () => {
                         required
                       >
                         <option value="">-- Chọn nhân viên --</option>
-                        {employees.map((emp) => (
-                          <option key={emp.id} value={emp.id}>
-                            {emp.user_name || emp.name} - {emp.user_email}
-                          </option>
-                        ))}
+                        {employees.map((emp) => {
+                          // console.log(emp)
+                          const value =
+                            emp.userId ||
+                            emp.id ||
+                            emp.employeeId ||
+                            emp.userName ||
+                            "";
+                          return (
+                            <option key={`${value}_${emp.id || emp.employeeId || emp.userId || emp.userName || Math.random()}`} value={value}>
+                              {getEmployeeOptionLabel(emp)}
+                            </option>
+                          );
+                        })}
                       </select>
                     </div>
 

@@ -23,6 +23,7 @@ import useToastStore from "../../stores/useToastStore";
 import Button from "../../components/ui/Button";
 import Input from "../../components/ui/Input";
 import { formatDate, formatCurrency } from "../../utils/formatDate";
+import { exportToCsv } from "../../utils/exportCSV";
 
 const AdminWarehousePage = () => {
   const toast = useToastStore();
@@ -39,6 +40,13 @@ const AdminWarehousePage = () => {
   const [showDetailModal, setShowDetailModal] = useState(false);
   const [selectedProduct, setSelectedProduct] = useState(null);
   const [selectedImport, setSelectedImport] = useState(null);
+  const [importReportType, setImportReportType] = useState("month");
+  const [importReportMonth, setImportReportMonth] = useState(
+    new Date().toISOString().slice(0, 7)
+  );
+  const [importReportYear, setImportReportYear] = useState(
+    new Date().getFullYear()
+  );
   const [importFormData, setImportFormData] = useState({
     supplierId: "",
     importItems: [{ productId: "", quantity: "", price: "" }],
@@ -253,6 +261,67 @@ const AdminWarehousePage = () => {
       })
     : [];
 
+  const importReportRows = (() => {
+    const rows = [];
+    if (importReportType === "month") {
+      const [yearStr, monthStr] = importReportMonth.split("-");
+      const year = Number(yearStr);
+      const monthIndex = Number(monthStr) - 1;
+      const daysInMonth = new Date(year, monthIndex + 1, 0).getDate();
+      for (let day = 1; day <= daysInMonth; day++) {
+        const start = new Date(year, monthIndex, day);
+        const end = new Date(year, monthIndex, day, 23, 59, 59, 999);
+        const dayImports = imports.filter((item) => {
+          const date = new Date(item.import_date || item.importDate);
+          return date >= start && date <= end;
+        });
+        const totalAmount = dayImports.reduce(
+          (sum, item) => sum + Number(item.total_amount || item.totalAmount || 0),
+          0
+        );
+        if (dayImports.length > 0) {
+          rows.push({
+            label: start.toLocaleDateString("vi-VN", {
+              day: "2-digit",
+              month: "2-digit",
+            }),
+            totalImports: dayImports.length,
+            totalAmount,
+          });
+        }
+      }
+      return rows;
+    }
+
+    const year = Number(importReportYear);
+    for (let month = 0; month < 12; month++) {
+      const start = new Date(year, month, 1);
+      const end = new Date(year, month + 1, 0, 23, 59, 59, 999);
+      const monthImports = imports.filter((item) => {
+        const date = new Date(item.import_date || item.importDate);
+        return date >= start && date <= end;
+      });
+      const totalAmount = monthImports.reduce(
+        (sum, item) => sum + Number(item.total_amount || item.totalAmount || 0),
+        0
+      );
+      rows.push({
+        label: `Thg ${month + 1}`,
+        totalImports: monthImports.length,
+        totalAmount,
+      });
+    }
+    return rows;
+  })();
+
+  const importReportSummary = importReportRows.reduce(
+    (acc, row) => ({
+      totalImports: acc.totalImports + row.totalImports,
+      totalAmount: acc.totalAmount + row.totalAmount,
+    }),
+    { totalImports: 0, totalAmount: 0 }
+  );
+
   return (
     <div className="space-y-6">
       {/* Header */}
@@ -394,6 +463,69 @@ const AdminWarehousePage = () => {
 
           {/* Imports Tab */}
           {activeTab === "imports" && (
+            <div className="space-y-4">
+            <div className="mb-4 grid grid-cols-1 gap-4 lg:grid-cols-3">
+              <div className="bg-white rounded-lg shadow-sm border border-gray-100 p-4">
+                <h3 className="text-sm font-semibold text-gray-700">Báo cáo nhập kho</h3>
+                <p className="text-xs text-gray-500 mt-1">Thống kê theo tháng hoặc theo năm</p>
+                <div className="mt-3 flex flex-wrap gap-2">
+                  <select
+                    value={importReportType}
+                    onChange={(e) => setImportReportType(e.target.value)}
+                    className="px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-coffee-500"
+                  >
+                    <option value="month">Theo tháng</option>
+                    <option value="year">Theo năm</option>
+                  </select>
+                  {importReportType === "month" ? (
+                    <input
+                      type="month"
+                      value={importReportMonth}
+                      onChange={(e) => setImportReportMonth(e.target.value)}
+                      className="px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-coffee-500"
+                    />
+                  ) : (
+                    <input
+                      type="number"
+                      value={importReportYear}
+                      onChange={(e) => setImportReportYear(Number(e.target.value))}
+                      className="w-28 px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-coffee-500"
+                    />
+                  )}
+                </div>
+              </div>
+              <div className="bg-white rounded-lg shadow-sm border border-gray-100 p-4">
+                <p className="text-sm text-gray-500">Tổng phiếu nhập</p>
+                <p className="text-2xl font-bold text-gray-900">{importReportSummary.totalImports}</p>
+                <p className="text-xs text-gray-500 mt-1">
+                  {importReportType === "month"
+                    ? `Tháng ${importReportMonth}`
+                    : `Năm ${importReportYear}`}
+                </p>
+              </div>
+              <div className="bg-white rounded-lg shadow-sm border border-gray-100 p-4">
+                <p className="text-sm text-gray-500">Tổng giá trị nhập</p>
+                <p className="text-2xl font-bold text-gray-900">
+                  {formatCurrency(importReportSummary.totalAmount)}
+                </p>
+                <Button
+                  onClick={() => {
+                    const csvData = importReportRows.map((row) => ({
+                      "Kỳ": row.label,
+                      "Số phiếu": row.totalImports,
+                      "Tổng giá trị": formatCurrency(row.totalAmount),
+                    }));
+                    exportToCsv("bao-cao-nhap-kho.csv", csvData);
+                    toast.success("Đã xuất báo cáo nhập kho!");
+                  }}
+                  variant="outline"
+                  size="sm"
+                  className="mt-2"
+                >
+                  Xu?t b?o c?o
+                </Button>
+              </div>
+            </div>
             <div className="bg-white rounded-lg shadow-sm overflow-hidden">
               <table className="w-full">
                 <thead className="bg-gray-50">
@@ -490,6 +622,7 @@ const AdminWarehousePage = () => {
                 </tbody>
               </table>
             </div>
+            </div>
           )}
 
           {/* Low Stock Tab */}
@@ -581,7 +714,7 @@ const AdminWarehousePage = () => {
                         required
                       >
                         <option value="">-- Chọn nhà cung cấp --</option>
-                        {suppliers?.data.map((supplier) => (
+                        {suppliers.map((supplier) => (
                           <option key={supplier.id} value={supplier.id}>
                             {supplier.name}
                           </option>
@@ -665,6 +798,7 @@ const AdminWarehousePage = () => {
                                 className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-coffee-500"
                                 required
                                 min="0"
+                                step="1000"
                               />
                             </div>
                             {importFormData.importItems.length > 1 && (

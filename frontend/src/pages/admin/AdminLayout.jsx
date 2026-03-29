@@ -15,6 +15,8 @@ import {
   Truck,
   CalendarCheck,
   ChevronDown,
+  User,
+  Wallet,
 } from "lucide-react";
 import useAuthStore from "../../stores/useAuthStore";
 
@@ -25,6 +27,7 @@ const MENU_GROUPS = [
   { id: "warehouse", label: "Kho", icon: Warehouse },
   { id: "people", label: "Người dùng", icon: Users },
   { id: "hr", label: "Nhân sự", icon: UserCog },
+  { id: "self", label: "Cá nhân", icon: User },
   { id: "system", label: "Hệ thống", icon: Settings },
 ];
 
@@ -159,6 +162,27 @@ const AdminLayout = () => {
       path: "/admin/attendance",
       allowedRoles: [1, 5],
       group: "hr",
+    },
+    {
+      icon: User,
+      label: "Hồ sơ",
+      path: "/admin/profile",
+      allowedRoles: [1, 3, 4, 5],
+      group: "self",
+    },
+    {
+      icon: CalendarCheck,
+      label: "Nghỉ phép",
+      path: "/admin/leave",
+      allowedRoles: [1, 3, 4, 5],
+      group: "self",
+    },
+    {
+      icon: Wallet,
+      label: "Bảng lương",
+      path: "/admin/payroll",
+      allowedRoles: [1, 3, 4, 5],
+      group: "self",
     },
     {
       icon: Settings,

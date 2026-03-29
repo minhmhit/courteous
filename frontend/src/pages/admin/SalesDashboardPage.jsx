@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback, useMemo } from "react";
 import { Link } from "react-router-dom";
 import { motion } from "framer-motion";
 import {
@@ -32,6 +32,17 @@ const SalesDashboardPage = () => {
     completedOrders: 0,
     pendingOrders: 0,
   });
+  const today = new Date();
+  const currentYear = today.getFullYear();
+  const currentMonth = today.toISOString().slice(0, 7);
+  const [reportType, setReportType] = useState("month");
+  const [selectedMonth, setSelectedMonth] = useState(currentMonth);
+  const [selectedQuarter, setSelectedQuarter] = useState(
+    Math.floor(today.getMonth() / 3) + 1
+  );
+  const [selectedYear, setSelectedYear] = useState(currentYear);
+  const [ordersData, setOrdersData] = useState([]);
+  const [productsData, setProductsData] = useState([]);
   const [recentOrders, setRecentOrders] = useState([]);
   const [topProducts, setTopProducts] = useState([]);
   const [salesData, setSalesData] = useState([]);
@@ -53,6 +64,9 @@ const SalesDashboardPage = () => {
       const productsData = Array.isArray(productsRes.data)
         ? productsRes.data
         : productsRes.data?.products || [];
+
+      setOrdersData(ordersData);
+      setProductsData(productsData);
 
       // Calculate stats
       // console.log("Orders Data:", ordersData); // Debug log
@@ -130,6 +144,137 @@ const SalesDashboardPage = () => {
   useEffect(() => {
     fetchDashboardData();
   }, [fetchDashboardData]);
+
+  const reportMetrics = useMemo(() => {
+    const buildRangeConfig = () => {
+      if (reportType === "month") {
+        const [yearStr, monthStr] = selectedMonth.split("-");
+        const year = Number(yearStr);
+        const monthIndex = Number(monthStr) - 1;
+        const start = new Date(year, monthIndex, 1);
+        const end = new Date(year, monthIndex + 1, 0, 23, 59, 59, 999);
+        const totalDays = new Date(year, monthIndex + 1, 0).getDate();
+        const buckets = Array.from({ length: totalDays }, (_, idx) => {
+          const date = new Date(year, monthIndex, idx + 1);
+          return {
+            label: date.toLocaleDateString("vi-VN", {
+              day: "2-digit",
+              month: "2-digit",
+            }),
+            match: (d) =>
+              d.getDate() === date.getDate() &&
+              d.getMonth() === monthIndex &&
+              d.getFullYear() === year,
+          };
+        });
+        return { start, end, buckets };
+      }
+
+      if (reportType === "quarter") {
+        const year = Number(selectedYear);
+        const startMonth = (Number(selectedQuarter) - 1) * 3;
+        const start = new Date(year, startMonth, 1);
+        const end = new Date(year, startMonth + 3, 0, 23, 59, 59, 999);
+        const buckets = Array.from({ length: 3 }, (_, idx) => {
+          const monthIndex = startMonth + idx;
+          return {
+            label: `Thg ${monthIndex + 1}`,
+            match: (d) =>
+              d.getMonth() === monthIndex && d.getFullYear() === year,
+          };
+        });
+        return { start, end, buckets };
+      }
+
+      const year = Number(selectedYear);
+      const start = new Date(year, 0, 1);
+      const end = new Date(year, 11, 31, 23, 59, 59, 999);
+      const buckets = Array.from({ length: 12 }, (_, idx) => ({
+        label: `Thg ${idx + 1}`,
+        match: (d) => d.getMonth() === idx && d.getFullYear() === year,
+      }));
+      return { start, end, buckets };
+    };
+
+    const { start, end, buckets } = buildRangeConfig();
+    const ordersInRange = ordersData.filter((order) => {
+      const date = new Date(order.orderDate || order.order_date || order.createdAt);
+      return !Number.isNaN(date.getTime()) && date >= start && date <= end;
+    });
+
+    const costMap = new Map(
+      (productsData || []).map((product) => [
+        product.id,
+        Number(product.costPrice || product.cost_price || product.importPrice || 0),
+      ])
+    );
+
+    let missingCost = false;
+
+    const calcOrderMetrics = (order) => {
+      const items =
+        order.items || order.orderItems || order.details || order.order_details || [];
+      if (!Array.isArray(items) || items.length === 0) {
+        const quantity =
+          Number(order.totalQuantity || order.total_items || order.quantity || 0) || 0;
+        const revenue = Number(order.total || order.totalAmount || 0);
+        return { quantity, revenue, profit: revenue };
+      }
+
+      return items.reduce(
+        (acc, item) => {
+          const quantity = Number(item.quantity || item.qty || 0);
+          const unitPrice = Number(item.unitPrice || item.unit_price || item.price || 0);
+          const productId = item.productId || item.product_id;
+          const costPrice = costMap.get(productId) || 0;
+          if (!costMap.get(productId)) missingCost = true;
+          const revenue = unitPrice * quantity;
+          const cost = costPrice * quantity;
+          acc.quantity += quantity;
+          acc.revenue += revenue;
+          acc.profit += revenue - cost;
+          return acc;
+        },
+        { quantity: 0, revenue: 0, profit: 0 }
+      );
+    };
+
+    const rows = buckets.map((bucket) => {
+      const bucketOrders = ordersInRange.filter((order) => {
+        const date = new Date(order.orderDate || order.order_date || order.createdAt);
+        return bucket.match(date);
+      });
+
+      const bucketMetrics = bucketOrders.reduce(
+        (acc, order) => {
+          const metrics = calcOrderMetrics(order);
+          acc.quantity += metrics.quantity;
+          acc.revenue += metrics.revenue;
+          acc.profit += metrics.profit;
+          return acc;
+        },
+        { quantity: 0, revenue: 0, profit: 0 }
+      );
+
+      return {
+        label: bucket.label,
+        ...bucketMetrics,
+      };
+    });
+
+    const summary = rows.reduce(
+      (acc, row) => ({
+        totalQuantity: acc.totalQuantity + row.quantity,
+        totalRevenue: acc.totalRevenue + row.revenue,
+        totalProfit: acc.totalProfit + row.profit,
+      }),
+      { totalQuantity: 0, totalRevenue: 0, totalProfit: 0 }
+    );
+
+    return { rows, summary, missingCost };
+  }, [ordersData, productsData, reportType, selectedMonth, selectedQuarter, selectedYear]);
+
+  const yearOptions = Array.from({ length: 6 }, (_, idx) => currentYear - 3 + idx);
 
   const getStatusBadge = (status) => {
     const statusMap = {
@@ -266,6 +411,137 @@ const SalesDashboardPage = () => {
         </ResponsiveContainer>
       </div>
 
+
+      <div className="bg-white rounded-xl shadow-sm p-6">
+        <div className="flex flex-wrap items-center justify-between gap-3 mb-4">
+          <div>
+            <h2 className="text-xl font-bold text-gray-900">Báo cáo xuất hàng</h2>
+            <p className="text-sm text-gray-600">Theo tháng, quý hoặc năm</p>
+          </div>
+          <div className="flex flex-wrap gap-2">
+            <select
+              value={reportType}
+              onChange={(e) => setReportType(e.target.value)}
+              className="px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-coffee-500"
+            >
+              <option value="month">Theo tháng</option>
+              <option value="quarter">Theo quý</option>
+              <option value="year">Theo năm</option>
+            </select>
+            {reportType === "month" && (
+              <input
+                type="month"
+                value={selectedMonth}
+                onChange={(e) => setSelectedMonth(e.target.value)}
+                className="px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-coffee-500"
+              />
+            )}
+            {reportType === "quarter" && (
+              <>
+                <select
+                  value={selectedQuarter}
+                  onChange={(e) => setSelectedQuarter(Number(e.target.value))}
+                  className="px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-coffee-500"
+                >
+                  <option value={1}>Quý 1</option>
+                  <option value={2}>Quý 2</option>
+                  <option value={3}>Quý 3</option>
+                  <option value={4}>Quý 4</option>
+                </select>
+                <select
+                  value={selectedYear}
+                  onChange={(e) => setSelectedYear(Number(e.target.value))}
+                  className="px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-coffee-500"
+                >
+                  {yearOptions.map((year) => (
+                    <option key={year} value={year}>
+                      {year}
+                    </option>
+                  ))}
+                </select>
+              </>
+            )}
+            {reportType === "year" && (
+              <select
+                value={selectedYear}
+                onChange={(e) => setSelectedYear(Number(e.target.value))}
+                className="px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-coffee-500"
+              >
+                {yearOptions.map((year) => (
+                  <option key={year} value={year}>
+                    {year}
+                  </option>
+                ))}
+              </select>
+            )}
+          </div>
+        </div>
+
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+          <div className="rounded-lg border border-gray-100 p-4">
+            <p className="text-sm text-gray-600">Tổng số lượng xuất</p>
+            <p className="text-2xl font-bold text-gray-900">
+              {reportMetrics.summary.totalQuantity.toLocaleString("vi-VN")}
+            </p>
+          </div>
+          <div className="rounded-lg border border-gray-100 p-4">
+            <p className="text-sm text-gray-600">T?ng doanh thu</p>
+            <p className="text-2xl font-bold text-gray-900">
+              {formatCurrency(reportMetrics.summary.totalRevenue)}
+            </p>
+          </div>
+          <div className="rounded-lg border border-gray-100 p-4">
+            <p className="text-sm text-gray-600">Lợi nhuận được tính</p>
+            <p className="text-2xl font-bold text-gray-900">
+              {formatCurrency(reportMetrics.summary.totalProfit)}
+            </p>
+          </div>
+        </div>
+
+        {reportMetrics.missingCost && (
+          <p className="mt-3 text-xs text-amber-600">
+            Lưu ý: Một số sản phẩm chưa có giá nhập, lợi nhuận được tính tạm theo doanh thu.
+          </p>
+        )}
+
+        <div className="mt-4 overflow-x-auto">
+          <table className="w-full">
+            <thead className="bg-gray-50">
+              <tr>
+                <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">
+                  Kỳ
+                </th>
+                <th className="px-4 py-3 text-right text-xs font-medium text-gray-500 uppercase">
+                  Số lượng
+                </th>
+                <th className="px-4 py-3 text-right text-xs font-medium text-gray-500 uppercase">
+                  Lợi nhuận
+                </th>
+                <th className="px-4 py-3 text-right text-xs font-medium text-gray-500 uppercase">
+                  L?i nhu?n
+                </th>
+              </tr>
+            </thead>
+            <tbody className="divide-y divide-gray-200">
+              {reportMetrics.rows.map((row) => (
+                <tr key={row.label}>
+                  <td className="px-4 py-3 text-gray-900">{row.label}</td>
+                  <td className="px-4 py-3 text-right text-gray-900">
+                    {row.quantity.toLocaleString("vi-VN")}
+                  </td>
+                  <td className="px-4 py-3 text-right text-gray-900">
+                    {formatCurrency(row.revenue)}
+                  </td>
+                  <td className="px-4 py-3 text-right text-gray-900">
+                    {formatCurrency(row.profit)}
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      </div>
+
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
         {/* Recent Orders */}
         <div className="bg-white rounded-xl shadow-sm">
@@ -362,7 +638,7 @@ const SalesDashboardPage = () => {
 
       {/* Quick Actions
       <div className="bg-gradient-to-r from-coffee-600 to-coffee-800 rounded-xl p-8 text-white">
-        <h2 className="text-2xl font-bold mb-4">Thao Tác Nhanh</h2>
+        <h2 className="text-2xl font-bold mb-4">Thao tác nhanh</h2>
         <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
           <Link
             to="/admin/orders"

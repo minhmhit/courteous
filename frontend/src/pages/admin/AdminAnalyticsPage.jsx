@@ -34,7 +34,15 @@ import { formatCurrency, formatDate } from "../../utils/formatDate";
 const AdminAnalyticsPage = () => {
   const toast = useToastStore();
   const [isLoading, setIsLoading] = useState(true);
-  const [timeRange, setTimeRange] = useState(30); // days
+  const today = new Date();
+  const currentYear = today.getFullYear();
+  const currentMonth = today.toISOString().slice(0, 7);
+  const [reportType, setReportType] = useState("month"); // month | quarter | year
+  const [selectedMonth, setSelectedMonth] = useState(currentMonth);
+  const [selectedQuarter, setSelectedQuarter] = useState(
+    Math.floor(today.getMonth() / 3) + 1
+  );
+  const [selectedYear, setSelectedYear] = useState(currentYear);
   const [revenueData, setRevenueData] = useState([]);
   const [topProducts, setTopProducts] = useState([]);
   const [categoryDistribution, setCategoryDistribution] = useState([]);
@@ -50,7 +58,7 @@ const AdminAnalyticsPage = () => {
   useEffect(() => {
     fetchAnalyticsData();
     // eslint-disable-next-line
-  }, [timeRange]);
+  }, [reportType, selectedMonth, selectedQuarter, selectedYear]);
 
   const fetchAnalyticsData = async () => {
     setIsLoading(true);
@@ -66,44 +74,88 @@ const AdminAnalyticsPage = () => {
       const users = usersRes.data || usersRes.users || [];
       
 
-      // Calculate revenue over time
-      const last30Days = [];
-      for (let i = timeRange - 1; i >= 0; i--) {
-        const date = new Date();
-        date.setDate(date.getDate() - i);
-        const dateStr = formatDate(date, "yyyy-MM-dd");
+            const buildRangeConfig = () => {
+        if (reportType === "month") {
+          const [yearStr, monthStr] = selectedMonth.split("-");
+          const year = Number(yearStr);
+          const monthIndex = Number(monthStr) - 1;
+          const start = new Date(year, monthIndex, 1);
+          const end = new Date(year, monthIndex + 1, 0, 23, 59, 59, 999);
+          const totalDays = new Date(year, monthIndex + 1, 0).getDate();
+          const buckets = Array.from({ length: totalDays }, (_, idx) => {
+            const date = new Date(year, monthIndex, idx + 1);
+            return {
+              label: date.toLocaleDateString("vi-VN", {
+                day: "2-digit",
+                month: "2-digit",
+              }),
+              match: (d) =>
+                d.getDate() === date.getDate() &&
+                d.getMonth() === monthIndex &&
+                d.getFullYear() === year,
+            };
+          });
+          return { start, end, buckets };
+        }
 
-        const dayRevenue = orders
-          .filter((order) => {
-            const orderDate = formatDate(
-              new Date(order.orderDate),
-              "yyyy-MM-dd"
-            );
-            return (
-              orderDate === dateStr &&
-              (order.status === "COMPLETED" || order.status === "completed")
-            );
-          })
-          .reduce((sum, order) => sum + Number(order.totalAmount || 0), 0);
-        const dayOrders = orders.filter((order) => {
-          const orderDate = formatDate(
-            new Date(order.orderDate),
-            "yyyy-MM-dd"
-          );
-          return orderDate === dateStr;
-        }).length;
+        if (reportType === "quarter") {
+          const year = Number(selectedYear);
+          const startMonth = (Number(selectedQuarter) - 1) * 3;
+          const start = new Date(year, startMonth, 1);
+          const end = new Date(year, startMonth + 3, 0, 23, 59, 59, 999);
+          const buckets = Array.from({ length: 3 }, (_, idx) => {
+            const monthIndex = startMonth + idx;
+            return {
+              label: `Thg ${monthIndex + 1}`,
+              match: (d) =>
+                d.getMonth() === monthIndex && d.getFullYear() === year,
+            };
+          });
+          return { start, end, buckets };
+        }
 
-        last30Days.push({
-          date: formatDate(date, "dd/MM"),
-          revenue: dayRevenue / 1000000, // Convert to millions for better chart readability
-          orders: dayOrders,
+        const year = Number(selectedYear);
+        const start = new Date(year, 0, 1);
+        const end = new Date(year, 11, 31, 23, 59, 59, 999);
+        const buckets = Array.from({ length: 12 }, (_, idx) => ({
+          label: `Thg ${idx + 1}`,
+          match: (d) => d.getMonth() === idx && d.getFullYear() === year,
+        }));
+        return { start, end, buckets };
+      };
+
+      const { start, end, buckets } = buildRangeConfig();
+
+      const ordersInRange = orders.filter((order) => {
+        const date = new Date(order.orderDate || order.order_date || order.createdAt);
+        return !Number.isNaN(date.getTime()) && date >= start && date <= end;
+      });
+
+      const revenueSeries = buckets.map((bucket) => {
+        const bucketOrders = ordersInRange.filter((order) => {
+          const date = new Date(order.orderDate || order.order_date || order.createdAt);
+          return bucket.match(date);
         });
-      }
-      setRevenueData(last30Days);
+
+        const dayRevenue = bucketOrders
+          .filter((order) =>
+            order.status === "COMPLETED" || order.status === "completed"
+          )
+          .reduce((sum, order) => sum + Number(order.totalAmount || 0), 0);
+
+        return {
+          date: bucket.label,
+          revenue: dayRevenue / 1000000,
+          orders: bucketOrders.length,
+        };
+      });
+
+      setRevenueData(revenueSeries);
+
 
       // Calculate top products
       const productSales = {};
-      orders.forEach((order) => {
+      ordersInRange.forEach((order) => {
         (order.items || []).forEach((item) => {
           const productId = item.productId || item.product_id || item.productid;
           if (!productSales[productId]) {
@@ -148,10 +200,10 @@ const AdminAnalyticsPage = () => {
       setCategoryDistribution(categoryData);
 
       // Calculate stats
-      const totalRevenue = orders
+      const totalRevenue = ordersInRange
         .filter((o) => o.status === "COMPLETED" || o.status === "completed")
         .reduce((sum, order) => sum + Number(order.totalAmount || 0), 0);
-      const totalOrders = orders.length;
+      const totalOrders = ordersInRange.length;
       const totalCustomers = users.filter(
         (u) => (u.roleCode || u.roleName || "").toLowerCase() === "user"
       ).length;
@@ -191,6 +243,37 @@ const AdminAnalyticsPage = () => {
 
   const COLORS = ["#8B4513", "#D2691E", "#CD853F", "#DEB887", "#F5DEB3"];
 
+  const rangeLabel = (() => {
+    if (reportType === "month") {
+      const [year, month] = selectedMonth.split("-");
+      return `Tháng ${month}/${year}`;
+    }
+    if (reportType === "quarter") {
+      return `Quý ${selectedQuarter}/${selectedYear}`;
+    }
+    return `Năm ${selectedYear}`;
+  })();
+
+  const yearOptions = Array.from({ length: 6 }, (_, idx) => currentYear - 3 + idx);
+
+  const periodDays = (() => {
+    if (reportType === "month") {
+      const [year, month] = selectedMonth.split("-");
+      return new Date(Number(year), Number(month), 0).getDate();
+    }
+    if (reportType === "quarter") {
+      const year = Number(selectedYear);
+      const startMonth = (Number(selectedQuarter) - 1) * 3 + 1;
+      return [0, 1, 2].reduce(
+        (sum, offset) => sum + new Date(year, startMonth + offset, 0).getDate(),
+        0
+      );
+    }
+    const year = Number(selectedYear);
+    const isLeap = new Date(year, 1, 29).getMonth() === 1;
+    return isLeap ? 366 : 365;
+  })();
+
   if (isLoading) {
     return (
       <div className="flex items-center justify-center h-96">
@@ -211,16 +294,66 @@ const AdminAnalyticsPage = () => {
             Thống kê chi tiết và xu hướng kinh doanh
           </p>
         </div>
-        <div className="flex gap-3">
+        <div className="flex flex-wrap gap-3">
           <select
-            value={timeRange}
-            onChange={(e) => setTimeRange(parseInt(e.target.value))}
+            value={reportType}
+            onChange={(e) => setReportType(e.target.value)}
             className="px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-coffee-500"
           >
-            <option value={7}>7 ngày</option>
-            <option value={30}>30 ngày</option>
-            <option value={90}>90 ngày</option>
+            <option value="month">Theo tháng</option>
+            <option value="quarter">Theo quý</option>
+            <option value="year">Theo năm</option>
           </select>
+
+          {reportType === "month" && (
+            <input
+              type="month"
+              value={selectedMonth}
+              onChange={(e) => setSelectedMonth(e.target.value)}
+              className="px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-coffee-500"
+            />
+          )}
+
+          {reportType === "quarter" && (
+            <>
+              <select
+                value={selectedQuarter}
+                onChange={(e) => setSelectedQuarter(Number(e.target.value))}
+                className="px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-coffee-500"
+              >
+                <option value={1}>Quý 1</option>
+                <option value={2}>Quý 2</option>
+                <option value={3}>Quý 3</option>
+                <option value={4}>Quý 4</option>
+              </select>
+              <select
+                value={selectedYear}
+                onChange={(e) => setSelectedYear(Number(e.target.value))}
+                className="px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-coffee-500"
+              >
+                {yearOptions.map((year) => (
+                  <option key={year} value={year}>
+                    {year}
+                  </option>
+                ))}
+              </select>
+            </>
+          )}
+
+          {reportType === "year" && (
+            <select
+              value={selectedYear}
+              onChange={(e) => setSelectedYear(Number(e.target.value))}
+              className="px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-coffee-500"
+            >
+              {yearOptions.map((year) => (
+                <option key={year} value={year}>
+                  {year}
+                </option>
+              ))}
+            </select>
+          )}
+
           <Button onClick={handleExportReport} variant="secondary">
             <Download className="w-5 h-5 mr-2" />
             Xuất Báo Cáo
@@ -320,7 +453,7 @@ const AdminAnalyticsPage = () => {
           </div>
           <div className="flex items-center gap-2 text-sm text-gray-600">
             <Calendar className="w-4 h-4" />
-            {timeRange} ngày gần đây
+            {periodDays} ngày gần đây
           </div>
         </div>
         <ResponsiveContainer width="100%" height={300}>
@@ -490,13 +623,13 @@ const AdminAnalyticsPage = () => {
             </h3>
           </div>
           <p className="text-4xl font-bold text-purple-600">
-            {(stats.totalOrders / timeRange).toLocaleString("vi-VN", {
+            {(stats.totalOrders / periodDays).toLocaleString("vi-VN", {
               minimumFractionDigits: 1,
               maximumFractionDigits: 1,
             })}
           </p>
           <p className="text-sm text-gray-600 mt-2">
-            Trung bình {timeRange} ngày
+            Trung bình {periodDays} ngày
           </p>
         </div>
       </div>
