@@ -47,7 +47,7 @@ const AdminSuppliersPage = () => {
       const response = await supplierAPI.getAllSuppliers();
       const raw = response?.suppliers?.data || response?.suppliers || response?.data || response || [];
       const supplierData = Array.isArray(raw) ? raw : [];
-      setSuppliers(supplierData);
+      setSuppliers(supplierData.filter(s => s.isActive !== 0));
     } catch (error) {
       console.error("Error fetching suppliers:", error);
       toast.error("Không thể tải danh sách nhà cung cấp");
@@ -135,7 +135,7 @@ const AdminSuppliersPage = () => {
       fetchSuppliers();
     } catch (error) {
       console.error("Error deleting supplier:", error);
-      toast.error("Không thể xóa nhà cung cấp");
+      toast.error(error.response?.data?.message || "Không thể xóa nhà cung cấp");
     }
   };
 
@@ -373,7 +373,7 @@ const AdminSuppliersPage = () => {
                           <Edit className="w-4 h-4" />
                         </button>
                         <button
-                          onClick={() => handleDelete(supplier)}
+                          onClick={() => handleDelete(supplier.id)}
                           className="p-2 text-red-600 hover:bg-red-50 rounded-lg transition-colors"
                         >
                           <Trash2 className="w-4 h-4" />

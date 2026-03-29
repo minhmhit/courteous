@@ -1,14 +1,39 @@
 import axiosInstance from "./axiosConfig";
 
+const normalizeSupplierListResponse = (response) => {
+  const data = response?.data ?? response;
+  const suppliers = Array.isArray(data)
+    ? data
+    : data?.suppliers?.data || data?.suppliers || data?.data || response?.suppliers || [];
+
+  return {
+    ...response,
+    data: suppliers,
+  };
+};
+
+const normalizeSupplierDetailResponse = (response) => {
+  const data = response?.data ?? response;
+  const supplier = data && !Array.isArray(data) ? data?.supplier || data?.data || data : null;
+
+  return {
+    ...response,
+    data: supplier,
+  };
+};
+
+
 const supplierAPI = {
   // Lấy tất cả nhà cung cấp
   getAllSuppliers: async () => {
-    return await axiosInstance.get("/suppliers/");
+    const response = await axiosInstance.get("/suppliers/");
+    return normalizeSupplierListResponse(response);
   },
 
   // Lấy nhà cung cấp theo ID
   getSupplierById: async (supplierId) => {
-    return await axiosInstance.get(`/suppliers/${supplierId}`);
+    const response = await axiosInstance.get(`/suppliers/${supplierId}`);
+    return normalizeSupplierDetailResponse(response);
   },
 
   // Admin: Thêm nhà cung cấp mới

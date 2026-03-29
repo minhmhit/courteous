@@ -1,5 +1,28 @@
 import axiosInstance from "./axiosConfig";
 
+const normalizeOrderListResponse = (response) => {
+  const data = response?.data ?? response;
+  const orders = Array.isArray(data)
+    ? data
+    : data?.orders || data?.data || response?.orders || [];
+
+  return {
+    ...response,
+    data: orders,
+  };
+};
+
+const normalizeOrderDetailResponse = (response) => {
+  const data = response?.data ?? response;
+  const order = data && !Array.isArray(data) ? data?.order || data?.data || data : null;
+
+  return {
+    ...response,
+    data: order,
+  };
+};
+
+
 const orderAPI = {
   // Tạo đơn hàng mới
   createOrder: async (orderData) => {
@@ -8,14 +31,16 @@ const orderAPI = {
 
   // Lấy danh sách đơn hàng của user
   getUserOrders: async (page = 1, limit = 10) => {
-    return await axiosInstance.get("/orders/", {
+    const response = await axiosInstance.get("/orders/", {
       params: { page, limit },
     });
+    return normalizeOrderListResponse(response);
   },
 
   // Lấy chi tiết đơn hàng
   getOrderById: async (orderId) => {
-    return await axiosInstance.get(`/orders/${orderId}`);
+    const response = await axiosInstance.get(`/orders/${orderId}`);
+    return normalizeOrderDetailResponse(response);
   },
 
   // Hủy đơn hàng
@@ -28,7 +53,8 @@ const orderAPI = {
     const params = { page, limit };
     if (status) params.status = status;
 
-    return await axiosInstance.get("/orders/admin/all", { params });
+    const response = await axiosInstance.get("/orders/admin/all", { params });
+    return normalizeOrderListResponse(response);
   },
 
   // Admin: Cập nhật trạng thái đơn hàng

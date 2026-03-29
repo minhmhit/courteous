@@ -80,7 +80,7 @@ const AdminProductsPage = () => {
   const fetchSuppliers = async () => {
     try {
       const response = await supplierAPI.getAllSuppliers();
-      setSuppliers(response.suppliers || []);
+      setSuppliers(response.data || []);
     } catch (error) {
       console.error("Error fetching suppliers:", error);
     }
@@ -201,15 +201,18 @@ const AdminProductsPage = () => {
           return;
         }
       }
+      // Destructure costPrice out to avoid sending it to a backend that doesn't have the column
+      const { costPrice, ...apiData } = formData;
+
       if (editingProduct) {
         const productId =
           editingProduct.id ||
           editingProduct.productId ||
           editingProduct.product_id;
-        await productAPI.updateProduct(productId, formData);
+        await productAPI.updateProduct(productId, apiData);
         toast.success("Cập nhật sản phẩm thành công");
       } else {
-        await productAPI.createProduct(formData);
+        await productAPI.createProduct(apiData);
         toast.success("Thêm sản phẩm thành công");
       }
       handleCloseModal();
@@ -262,13 +265,7 @@ const AdminProductsPage = () => {
     return category?.name || "N/A";
   };
 
-  const supplierList = Array.isArray(suppliers?.data)
-    ? suppliers.data
-    : Array.isArray(suppliers?.suppliers)
-    ? suppliers.suppliers
-    : Array.isArray(suppliers)
-    ? suppliers
-    : [];
+  const supplierList = Array.isArray(suppliers) ? suppliers : [];
 
   const getSupplierName = (supplierId) => {
     const supplier = supplierList.find((s) => s.id === supplierId);
@@ -277,6 +274,9 @@ const AdminProductsPage = () => {
 
   const filteredProducts = products
     .filter((product) => {
+      // Frontend-only filtering for soft-deleted items
+      if (product.isActive === 0) return false;
+
       const term = searchTerm.trim().toLowerCase();
       const nameMatch = product.name?.toLowerCase().includes(term);
       const codeMatch = String(product.id || product.productId || "").includes(term);
@@ -334,7 +334,7 @@ const AdminProductsPage = () => {
       }
       return 0;
     });
-
+    // console.log(filteredProducts)
   return (
     <div className="space-y-6">
       {/* Header */}
@@ -476,7 +476,7 @@ const AdminProductsPage = () => {
 
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-2">
-                S?p x?p
+                Sắp xếp
               </label>
               <select
                 value={filters.sort}
@@ -598,7 +598,7 @@ const AdminProductsPage = () => {
                           Sửa
                         </button>
                         <button
-                          onClick={() => handleDelete(product)}
+                          onClick={() => handleDelete(product.id || product.productId || product.product_id)}
                           className="inline-flex items-center px-3 py-2 text-sm font-medium text-red-600 hover:text-red-800 hover:bg-red-50 rounded-lg transition-colors"
                         >
                           <Trash2 className="w-4 h-4 mr-1" />
@@ -694,34 +694,38 @@ const AdminProductsPage = () => {
                     </div>
 
                     <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                      <Input
-                        label="Giá Nhập (VNĐ)"
-                        name="costPrice"
-                        type="number"
-                        value={formData.costPrice}
-                        onChange={(e) =>
-                          setFormData({ ...formData, costPrice: e.target.value })
-                        }
-                        icon={<DollarSign className="w-5 h-5" />}
-                        placeholder="150000"
-                        min="0"
-                        step="1000"
-                      />
+                      <div>
+                        <label className="block text-sm font-medium text-gray-700 mb-2">Giá Nhập (VNĐ)</label>
+                        <input
+                          type="number"
+                          value={formData.costPrice}
+                          onChange={(e) =>
+                            setFormData({ ...formData, costPrice: e.target.value })
+                          }
+                          onWheel={(e) => e.target.blur()}
+                          placeholder="150000"
+                          min="0"
+                          step="1000"
+                          className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-coffee-500"
+                        />
+                      </div>
 
-                      <Input
-                        label="Giá Bán (VNĐ)"
-                        name="price"
-                        type="number"
-                        value={formData.price}
-                        onChange={(e) =>
-                          setFormData({ ...formData, price: e.target.value })
-                        }
-                        required
-                        icon={<DollarSign className="w-5 h-5" />}
-                        placeholder="200000"
-                        min="0"
-                        step="1000"
-                      />
+                      <div>
+                        <label className="block text-sm font-medium text-gray-700 mb-2">Giá Bán (VNĐ) *</label>
+                        <input
+                          type="number"
+                          value={formData.price}
+                          onChange={(e) =>
+                            setFormData({ ...formData, price: e.target.value })
+                          }
+                          onWheel={(e) => e.target.blur()}
+                          required
+                          placeholder="200000"
+                          min="0"
+                          step="1000"
+                          className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-coffee-500"
+                        />
+                      </div>
 
                       <div>
                         <label className="block text-sm font-medium text-gray-700 mb-2">

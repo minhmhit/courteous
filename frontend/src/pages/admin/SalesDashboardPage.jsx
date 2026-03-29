@@ -485,7 +485,7 @@ const SalesDashboardPage = () => {
             </p>
           </div>
           <div className="rounded-lg border border-gray-100 p-4">
-            <p className="text-sm text-gray-600">T?ng doanh thu</p>
+            <p className="text-sm text-gray-600">Tổng doanh thu</p>
             <p className="text-2xl font-bold text-gray-900">
               {formatCurrency(reportMetrics.summary.totalRevenue)}
             </p>

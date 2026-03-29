@@ -4,7 +4,7 @@ const normalizeProductListResponse = (response) => {
   const data = response?.data ?? response;
   const products = Array.isArray(data)
     ? data
-    : data?.products || response?.products || [];
+    : data?.products || data?.data || response?.products || [];
 
   const total =
     data?.total ||

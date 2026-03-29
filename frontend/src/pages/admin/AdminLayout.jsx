@@ -1,4 +1,4 @@
-﻿import { Outlet, useNavigate, useLocation, Link } from "react-router-dom";
+import { Outlet, useNavigate, useLocation, Link } from "react-router-dom";
 import { useEffect, useMemo, useState } from "react";
 import {
   LayoutDashboard,
@@ -263,9 +263,8 @@ const AdminLayout = () => {
                       {group.label}
                     </span>
                     <ChevronDown
-                      className={`h-4 w-4 transition-transform ${
-                        isOpen ? "rotate-180" : ""
-                      }`}
+                      className={`h-4 w-4 transition-transform ${isOpen ? "rotate-180" : ""
+                        }`}
                     />
                   </button>
 
@@ -277,11 +276,10 @@ const AdminLayout = () => {
                           <Link
                             key={item.path}
                             to={item.path}
-                            className={`flex items-center gap-3 rounded-2xl px-3 py-2 text-sm font-medium transition-all ${
-                              isActive
+                            className={`flex items-center gap-3 rounded-2xl px-3 py-2 text-sm font-medium transition-all ${isActive
                                 ? "bg-white/70 text-coffee-800 shadow-[0_10px_30px_rgba(72,45,24,0.12)]"
                                 : "text-slate-700 hover:bg-white/40 hover:text-coffee-700"
-                            }`}
+                              }`}
                           >
                             <item.icon className="h-4 w-4" />
                             <span>{item.label}</span>

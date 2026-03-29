@@ -64,27 +64,40 @@ const AdminWarehousePage = () => {
           supplierAPI.getAllSuppliers().catch(() => ({ data: [] })),
         ]);
 
-      // Đảm bảo luôn là array
-      const inventoryData = Array.isArray(inventoryRes.data)
-        ? inventoryRes.data
-        : inventoryRes.data?.inventory || inventoryRes.inventory || [];
+      // Helper to extract array from various response formats
+      const extractArray = (res, key) => {
+        const data = res?.data || res;
+        if (Array.isArray(data)) return data;
+        if (Array.isArray(data?.data)) return data.data;
+        if (Array.isArray(data?.[key])) return data[key];
+        if (Array.isArray(data?.[key]?.data)) return data[key].data;
+        if (Array.isArray(res?.[key])) return res[key];
+        if (Array.isArray(res?.[key]?.data)) return res[key].data;
+        // Try common keys if specific key fails
+        const commonKeys = ["data", "products", "suppliers", "inventory", "imports"];
+        for (const k of commonKeys) {
+          if (Array.isArray(data?.[k])) return data[k];
+          if (Array.isArray(data?.[k]?.data)) return data[k].data;
+        }
+        return [];
+      };
 
-      const importsData = Array.isArray(importsRes.data)
-        ? importsRes.data
-        : importsRes.data?.imports || importsRes.imports || [];
+      const inventoryData = extractArray(inventoryRes, "inventory");
+      const importsData = extractArray(importsRes, "imports");
+      const productsData = extractArray(productsRes, "products");
+      const suppliersData = extractArray(suppliersRes, "suppliers");
 
-      const productsData = Array.isArray(productsRes.data)
-        ? productsRes.data
-        : productsRes.data?.products || productsRes.products || [];
-
-      const suppliersData = Array.isArray(suppliersRes.data)
-        ? suppliersRes.data
-        : suppliersRes.data?.suppliers || suppliersRes.suppliers || [];
+      console.log("Warehouse Data Extracted:", {
+        inventory: inventoryData.length,
+        imports: importsData.length,
+        products: productsData.length,
+        suppliers: suppliersData.length
+      });
 
       setInventory(inventoryData);
       setImports(importsData);
-      setProducts(productsData);
-      setSuppliers(suppliersData);
+      setProducts(productsData.filter((p) => p.isActive !== 0));
+      setSuppliers(suppliersData.filter((s) => s.isActive !== 0));
 
       // Fetch low stock
       if (activeTab === "low-stock") {
@@ -250,6 +263,7 @@ const AdminWarehousePage = () => {
   const filteredInventory = Array.isArray(inventory)
     ? inventory.filter((item) => {
         const productName = getProductName(item.productId);
+        if (productName === "N/A") return false; // Hide inventory for non-existent/deleted products
         return productName.toLowerCase().includes(searchTerm.toLowerCase());
       })
     : [];
@@ -405,17 +419,19 @@ const AdminWarehousePage = () => {
                     <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">
                       Sản Phẩm
                     </th>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">
+                    <th className="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase">
+                      Giá Nhập
+                    </th>
+                    <th className="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase">
                       Tồn Kho
                     </th>
                     <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">
                       Trạng Thái
                     </th>
-                    
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-gray-200">
-                  {filteredInventory.length > 0 ? (
+                  {Array.isArray(filteredInventory) && filteredInventory.length > 0 ? (
                     filteredInventory.map((item) => (
                       <tr key={item.id} className="hover:bg-gray-50">
                         <td className="px-6 py-4">
@@ -423,7 +439,16 @@ const AdminWarehousePage = () => {
                             {getProductName(item.productId)}
                           </span>
                         </td>
-                        <td className="px-6 py-4">
+                        <td className="px-6 py-4 text-right">
+                          <span className="font-medium text-gray-700">
+                            {(() => {
+                              const prod = products.find(p => p.id === item.productId);
+                              const cost = prod?.costPrice || prod?.cost_price || 0;
+                              return cost ? formatCurrency(cost) : '--';
+                            })()}
+                          </span>
+                        </td>
+                        <td className="px-6 py-4 text-right">
                           <span className="text-2xl font-bold text-gray-900">
                             {item.quantity || 0}
                           </span>
@@ -522,7 +547,7 @@ const AdminWarehousePage = () => {
                   size="sm"
                   className="mt-2"
                 >
-                  Xu?t b?o c?o
+                  Xuất báo cáo
                 </Button>
               </div>
             </div>
@@ -551,7 +576,7 @@ const AdminWarehousePage = () => {
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-gray-200">
-                  {filteredImports.length > 0 ? (
+                  {Array.isArray(filteredImports) && filteredImports.length > 0 ? (
                     filteredImports.map((item) => (
                       <tr key={item.id} className="hover:bg-gray-50">
                         <td className="px-6 py-4">
@@ -628,7 +653,7 @@ const AdminWarehousePage = () => {
           {/* Low Stock Tab */}
           {activeTab === "low-stock" && (
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-              {lowStockProducts.length > 0 ? (
+              {Array.isArray(lowStockProducts) && lowStockProducts.length > 0 ? (
                 lowStockProducts.map((product) => (
                   <motion.div
                     key={product.id}
@@ -714,7 +739,7 @@ const AdminWarehousePage = () => {
                         required
                       >
                         <option value="">-- Chọn nhà cung cấp --</option>
-                        {suppliers.map((supplier) => (
+                        {Array.isArray(suppliers) && suppliers.map((supplier) => (
                           <option key={supplier.id} value={supplier.id}>
                             {supplier.name}
                           </option>
@@ -759,7 +784,7 @@ const AdminWarehousePage = () => {
                                 required
                               >
                                 <option value="">-- Chọn sản phẩm --</option>
-                                {products.map((product) => (
+                                {Array.isArray(products) && products.map((product) => (
                                   <option key={product.id} value={product.id}>
                                     {product.name}
                                   </option>

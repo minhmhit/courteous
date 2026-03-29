@@ -7,10 +7,11 @@ import {
   UserX,
   Shield,
   ArrowRight,
-  Clock,
   Ban,
   CheckCircle,
-  CloudSnow,
+  Wallet,
+  FileText,
+  Calendar,
 } from "lucide-react";
 import {
   PieChart,
@@ -20,10 +21,10 @@ import {
   Legend,
   Tooltip,
 } from "recharts";
-import { userAPI } from "../../services";
+import { userAPI, payrollPeriodAPI, payrollAPI, leaveAPI, resignationAPI } from "../../services";
 import useToastStore from "../../stores/useToastStore";
 import RoleBadge from "../../components/ui/RoleBadge";
-import { formatDate } from "../../utils/formatDate";
+import { formatDate, formatCurrency } from "../../utils/formatDate";
 
 const HRMDashboardPage = () => {
   const toast = useToastStore();
@@ -32,6 +33,10 @@ const HRMDashboardPage = () => {
     activeEmployees: 0,
     inactiveEmployees: 0,
     totalRoles: 0,
+    totalSalaryFund: 0,
+    currentPeriodName: "",
+    pendingLeaves: 0,
+    pendingResignations: 0,
   });
   const [recentEmployees, setRecentEmployees] = useState([]);
   const [roleDistribution, setRoleDistribution] = useState([]);
@@ -52,10 +57,10 @@ const HRMDashboardPage = () => {
       const employees = usersData.filter(
         (u) => (u.roleCode || u.roleName || "").toLowerCase() !== "user"
       );
-      
+
 
       const activeEmployees = employees.filter(
-        (e) => e.isActive  !== false
+        (e) => e.isActive !== false
       );
       const inactiveEmployees = employees.filter(
         (e) => e.isActive === false
@@ -65,7 +70,11 @@ const HRMDashboardPage = () => {
         totalEmployees: employees.length,
         activeEmployees: activeEmployees.length,
         inactiveEmployees: inactiveEmployees.length,
-        totalRoles: 5, // 0,1,3,4,5 (excluding customer role 2)
+        totalRoles: 5,
+        totalSalaryFund: 0,
+        currentPeriodName: "",
+        pendingLeaves: 0,
+        pendingResignations: 0,
       });
 
       setRecentEmployees(employees.slice(0, 5));
@@ -96,6 +105,59 @@ const HRMDashboardPage = () => {
       );
 
       setRoleDistribution(distribution);
+
+      // Fetch payroll statistics for current month
+      const currentMonth = new Date().getMonth() + 1;
+      const currentYear = new Date().getFullYear();
+      let totalSalaryFund = 0;
+      let currentPeriodName = `Tháng ${currentMonth}/${currentYear}`;
+
+      try {
+        const periodsRes = await payrollPeriodAPI.getAllPeriods();
+        const pData = periodsRes?.data || periodsRes;
+        const pList = pData?.payrollPeriods || pData?.items || pData?.periods || pData || [];
+        const validList = Array.isArray(pList) ? pList : [];
+        const pMatch = validList.find(p =>
+          (p.monthNo === currentMonth && p.yearNo === currentYear) ||
+          (Number(p.month_no) === currentMonth && Number(p.year_no) === currentYear)
+        );
+        if (pMatch) {
+          currentPeriodName = pMatch.name || pMatch.periodName || currentPeriodName;
+          const pStats = await payrollAPI.getPayrollStatistics({ periodId: pMatch.id });
+          const statsData = pStats?.data || pStats;
+          totalSalaryFund = Number(statsData?.totalNet || statsData?.totalGross || statsData?.totalSalary || statsData?.total_salary || 0);
+        }
+      } catch (err) {
+        console.error("Lỗi lấy thống kê lương:", err);
+      }
+
+      // Fetch pending leave and resignation counts
+      let pendingLeaves = 0;
+      let pendingResignations = 0;
+      try {
+        const [leaveRes, resignRes] = await Promise.all([
+          leaveAPI.getPendingLeaveRequests().catch(() => []),
+          resignationAPI.getPendingResignations().catch(() => []),
+        ]);
+        const leaveData = leaveRes?.data ?? leaveRes;
+        const resignData = resignRes?.data ?? resignRes;
+        pendingLeaves = Array.isArray(leaveData) ? leaveData.length
+          : (leaveData?.items || leaveData?.leaveRequests || []).length;
+        pendingResignations = Array.isArray(resignData) ? resignData.length
+          : (resignData?.items || resignData?.resignationRequests || []).length;
+      } catch (err) {
+        console.error("Lỗi lấy đơn chờ duyệt:", err);
+      }
+
+      // Update stats with payroll and leave data
+      setStats(prev => ({
+        ...prev,
+        totalSalaryFund,
+        currentPeriodName,
+        pendingLeaves,
+        pendingResignations,
+      }));
+
     } catch (error) {
       console.error("Error fetching dashboard data:", error);
       toast.error("Không thể tải dữ liệu dashboard");
@@ -124,18 +186,20 @@ const HRMDashboardPage = () => {
       link: "/admin/hrm",
     },
     {
-      title: "Không Hoạt Động",
-      value: stats.inactiveEmployees,
-      icon: UserX,
-      color: "bg-red-500",
-      link: "/admin/hrm",
+      title: "Quỹ Lương Tháng",
+      value: formatCurrency(stats.totalSalaryFund),
+      icon: Wallet,
+      color: "bg-yellow-500",
+      link: "/admin/payroll",
+      subtitle: stats.currentPeriodName,
     },
     {
-      title: "Phân Quyền",
-      value: stats.totalRoles,
-      icon: Shield,
-      color: "bg-purple-500",
-      link: "/admin/users",
+      title: "Đơn Chờ Duyệt",
+      value: stats.pendingLeaves + stats.pendingResignations,
+      icon: FileText,
+      color: "bg-orange-500",
+      link: "/admin/leave",
+      subtitle: `${stats.pendingLeaves} nghỉ phép, ${stats.pendingResignations} nghỉ việc`,
     },
   ];
 
@@ -185,9 +249,12 @@ const HRMDashboardPage = () => {
                 <h3 className="text-gray-600 text-sm font-medium">
                   {card.title}
                 </h3>
-                <p className="text-3xl font-bold text-gray-900 mt-2">
+                <p className={`font-bold text-gray-900 mt-2 ${card.subtitle ? 'text-xl' : 'text-3xl'}`}>
                   {card.value}
                 </p>
+                {card.subtitle && (
+                  <p className="text-xs text-gray-500 mt-1">{card.subtitle}</p>
+                )}
               </motion.div>
             </Link>
           ))}
@@ -263,7 +330,7 @@ const HRMDashboardPage = () => {
                       </div>
                     </div>
                     <p className="text-sm text-gray-600">
-                      {employee.isActive===1 ? (
+                      {employee.isActive === 1 ? (
                         <CheckCircle className="w-4 h-4 text-green-600" />
                       ) : (
                         <Ban className="w-4 h-4 text-red-400" />
@@ -284,7 +351,7 @@ const HRMDashboardPage = () => {
       {/* Quick Actions */}
       <div className="bg-gradient-to-r from-coffee-600 to-coffee-800 rounded-xl p-8 text-white">
         <h2 className="text-2xl font-bold mb-4">Thao tác nhanh</h2>
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+        <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
           <Link
             to="/admin/hrm"
             className="bg-white bg-opacity-20 hover:bg-opacity-30 rounded-lg p-4 transition-all"
@@ -296,23 +363,33 @@ const HRMDashboardPage = () => {
             </p>
           </Link>
           <Link
-            to="/admin/users"
+            to="/admin/payroll"
             className="bg-white bg-opacity-20 hover:bg-opacity-30 rounded-lg p-4 transition-all"
           >
-            <Shield className="w-8 h-8 mb-2" />
-            <h3 className="font-semibold">Phân Quyền</h3>
+            <Wallet className="w-8 h-8 mb-2" />
+            <h3 className="font-semibold">Bảng Lương</h3>
             <p className="text-sm text-white text-opacity-80">
-              Quản lý vai trò và quyền
+              Tính lương và chốt sổ
             </p>
           </Link>
           <Link
-            to="/admin/hrm"
+            to="/admin/leave"
             className="bg-white bg-opacity-20 hover:bg-opacity-30 rounded-lg p-4 transition-all"
           >
-            <UserCheck className="w-8 h-8 mb-2" />
-            <h3 className="font-semibold">Thêm Nhân Viên</h3>
+            <Calendar className="w-8 h-8 mb-2" />
+            <h3 className="font-semibold">Nghỉ Phép / Nghỉ Việc</h3>
             <p className="text-sm text-white text-opacity-80">
-              Tạo tài khoản mới
+              Duyệt đơn và theo dõi
+            </p>
+          </Link>
+          <Link
+            to="/admin/attendance"
+            className="bg-white bg-opacity-20 hover:bg-opacity-30 rounded-lg p-4 transition-all"
+          >
+            <CheckCircle className="w-8 h-8 mb-2" />
+            <h3 className="font-semibold">Chấm Công</h3>
+            <p className="text-sm text-white text-opacity-80">
+              Quản lý ngày công
             </p>
           </Link>
         </div>

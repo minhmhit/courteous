@@ -27,8 +27,8 @@ const leaveAPI = {
   },
 
   // HR/Admin: từ chối
-  rejectLeaveRequest: async (requestId) => {
-    return await axiosInstance.patch(`/leave-requests/${requestId}/reject`);
+  rejectLeaveRequest: async (requestId, payload) => {
+    return await axiosInstance.patch(`/leave-requests/${requestId}/reject`, payload);
   },
 };
 

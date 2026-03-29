@@ -78,6 +78,12 @@ const AdminLeavePage = () => {
           ...leaveList.map((item) => ({ ...item, requestType: "LEAVE" })),
           ...resignList.map((item) => ({ ...item, requestType: "RESIGNATION" })),
         ];
+        console.log("AdminLeavePage fetchRequests normalized:", {
+          isHR,
+          leaveList,
+          resignList,
+          normalized,
+        });
         setRequests(normalized);
       } else {
         const [leaveRes, resignRes] = await Promise.all([
@@ -118,6 +124,7 @@ const AdminLeavePage = () => {
 
   const myRequests = useMemo(() => {
     return requests.filter((req) => {
+      if (!req) return false;
       const employeeId =
         req.employeeId || req.employee_id || req.employee?.id || req.userId;
       return employeeId === userId;
@@ -232,13 +239,28 @@ const AdminLeavePage = () => {
   const listData = isHR ? requests : myRequests;
 
   const getRequestMeta = (req) => {
+    console.log("AdminLeavePage getRequestMeta req:", req);
+    if (!req) {
+      return {
+        employeeName: "N/A",
+        requestType: "LEAVE",
+        startDate: "--",
+        endDate: "--",
+        status: "PENDING",
+      };
+    }
+
     const employeeName =
       req.employeeName ||
       req.employee_name ||
-      req.employee?.userName ||
-      req.employee?.username ||
+      req.employee?.employeeName ||
+      req.employee?.employee_name ||
       req.employee?.name ||
       req.employee?.fullName ||
+      req.employee?.user?.name ||
+      req.employee?.user?.fullName ||
+      req.employee?.userName ||
+      req.employee?.username ||
       req.userName ||
       req.username ||
       req.user?.name ||
@@ -246,7 +268,7 @@ const AdminLeavePage = () => {
       req.name ||
       "N/A";
     const requestTypeRaw =
-      req.leaveType || req.type || req.requestType || req.request_type;
+      req.leaveType || req.type || req.requestType || req.request_type || req.leaveTypeName || req.requestType;
     const requestType =
       String(requestTypeRaw || "")
         .toUpperCase()
@@ -372,6 +394,7 @@ const AdminLeavePage = () => {
                       <tr key={rowId}>
                         <td className="px-4 py-3 text-gray-900">
                           {meta.employeeName}
+                          {/* {console.log(meta)} */}
                         </td>
                         <td className="px-4 py-3 text-gray-600">
                           {meta.requestType}

@@ -10,6 +10,7 @@ import {
   Clock,
   Filter,
   Download,
+  Printer,
 } from "lucide-react";
 import { orderAPI } from "../../services";
 import useToastStore from "../../stores/useToastStore";
@@ -90,7 +91,7 @@ const AdminOrdersPage = () => {
       color: "bg-yellow-100 text-yellow-800",
       icon: Clock,
     },
-    
+
     COMPLETED: {
       label: "Hoàn thành",
       color: "bg-green-100 text-green-800",
@@ -106,7 +107,7 @@ const AdminOrdersPage = () => {
       color: "bg-yellow-100 text-yellow-800",
       icon: Clock,
     },
-   
+
     completed: {
       label: "Hoàn thành",
       color: "bg-green-100 text-green-800",
@@ -146,7 +147,7 @@ const AdminOrdersPage = () => {
         (o) => o.status === "PENDING" || o.status === "pending"
       ).length,
     },
-    
+
     {
       value: "COMPLETED",
       label: "Hoàn thành",
@@ -187,11 +188,10 @@ const AdminOrdersPage = () => {
             <button
               key={option.value}
               onClick={() => setStatusFilter(option.value)}
-              className={`px-4 py-2 rounded-lg font-medium transition-colors whitespace-nowrap ${
-                statusFilter === option.value
+              className={`px-4 py-2 rounded-lg font-medium transition-colors whitespace-nowrap ${statusFilter === option.value
                   ? "bg-coffee-600 text-white"
                   : "bg-gray-100 text-gray-700 hover:bg-gray-200"
-              }`}
+                }`}
             >
               {option.label} ({option.count})
             </button>
@@ -256,11 +256,11 @@ const AdminOrdersPage = () => {
                         <td className="px-6 py-4">
                           <div>
                             <div className="font-medium text-gray-900">
-                              {order.customerName 
-                                }
+                              {order.customerName
+                              }
                             </div>
                             <div className="text-sm text-gray-500">
-                              {order.phoneNumber }
+                              {order.phoneNumber}
                             </div>
                           </div>
                         </td>
@@ -301,7 +301,7 @@ const AdminOrdersPage = () => {
                                 <option value="CANCELLED">Hủy</option>
                               </select>
                             )}
-                                                      <button
+                          <button
                             onClick={() => handleViewDetail(order.id)}
                             className="inline-flex items-center px-3 py-2 text-sm font-medium text-blue-600 hover:text-blue-800 hover:bg-blue-50 rounded-lg transition-colors"
                           >
@@ -367,13 +367,13 @@ const AdminOrdersPage = () => {
                     <div>
                       <p className="text-sm text-gray-600">Khách hàng</p>
                       <p className="font-medium">
-                        {selectedOrder.customerName }
+                        {selectedOrder.customerName}
                       </p>
                     </div>
                     <div>
                       <p className="text-sm text-gray-600">Số điện thoại</p>
                       <p className="font-medium">
-                          {selectedOrder.phoneNumber}
+                        {selectedOrder.phoneNumber}
                       </p>
                     </div>
                     <div className="col-span-2">
@@ -393,16 +393,15 @@ const AdminOrdersPage = () => {
                     <div>
                       <p className="text-sm text-gray-600">Trạng thái</p>
                       <span
-                        className={`inline-block px-3 py-1 rounded-full text-xs font-medium ${
-                          getStatusInfo(selectedOrder.status).color
-                        }`}
+                        className={`inline-block px-3 py-1 rounded-full text-xs font-medium ${getStatusInfo(selectedOrder.status).color
+                          }`}
                       >
                         {getStatusInfo(selectedOrder.status).label}
                       </span>
                     </div>
                   </div>
 
-                                    <div className="border-t pt-4">
+                  <div className="border-t pt-4">
                     <h4 className="font-semibold mb-3">Sản phẩm</h4>
                     <div className="overflow-hidden rounded-lg border border-gray-200">
                       <table className="w-full">
@@ -443,19 +442,34 @@ const AdminOrdersPage = () => {
                       </table>
                     </div>
                   </div>
-<div className="border-t pt-4">
+                  <div className="border-t pt-4">
                     <div className="flex justify-between items-center text-lg font-bold">
                       <span>Tổng cộng</span>
                       <span className="text-coffee-600">
                         {formatCurrency(
-                          selectedOrder.totalAmount 
+                          selectedOrder.totalAmount
                         )}
                       </span>
                     </div>
                   </div>
                 </div>
 
-                <div className="mt-6 flex justify-end">
+                <div className="mt-6 flex justify-end gap-3">
+                  <Button
+                    onClick={() => {
+                      const win = window.open('', '_blank');
+                      const items = (selectedOrder.items || []);
+                      const rows = items.map(item =>
+                        `<tr><td>${item.productName || ''}</td><td style="text-align:right">${item.quantity || 0}</td><td style="text-align:right">${Number(item.unitPrice || 0).toLocaleString('vi-VN')} đ</td><td style="text-align:right">${(Number(item.unitPrice || 0) * Number(item.quantity || 0)).toLocaleString('vi-VN')} đ</td></tr>`
+                      ).join('');
+                      win.document.write(`<html><head><meta charset="UTF-8"><title>Phiếu Xuất #${selectedOrder.id}</title><style>body{font-family:Arial,sans-serif;padding:20px}table{width:100%;border-collapse:collapse;margin-top:20px}th,td{border:1px solid #ddd;padding:8px;text-align:left}th{background:#f5f5f5;font-size:12px;text-transform:uppercase}.total{font-weight:bold;font-size:16px;margin-top:20px;text-align:right}.info p{margin:4px 0;font-size:14px}</style></head><body><h2>PHIẾU XUẤT KHO - ĐƠN HÀNG #${selectedOrder.id}</h2><div class="info"><p><b>Khách hàng:</b> ${selectedOrder.customerName || ''}</p><p><b>SĐT:</b> ${selectedOrder.phoneNumber || ''}</p><p><b>Địa chỉ:</b> ${selectedOrder.shipAddress || ''}</p><p><b>Ngày:</b> ${new Date().toLocaleDateString('vi-VN')}</p></div><table><thead><tr><th>Sản phẩm</th><th style="text-align:right">SL</th><th style="text-align:right">Giá bán</th><th style="text-align:right">Thành tiền</th></tr></thead><tbody>${rows}</tbody></table><p class="total">Tổng: ${Number(selectedOrder.totalAmount || 0).toLocaleString('vi-VN')} đ</p><script>window.print()<\/script></body></html>`);
+                      win.document.close();
+                    }}
+                    variant="secondary"
+                  >
+                    <Printer className="w-4 h-4 mr-1" />
+                    In Phiếu Xuất
+                  </Button>
                   <Button
                     onClick={() => setShowDetailModal(false)}
                     variant="outline"

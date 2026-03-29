@@ -1,9 +1,23 @@
 import axiosInstance from "./axiosConfig";
 
+const normalizeCategoryListResponse = (response) => {
+  const data = response?.data ?? response;
+  const categories = Array.isArray(data)
+    ? data
+    : data?.categories || data?.data || response?.categories || [];
+
+  return {
+    ...response,
+    data: categories,
+  };
+};
+
+
 const categoryAPI = {
   // Lấy tất cả danh mục
   getAllCategories: async () => {
-    return await axiosInstance.get("/category/");
+    const response = await axiosInstance.get("/category/");
+    return normalizeCategoryListResponse(response);
   },
 
   // Lấy danh mục theo ID

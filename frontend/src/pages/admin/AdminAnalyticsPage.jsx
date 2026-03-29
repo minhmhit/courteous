@@ -53,6 +53,8 @@ const AdminAnalyticsPage = () => {
     averageOrderValue: 0,
     conversionRate: 0,
     growthRate: 0,
+    estimatedProfit: 0,
+    totalCOGS: 0,
   });
 
   useEffect(() => {
@@ -212,8 +214,21 @@ const AdminAnalyticsPage = () => {
       const conversionRate =
         totalCustomers > 0 ? (totalOrders / totalCustomers) * 100 : 0;
 
-      // Mock growth rate (compare with previous period)
-      const growthRate = 15.3;
+      // Calculate COGS (Cost of Goods Sold) for profit estimation
+      let totalCOGS = 0;
+      ordersInRange
+        .filter((o) => o.status === "COMPLETED" || o.status === "completed")
+        .forEach((order) => {
+          (order.items || []).forEach((item) => {
+            const productId = item.productId || item.product_id || item.productid;
+            const product = products.find((p) => p.id === productId);
+            const costPrice = Number(product?.costPrice || product?.cost_price || 0);
+            totalCOGS += costPrice * (item.quantity || 0);
+          });
+        });
+
+      const estimatedProfit = totalRevenue - totalCOGS;
+      const growthRate = 12.5; // Placeholder growth rate
 
       setStats({
         totalRevenue,
@@ -222,6 +237,8 @@ const AdminAnalyticsPage = () => {
         averageOrderValue,
         conversionRate,
         growthRate,
+        estimatedProfit,
+        totalCOGS,
       });
     } catch (error) {
       console.error("Error fetching analytics data:", error);
@@ -438,6 +455,28 @@ const AdminAnalyticsPage = () => {
             {formatCurrency(stats.averageOrderValue)}
           </p>
         </motion.div>
+
+        <motion.div
+          initial={{ opacity: 0, y: 20 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ delay: 0.35 }}
+          className={`bg-gradient-to-br ${stats.estimatedProfit >= 0 ? 'from-emerald-50' : 'from-red-50'} to-white rounded-xl shadow-sm p-6 border border-gray-100`}
+        >
+          <div className="flex items-center justify-between mb-4">
+            <div className="p-3 bg-emerald-500 rounded-lg">
+              <TrendingUp className="w-6 h-6 text-white" />
+            </div>
+          </div>
+          <h3 className="text-gray-600 text-sm font-medium mb-1">
+            Lợi Nhuận Ước Tính
+          </h3>
+          <p className="text-2xl font-bold text-gray-900">
+            {formatCurrency(stats.estimatedProfit)}
+          </p>
+          <p className="text-xs text-gray-500 mt-1">
+            COGS: {formatCurrency(stats.totalCOGS)}
+          </p>
+        </motion.div>
       </div>
 
       {/* Revenue Chart */}
@@ -453,7 +492,7 @@ const AdminAnalyticsPage = () => {
           </div>
           <div className="flex items-center gap-2 text-sm text-gray-600">
             <Calendar className="w-4 h-4" />
-            {periodDays} ngày gần đây
+            {rangeLabel}
           </div>
         </div>
         <ResponsiveContainer width="100%" height={300}>
