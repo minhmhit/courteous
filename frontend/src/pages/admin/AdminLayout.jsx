@@ -7,7 +7,7 @@ import {
   Users,
   Settings,
   LogOut,
-  FolderOpen,
+  LayoutGrid,
   Warehouse,
   UserCog,
   TrendingUp,
@@ -17,13 +17,14 @@ import {
   ChevronDown,
   User,
   Wallet,
+  LibraryBig,
 } from "lucide-react";
 import useAuthStore from "../../stores/useAuthStore";
 
 const MENU_GROUPS = [
   { id: "dashboards", label: "Dashboard", icon: LayoutDashboard },
   { id: "sales", label: "Kinh doanh", icon: TrendingUp },
-  { id: "catalog", label: "Catalog", icon: Package },
+  { id: "catalog", label: "Catalog", icon: LibraryBig },
   { id: "warehouse", label: "Kho", icon: Warehouse },
   { id: "people", label: "Người dùng", icon: Users },
   { id: "hr", label: "Nhân sự", icon: UserCog },
@@ -122,7 +123,7 @@ const AdminLayout = () => {
       group: "catalog",
     },
     {
-      icon: FolderOpen,
+      icon: LayoutGrid,
       label: "Danh mục",
       path: "/admin/categories",
       allowedRoles: [1, 3],
@@ -235,12 +236,12 @@ const AdminLayout = () => {
   const roleInfo = getRoleName(userRole);
 
   return (
-    <div className="min-h-screen px-3 py-3 md:px-6 md:py-5">
+    <div className="admin-shell min-h-screen px-3 py-3 md:px-6 md:py-5">
       <div className="mx-auto flex min-h-[calc(100vh-1.5rem)] max-w-7xl flex-col gap-4 lg:flex-row">
-        <aside className="glass-panel-strong flex w-full flex-col rounded-[32px] p-4 lg:w-72 lg:p-5">
-          <div className="mb-4 rounded-[28px] bg-white/25 p-4">
+        <aside className="glass-panel-strong flex w-full flex-col rounded-[32px] border-white/35 bg-[linear-gradient(180deg,rgba(129,83,57,0.2),rgba(102,66,45,0.12))] p-4 lg:w-72 lg:p-5">
+          <div className="mb-4 rounded-[28px] bg-white/28 p-4">
             <h1 className="text-2xl font-bold text-coffee-950">Admin Panel</h1>
-            <p className="mt-1 text-sm text-slate-600">{user?.name || user?.username}</p>
+            <p className="mt-1 text-sm text-stone-700">{user?.name || user?.username}</p>
             <span className={`mt-3 inline-flex rounded-full px-3 py-1 text-xs font-semibold ${roleInfo.color}`}>
               {roleInfo.name}
             </span>
@@ -250,13 +251,13 @@ const AdminLayout = () => {
             {groupsWithItems.map((group) => {
               const isOpen = openGroup === group.id;
               return (
-                <div key={group.id} className="rounded-2xl bg-white/20 p-2">
+                <div key={group.id} className="rounded-2xl bg-white/18 p-2">
                   <button
                     type="button"
                     onClick={() =>
                       setOpenGroup((prev) => (prev === group.id ? "" : group.id))
                     }
-                    className="flex w-full items-center justify-between gap-3 rounded-2xl px-3 py-2 text-sm font-semibold text-slate-700 hover:bg-white/40"
+                    className="flex w-full items-center justify-between gap-3 rounded-2xl px-3 py-2 text-sm font-semibold text-stone-800 hover:bg-white/26"
                   >
                     <span className="flex items-center gap-3">
                       <group.icon className="h-4 w-4 text-coffee-700" />
@@ -277,8 +278,8 @@ const AdminLayout = () => {
                             key={item.path}
                             to={item.path}
                             className={`flex items-center gap-3 rounded-2xl px-3 py-2 text-sm font-medium transition-all ${isActive
-                                ? "bg-white/70 text-coffee-800 shadow-[0_10px_30px_rgba(72,45,24,0.12)]"
-                                : "text-slate-700 hover:bg-white/40 hover:text-coffee-700"
+                                ? "bg-white/78 text-coffee-900 shadow-[0_14px_34px_rgba(44,24,14,0.28)]"
+                                : "text-stone-700 hover:bg-white/26 hover:text-coffee-900"
                               }`}
                           >
                             <item.icon className="h-4 w-4" />
@@ -302,7 +303,7 @@ const AdminLayout = () => {
           </button>
         </aside>
 
-        <main className="glass-panel flex-1 overflow-hidden rounded-[32px]">
+        <main className="glass-panel flex-1 overflow-hidden rounded-[32px] border-white/35 bg-[linear-gradient(180deg,rgba(255,250,245,0.42),rgba(255,248,241,0.18))]">
           <div className="h-full overflow-auto p-5 md:p-8">
             <Outlet />
           </div>

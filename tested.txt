@@ -1,0 +1,25 @@
+---Admin chưa có công cụ tìm kiếm nâng cao , sắp xếp , lọc sản phẩm (đã xong)
+---Admin chưa có công cụ tìm kiếm nâng cao , sắp xếp , lọc nhà cung cấp (đã xong)
+--Admin có thể tạo và xem các báo cáo theo thời gian (đã xong)
+------Nhân viên sale, nhân viên quản lý kho:
+Chưa có xem, sửa thông tin của chính mình (đã xong). 
+Chưa được nộp đơn xin nghỉ phép, nghỉ ốm đau thai sản, nghỉ việc (chưa xong).
+Chưa xem được cách tính lương, lương mỗi tháng của chính mình (chưa xong).
+Chưa in được bảng lương theo tháng. (chưua xong)
+Chưa in được bảng lương theo năm (chưa xong) 
+----HR:
+Chưa thêm/ sửa nhân sự (đã xong)
+Chưa thay đổi chức vụ của nhân sự, lưu ý, khi thay đổi chức vụ phải có thời điểm cụ thể và lương sẽ thay đổi theo. X (đã xong)
+Chưa tính lương cho mỗi nhân sự, theo quy định của doanh nghiệp. (chưa xong)
+Chưa Duyệt nhân sự nghỉ việc, nghỉ phép v.v… , chưa có thống kê theo tháng, năm tình hình nhân sự lương, thưởng nhân sự. (chưa xong)
+Quản lý kho:
+Phần giá trong Admin và quản lý kho click lên xuống chỉ +- 1 đồng (đã xong)
+Chưa có giá nhập vào (do db k có)
+Chưa xóa được sản phẩm (đã xong)
+Chưa có lập phiếu nhập (đã xong)
+Xóa nhà cung cấp bị lỗi (đã xong)
+In báo cáo thống kê theo tháng, năm chứ không phải 7/30/90 ngày (đã xong)
+Quản lý kinh doanh:
+Phiếu xuất phải bao gồm số lượng và giá bán (đã xong nhưng đang lỗi unicode)
+Thống kê số lượng sản phẩm đã xuất theo tháng, quý, năm chứ không phải 7/30/90 ngày (đã xong)
+Thống kê được lợi nhuận của doanh nghiệp theo tháng, quý, năm chứ không phải 7/30/90 ngày (đã xong)`

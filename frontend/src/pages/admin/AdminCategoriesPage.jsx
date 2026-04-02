@@ -1,6 +1,6 @@
 import { useState, useEffect } from "react";
 import { motion, AnimatePresence } from "framer-motion";
-import { Plus, Search, Edit, Trash2, X, FolderOpen } from "lucide-react";
+import { Plus, Search, Edit, Trash2, X, Coffee } from "lucide-react";
 import { categoryAPI } from "../../services";
 import useToastStore from "../../stores/useToastStore";
 import Button from "../../components/ui/Button";
@@ -144,7 +144,7 @@ const AdminCategoriesPage = () => {
                 >
                   <div className="flex items-start justify-between mb-4">
                     <div className="p-3 bg-coffee-600 rounded-lg">
-                      <FolderOpen className="w-6 h-6 text-white" />
+                      <Coffee className="w-6 h-6 text-white" />
                     </div>
                     <div className="flex gap-2">
                       <button
@@ -226,7 +226,7 @@ const AdminCategoriesPage = () => {
                         setFormData({ ...formData, name: e.target.value })
                       }
                       required
-                      icon={<FolderOpen className="w-5 h-5" />}
+                      icon={<Coffee className="w-5 h-5" />}
                       placeholder="VD: Cà phê Arabica"
                     />
 

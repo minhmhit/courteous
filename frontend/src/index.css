@@ -193,6 +193,14 @@
     opacity: 0.85;
   }
 
+  .admin-shell {
+    background:
+      radial-gradient(circle at top left, rgba(255, 252, 247, 0.56), transparent 26%),
+      radial-gradient(circle at 82% 18%, rgba(255, 232, 205, 0.3), transparent 22%),
+      radial-gradient(circle at 50% 100%, rgba(187, 134, 96, 0.18), transparent 30%),
+      linear-gradient(135deg, #f3e4d4 0%, #ddbba0 45%, #b98563 100%);
+  }
+
   .scrollbar-thin::-webkit-scrollbar {
     @apply h-2 w-2;
   }
