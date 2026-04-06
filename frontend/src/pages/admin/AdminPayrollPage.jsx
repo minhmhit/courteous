@@ -23,6 +23,7 @@ const AdminPayrollPage = () => {
   const [rows, setRows] = useState([]);
   const [summary, setSummary] = useState({ totalEmployees: 0, totalSalary: 0 });
   const [isLoading, setIsLoading] = useState(true);
+  const [emptyMessage, setEmptyMessage] = useState("Chưa có dữ liệu lương");
   const [employees, setEmployees] = useState([]);
   const lastErrorRef = useRef("");
   const [periods, setPeriods] = useState([]);
@@ -79,6 +80,9 @@ const AdminPayrollPage = () => {
       }
       if (p.month && p.year) {
         return Number(p.month) === month && Number(p.year) === year;
+      }
+      if (p.monthNo && p.yearNo) {
+        return Number(p.monthNo) === month && Number(p.yearNo) === year;
       }
       if (p.month_no && p.year_no) {
         return Number(p.month_no) === month && Number(p.year_no) === year;
@@ -213,6 +217,7 @@ const AdminPayrollPage = () => {
       setIsLoading(true);
       try {
         if (isHR) {
+          setEmptyMessage("Chưa có dữ liệu lương");
           const periodId = reportType === "month" ? resolvePeriodId() : null;
           const params =
             reportType === "month"
@@ -270,8 +275,7 @@ const AdminPayrollPage = () => {
         } else {
           const fallbackName = user?.name || user?.fullName || "Tôi";
           if (reportType === "month") {
-            const periodId = resolvePeriodId();
-            const params = periodId ? { periodId } : { ...getMonthYear() };
+            const params = getMonthYear();
             let monthlyRes = await payrollAPI.getMyMonthlySlip(params).catch(() => null);
             let list = extractList(monthlyRes);
 
@@ -290,6 +294,9 @@ const AdminPayrollPage = () => {
             if (!isMounted) return;
             setRows(normalized);
             setSummary(buildSummary(normalized));
+            setEmptyMessage(
+              normalized.length > 0 ? "Chưa có dữ liệu lương" : "Tháng này chưa chốt bảng lương"
+            );
             lastErrorRef.current = "";
           } else {
             const params = { year: selectedYear };
@@ -330,6 +337,7 @@ const AdminPayrollPage = () => {
             if (!isMounted) return;
             setRows(normalized);
             setSummary(buildSummary(normalized));
+            setEmptyMessage("Chưa có dữ liệu lương");
             lastErrorRef.current = "";
           }
         }
@@ -379,10 +387,20 @@ const AdminPayrollPage = () => {
           const res = await payrollPeriodAPI.createPeriod(payload);
           pId = res?.data?.id || res?.data?.data?.id || res?.id;
         } catch (err) {
-          const isConflict = err.message?.toLowerCase().includes("tồn tại") || err.response?.status === 409 || err.statusCode === 409;
-          if (isConflict) {
-            // Period exists but periods state was empty/stale — re-fetch below
-          } else {
+          const errorText =
+            typeof err === "string"
+              ? err
+              : err?.message || err?.error || err?.detail || JSON.stringify(err || {});
+          const normalizedErrorText = String(errorText).toLowerCase();
+          const isConflict =
+            err?.response?.status === 409 ||
+            err?.status === 409 ||
+            err?.statusCode === 409 ||
+            normalizedErrorText.includes("409") ||
+            normalizedErrorText.includes("ton tai") ||
+            normalizedErrorText.includes("ky luong thang");
+
+          if (!isConflict) {
             console.error("Create period error detail:", err);
             throw err;
           }
@@ -673,7 +691,7 @@ const AdminPayrollPage = () => {
                     colSpan={10}
                     className="px-6 py-12 text-center text-gray-500"
                   >
-                    Chưa có dữ liệu lương
+                    {emptyMessage}
                   </td>
                 </tr>
               )}

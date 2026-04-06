@@ -300,6 +300,8 @@ const AdminHRMPage = () => {
     const value =
       employee.baseSalary ||
       employee.base_salary ||
+      employee.currentPosition?.baseSalary ||
+      employee.currentPosition?.base_salary ||
       employee.currentSalary ||
       employee.current_salary ||
       employee.positionSalary ||

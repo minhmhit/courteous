@@ -83,11 +83,9 @@ const payrollAPI = {
   },
 
   getEmployeeMonthlySlip: async (employeeId, params = {}) => {
-    const resolved = await withResolvedPeriod(params);
-    if (resolved.periodId === null) return { data: [] };
     return await axiosInstance.get(
       `/payrolls/admin/${employeeId}/monthly-slip`,
-      { params: resolved }
+      { params }
     );
   },
 
@@ -100,9 +98,7 @@ const payrollAPI = {
 
   // Self
   getMyPayrolls: async (params = {}) => {
-    const resolved = await withResolvedPeriod(params);
-    if (resolved.periodId === null) return { data: [] };
-    return await axiosInstance.get("/payrolls/me", { params: resolved });
+    return await axiosInstance.get("/payrolls/me", { params });
   },
 
   getMyYearly: async (params = {}) => {
@@ -110,9 +106,7 @@ const payrollAPI = {
   },
 
   getMyMonthlySlip: async (params = {}) => {
-    const resolved = await withResolvedPeriod(params);
-    if (resolved.periodId === null) return { data: [] };
-    return await axiosInstance.get("/payrolls/me/monthly-slip", { params: resolved });
+    return await axiosInstance.get("/payrolls/me/monthly-slip", { params });
   },
 
   getMyYearlySummary: async (params = {}) => {
