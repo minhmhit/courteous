@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { Link, useLocation } from "react-router-dom";
 import {
   AlertCircle,
@@ -10,10 +10,11 @@ import {
   LoaderCircle,
   ReceiptText,
   ShieldCheck,
+  ShoppingBag,
 } from "lucide-react";
-import { paymentAPI } from "../../services";
+import { orderAPI, paymentAPI, receiptAPI } from "../../services";
 import Button from "../../components/ui/Button";
-import { formatCurrency } from "../../utils/formatDate";
+import { formatCurrency, formatDate } from "../../utils/formatDate";
 
 const STATUS_STYLES = {
   success: {
@@ -47,11 +48,17 @@ const VnpayReturnPage = () => {
   const location = useLocation();
   const [isLoading, setIsLoading] = useState(true);
   const [result, setResult] = useState(null);
+  const [order, setOrder] = useState(null);
+  const [receipt, setReceipt] = useState(null);
   const [errorMessage, setErrorMessage] = useState("");
 
+  const searchParams = useMemo(
+    () => new URLSearchParams(location.search),
+    [location.search],
+  );
+
   useEffect(() => {
-    const verifyPayment = async () => {
-      const searchParams = new URLSearchParams(location.search);
+    const loadResult = async () => {
       const query = Object.fromEntries(searchParams.entries());
 
       if (!Object.keys(query).length) {
@@ -64,6 +71,18 @@ const VnpayReturnPage = () => {
         const response = await paymentAPI.verifyVnpayReturn(query);
         const payload = response?.data || response;
         setResult(payload);
+
+        if (payload?.orderId) {
+          const [orderResponse, receiptResponse] = await Promise.all([
+            orderAPI.getOrderById(payload.orderId).catch(() => null),
+            receiptAPI.getReceiptsByOrderId(payload.orderId).catch(() => null),
+          ]);
+
+          setOrder(orderResponse?.data || orderResponse || null);
+
+          const receiptList = receiptResponse?.data || receiptResponse || [];
+          setReceipt(Array.isArray(receiptList) ? receiptList[0] || null : null);
+        }
       } catch (error) {
         setErrorMessage(
           error?.message || "Không thể xác minh kết quả thanh toán VNPay.",
@@ -73,13 +92,13 @@ const VnpayReturnPage = () => {
       }
     };
 
-    verifyPayment();
-  }, [location.search]);
+    loadResult();
+  }, [searchParams]);
 
   if (isLoading) {
     return (
       <div className="page-shell min-h-screen px-3 py-10 md:px-6">
-        <div className="mx-auto max-w-2xl rounded-[32px] border border-white/25  p-10 text-center shadow-[0_14px_40px_rgba(64,33,12,0.08)] backdrop-blur-xl">
+        <div className="mx-auto max-w-2xl rounded-[32px] border border-white/25 p-10 text-center shadow-[0_14px_40px_rgba(64,33,12,0.08)] backdrop-blur-xl">
           <LoaderCircle className="mx-auto mb-4 h-14 w-14 animate-spin text-coffee-600" />
           <h1 className="text-2xl font-bold text-slate-900">
             Đang xác minh thanh toán VNPay
@@ -93,48 +112,97 @@ const VnpayReturnPage = () => {
     );
   }
 
-  const isSuccess = !!result?.success;
+  if (!result) {
+    return (
+      <div className="page-shell min-h-screen px-3 py-10 md:px-6">
+        <div className="mx-auto max-w-2xl rounded-[32px] border border-amber-200 bg-amber-50 p-10 text-center shadow-[0_14px_40px_rgba(64,33,12,0.08)]">
+          <AlertCircle className="mx-auto mb-4 h-14 w-14 text-amber-500" />
+          <h1 className="text-2xl font-bold text-slate-900">
+            Chưa thể tải kết quả thanh toán
+          </h1>
+          <p className="mt-3 text-slate-600">
+            {errorMessage || "Không tìm thấy dữ liệu giao dịch VNPay."}
+          </p>
+          <div className="mt-6 flex justify-center gap-3">
+            <Link to="/profile/orders">
+              <Button variant="outline">Xem lịch sử đơn hàng</Button>
+            </Link>
+            <Link to="/products">
+              <Button variant="primary">Tiếp tục mua sắm</Button>
+            </Link>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  const isSuccess = !!result.success;
   const statusStyle = isSuccess ? STATUS_STYLES.success : STATUS_STYLES.failed;
+  const orderItems = order?.items || [];
+
   const summaryCards = [
     {
       label: "Mã đơn hàng",
-      value: result?.orderId ? `#${result.orderId}` : "N/A",
+      value: result.orderId ? `#${result.orderId}` : "N/A",
       icon: ReceiptText,
     },
     {
       label: "Mã giao dịch VNPay",
-      value: result?.transactionNo || "N/A",
+      value: result.transactionNo || "N/A",
       icon: CreditCard,
     },
     {
       label: "Số tiền thanh toán",
-      value: formatCurrency(result?.amount),
+      value: formatCurrency(result.amount),
       icon: CircleDollarSign,
     },
-    {
-      label: "Mã phản hồi",
-      value: result?.responseCode || "N/A",
-      icon: ShieldCheck,
-    },
   ];
+
   const detailRows = [
     {
       label: "Trạng thái thanh toán",
-      value: formatStatusLabel(result?.paymentStatus, result?.message),
+      value: formatStatusLabel(result.paymentStatus, result.message),
     },
     {
       label: "Trạng thái đơn hàng",
-      value: formatStatusLabel(result?.orderStatus, "Đang xử lý"),
+      value: formatStatusLabel(result.orderStatus, "Đang xử lý"),
     },
     {
       label: "Phương thức",
-      value: "VNPay",
+      value: "VNPay Sandbox",
+    },
+    {
+      label: "Ngày thanh toán",
+      value: receipt?.createdAt
+        ? formatDate(receipt.createdAt, {
+            day: "2-digit",
+            month: "2-digit",
+            year: "numeric",
+            hour: "2-digit",
+            minute: "2-digit",
+          })
+        : "Đang cập nhật",
+    },
+  ];
+
+  const receiptRows = [
+    {
+      label: "Mã biên nhận",
+      value: receipt?.id ? `#${receipt.id}` : "Đang cập nhật",
+    },
+    {
+      label: "Mã thanh toán",
+      value: result.paymentId ? `#${result.paymentId}` : "N/A",
+    },
+    {
+      label: "Mô tả",
+      value: receipt?.description || "Thanh toán đơn hàng qua VNPay",
     },
   ];
 
   return (
     <div className="page-shell min-h-screen px-3 py-10 md:px-6">
-      <div className="mx-auto max-w-4xl space-y-6">
+      <div className="mx-auto max-w-5xl space-y-6">
         <div
           className={`overflow-hidden rounded-[36px] border p-8 backdrop-blur-xl ${statusStyle.panel}`}
         >
@@ -157,9 +225,7 @@ const VnpayReturnPage = () => {
                   {statusStyle.title}
                 </h1>
                 <p className="mt-3 max-w-2xl text-slate-600">
-                  {result?.message ||
-                    errorMessage ||
-                    "Không thể xác định trạng thái giao dịch."}
+                  {result.message || "Không thể xác định trạng thái giao dịch."}
                 </p>
               </div>
             </div>
@@ -167,10 +233,7 @@ const VnpayReturnPage = () => {
             <div className="rounded-[28px] border border-white/25 bg-white/[0.14] p-5 text-left shadow-[0_10px_28px_rgba(64,33,12,0.06)] backdrop-blur-xl">
               <p className="text-sm text-slate-500">Số tiền đã xử lý</p>
               <p className="mt-1 text-3xl font-bold text-coffee-700">
-                {formatCurrency(result?.amount)}
-              </p>
-              <p className="mt-2 text-sm text-slate-500">
-                Response code: {result?.responseCode || "N/A"}
+                {formatCurrency(result.amount)}
               </p>
             </div>
           </div>
@@ -179,6 +242,7 @@ const VnpayReturnPage = () => {
         <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
           {summaryCards.map((card) => {
             const Icon = card.icon;
+
             return (
               <div
                 key={card.label}
@@ -226,6 +290,90 @@ const VnpayReturnPage = () => {
 
           <div className="rounded-[32px] border border-white/22 bg-white/[0.10] p-6 shadow-[0_14px_36px_rgba(64,33,12,0.06)] backdrop-blur-xl">
             <div className="flex items-center gap-3">
+              <ReceiptText className="h-6 w-6 text-coffee-700" />
+              <h2 className="text-xl font-bold text-slate-900">
+                Biên nhận thanh toán
+              </h2>
+            </div>
+
+            <div className="mt-6 space-y-4">
+              {receiptRows.map((row) => (
+                <div
+                  key={row.label}
+                  className="rounded-[22px] border border-white/16 bg-white/[0.12] px-4 py-3 backdrop-blur-xl"
+                >
+                  <p className="text-sm text-slate-500">{row.label}</p>
+                  <p className="mt-1 font-semibold text-slate-900">{row.value}</p>
+                </div>
+              ))}
+            </div>
+          </div>
+        </div>
+
+        <div className="grid gap-6 lg:grid-cols-[1.1fr_0.9fr]">
+          <div className="rounded-[32px] border border-white/22 bg-white/[0.10] p-6 shadow-[0_14px_36px_rgba(64,33,12,0.06)] backdrop-blur-xl">
+            <div className="flex items-center gap-3">
+              <ShoppingBag className="h-6 w-6 text-coffee-700" />
+              <h2 className="text-xl font-bold text-slate-900">
+                Thông tin đơn hàng
+              </h2>
+            </div>
+
+            <div className="mt-6 grid gap-3 md:grid-cols-2">
+              <div className="rounded-[22px] border border-white/16 bg-white/[0.12] px-4 py-3 backdrop-blur-xl">
+                <p className="text-sm text-slate-500">Mã đơn</p>
+                <p className="mt-1 font-semibold text-slate-900">
+                  {result.orderId ? `#${result.orderId}` : "N/A"}
+                </p>
+              </div>
+              <div className="rounded-[22px] border border-white/16 bg-white/[0.12] px-4 py-3 backdrop-blur-xl">
+                <p className="text-sm text-slate-500">Tổng đơn hàng</p>
+                <p className="mt-1 font-semibold text-slate-900">
+                  {formatCurrency(order?.totalAmount || result.amount)}
+                </p>
+              </div>
+              <div className="rounded-[22px] border border-white/16 bg-white/[0.12] px-4 py-3 backdrop-blur-xl md:col-span-2">
+                <p className="text-sm text-slate-500">Địa chỉ giao hàng</p>
+                <p className="mt-1 font-semibold text-slate-900">
+                  {order?.shipAddress || "Đang cập nhật"}
+                </p>
+              </div>
+            </div>
+
+            <div className="mt-6 space-y-3">
+              {orderItems.length > 0 ? (
+                orderItems.map((item, index) => (
+                  <div
+                    key={`${item.productId || item.id || index}-${index}`}
+                    className="flex items-center justify-between gap-4 rounded-[22px] border border-white/16 bg-white/[0.12] px-4 py-3 backdrop-blur-xl"
+                  >
+                    <div>
+                      <p className="font-semibold text-slate-900">
+                        {item.productName || item.name || "Sản phẩm"}
+                      </p>
+                      <p className="text-sm text-slate-500">
+                        Số lượng: {item.quantity}
+                      </p>
+                    </div>
+                    <p className="font-semibold text-coffee-700">
+                      {formatCurrency(
+                        Number(item.unitPrice || item.price || 0) *
+                          Number(item.quantity || 0),
+                      )}
+                    </p>
+                  </div>
+                ))
+              ) : (
+                <div className="rounded-[22px] border border-dashed border-white/20 bg-white/[0.08] px-4 py-5 text-sm text-slate-500">
+                  Chi tiết sản phẩm sẽ hiển thị khi dữ liệu đơn hàng được đồng
+                  bộ.
+                </div>
+              )}
+            </div>
+          </div>
+
+          <div className="rounded-[32px] border border-white/22 bg-white/[0.10] p-6 shadow-[0_14px_36px_rgba(64,33,12,0.06)] backdrop-blur-xl">
+            <div className="flex items-center gap-3">
               <ChevronRight className="h-6 w-6 text-coffee-700" />
               <h2 className="text-xl font-bold text-slate-900">
                 Hành động tiếp theo
@@ -233,7 +381,7 @@ const VnpayReturnPage = () => {
             </div>
 
             <div className="mt-6 flex flex-col gap-3">
-              {result?.orderId && (
+              {result.orderId && (
                 <Link to={`/orders/${result.orderId}`}>
                   <Button variant="primary" className="w-full justify-center">
                     Xem chi tiết đơn hàng
