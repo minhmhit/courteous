@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+﻿import { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { motion } from "framer-motion";
 import {
@@ -18,20 +18,24 @@ import Input from "../../components/ui/Input";
 import { formatCurrency } from "../../utils/formatDate";
 
 const PAYMENT_METHOD_CONFIG = {
-  CASH: {
+  COD: {
     title: "Thanh toán khi nhận hàng (COD)",
-    description: "Tạo đơn hàng và ghi nhận thanh toán tiền mặt khi giao hàng.",
+    description:
+      "Tạo đơn hàng và xử lý giao hàng theo hình thức thanh toán khi nhận.",
   },
   VNPAY: {
     title: "Thanh toán qua VNPay",
-    description: "Mở cổng VNPay ở cửa sổ riêng và theo dõi kết quả thanh toán tự động.",
+    description:
+      "Tạo đơn chờ thanh toán và chuyển bạn sang cổng VNPay để hoàn tất giao dịch.",
   },
 };
 
 const DEFAULT_PAYMENT_METHODS = [
-  { code: "CASH", name: "Tiền mặt", enabled: true },
+  { code: "COD", name: "Tiền mặt", enabled: true },
   { code: "VNPAY", name: "VNPay", enabled: false },
 ];
+
+const unwrapResponseData = (response) => response?.data?.data || response?.data || response;
 
 const getImageSrc = (imageUrl) => {
   if (!imageUrl) {
@@ -48,7 +52,7 @@ const getImageSrc = (imageUrl) => {
 const CheckoutPage = () => {
   const navigate = useNavigate();
   const toast = useToastStore();
-  const { items, totalPrice, clearCart, fetchCart } = useCartStore();
+  const { items, totalPrice, fetchCart } = useCartStore();
   const { user } = useAuthStore();
 
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -75,7 +79,7 @@ const CheckoutPage = () => {
     email: user?.email || "",
     shipAddress: "",
     note: "",
-    paymentMethod: "CASH",
+    paymentMethod: "COD",
   });
 
   useEffect(() => {
@@ -88,6 +92,7 @@ const CheckoutPage = () => {
         toast.error("Không thể tải danh sách tỉnh thành");
       }
     };
+
     fetchProvinces();
   }, [toast]);
 
@@ -101,6 +106,7 @@ const CheckoutPage = () => {
         console.error("Error fetching coupons:", error);
       }
     };
+
     fetchCoupons();
   }, []);
 
@@ -114,8 +120,7 @@ const CheckoutPage = () => {
         setPaymentMethods(
           DEFAULT_PAYMENT_METHODS.map((method) => ({
             ...method,
-            enabled:
-              method.code === "CASH" ? true : enabledCodes.has(method.code),
+            enabled: method.code === "COD" ? true : enabledCodes.has(method.code),
           })),
         );
       } catch (error) {
@@ -258,7 +263,7 @@ const CheckoutPage = () => {
 
   const finalPrice = totalPrice - discountAmount;
   const selectedPaymentConfig =
-    PAYMENT_METHOD_CONFIG[formData.paymentMethod] || PAYMENT_METHOD_CONFIG.CASH;
+    PAYMENT_METHOD_CONFIG[formData.paymentMethod] || PAYMENT_METHOD_CONFIG.COD;
 
   const handleSubmit = async (e) => {
     e.preventDefault();
@@ -302,24 +307,19 @@ const CheckoutPage = () => {
         couponId: appliedCoupon?.id || null,
         shipAddress: fullAddress,
         phoneNumber: formData?.phoneNumber || null,
+        paymentMethodCode: formData.paymentMethod,
       };
-      const response = await orderAPI.createOrder(orderData);
 
-      createdOrderId = response.data?.id || response.data?.orderId || response.id;
+      const response = await orderAPI.createOrder(orderData);
+      const createdOrder = unwrapResponseData(response);
+
+      createdOrderId = createdOrder?.id || createdOrder?.orderId || null;
       if (!createdOrderId) {
         throw new Error("Không thể lấy mã đơn hàng sau khi tạo đơn");
       }
 
-      const paymentResponse = await paymentAPI.createPayment({
-        orderId: createdOrderId,
-        paymentMethodCode: formData.paymentMethod,
-        orderInfo: `Thanh toan don hang #${createdOrderId}`,
-        locale: "vn",
-      });
-
-      const paymentData = paymentResponse?.data || paymentResponse;
-
       if (formData.paymentMethod === "VNPAY") {
+        const paymentData = createdOrder?.payment || null;
         if (!paymentData?.paymentUrl) {
           throw new Error("Không nhận được đường dẫn thanh toán VNPay");
         }
@@ -331,22 +331,20 @@ const CheckoutPage = () => {
 
       setOrderId(createdOrderId);
       setOrderSuccess(true);
-      clearCart();
-      fetchCart();
+      await fetchCart();
 
       toast.success("Đặt hàng thành công!");
 
       setTimeout(() => {
-        navigate(`/profile/orders`);
+        navigate("/profile/orders");
       }, 3000);
     } catch (error) {
       console.error("Lỗi khi đặt hàng:", error);
       toast.error(
         error?.message ||
           (createdOrderId
-            ? `Đơn hàng #${createdOrderId} đã tạo nhưng chưa khởi tạo được thanh toán. Bạn có thể thanh toán lại sau.`
+            ? `Đơn hàng #${createdOrderId} đã tạo nhưng chưa hoàn tất xử lý.`
             : null) ||
-          error.message ||
           "Không thể đặt hàng. Vui lòng thử lại",
       );
     } finally {
@@ -361,23 +359,21 @@ const CheckoutPage = () => {
           <motion.div
             initial={{ scale: 0.8, opacity: 0 }}
             animate={{ scale: 1, opacity: 1 }}
-            className="glass-panel-strong max-w-md mx-auto rounded-[32px] p-12 text-center"
+            className="glass-panel-strong mx-auto max-w-md rounded-[32px] p-12 text-center"
           >
             <div className="mx-auto mb-6 flex h-20 w-20 items-center justify-center rounded-full bg-emerald-100/80">
-              <CheckCircle className="w-12 h-12 text-green-600" />
+              <CheckCircle className="h-12 w-12 text-green-600" />
             </div>
-            <h2 className="text-2xl font-bold text-gray-900 mb-3">
+            <h2 className="mb-3 text-2xl font-bold text-gray-900">
               Đặt hàng thành công!
             </h2>
-            <p className="text-gray-600 mb-2">
-              Cảm ơn bạn đã đặt hàng tại CoffeeBot
-            </p>
+            <p className="mb-2 text-gray-600">Cảm ơn bạn đã đặt hàng tại CoffeeBot</p>
             {orderId && (
-              <p className="text-sm text-gray-500 mb-6">
+              <p className="mb-6 text-sm text-gray-500">
                 Mã đơn hàng: <span className="font-mono font-bold">#{orderId}</span>
               </p>
             )}
-            <p className="text-sm text-gray-600 mb-6">
+            <p className="mb-6 text-sm text-gray-600">
               Chúng tôi sẽ liên hệ với bạn sớm nhất để xác nhận đơn hàng
             </p>
             <Button onClick={() => navigate("/profile/orders")} variant="primary">
@@ -392,29 +388,27 @@ const CheckoutPage = () => {
   return (
     <div className="min-h-screen px-3 py-6 md:px-6 md:py-8">
       <div className="container mx-auto px-4">
-        <h1 className="text-3xl font-bold text-gray-900 mb-8">Thanh toán</h1>
+        <h1 className="mb-8 text-3xl font-bold text-gray-900">Thanh toán</h1>
 
         <form onSubmit={handleSubmit}>
-          <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
-            <div className="lg:col-span-2 space-y-6">
+          <div className="grid grid-cols-1 gap-8 lg:grid-cols-3">
+            <div className="space-y-6 lg:col-span-2">
               <div className="glass-card rounded-[28px] p-6">
-                <div className="flex items-center gap-3 mb-6">
+                <div className="mb-6 flex items-center gap-3">
                   <div className="glass-card rounded-2xl p-2">
-                    <MapPin className="w-6 h-6 text-coffee-600" />
+                    <MapPin className="h-6 w-6 text-coffee-600" />
                   </div>
-                  <h2 className="text-xl font-bold text-gray-900">
-                    Địa chỉ giao hàng
-                  </h2>
+                  <h2 className="text-xl font-bold text-gray-900">Địa chỉ giao hàng</h2>
                 </div>
 
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
                   <Input
                     label="Họ và tên"
                     name="fullName"
                     value={formData.fullName}
                     onChange={handleInputChange}
                     required
-                    icon={<User className="w-5 h-5" />}
+                    icon={<User className="h-5 w-5" />}
                   />
                   <Input
                     label="Số điện thoại"
@@ -423,7 +417,7 @@ const CheckoutPage = () => {
                     value={formData.phoneNumber}
                     onChange={handleInputChange}
                     required
-                    icon={<Phone className="w-5 h-5" />}
+                    icon={<Phone className="h-5 w-5" />}
                   />
                   <div className="md:col-span-2">
                     <Input
@@ -446,7 +440,7 @@ const CheckoutPage = () => {
                   </div>
 
                   <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-2">
+                    <label className="mb-2 block text-sm font-medium text-gray-700">
                       Tỉnh / Thành phố <span className="text-red-500">*</span>
                     </label>
                     <select
@@ -465,7 +459,7 @@ const CheckoutPage = () => {
                   </div>
 
                   <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-2">
+                    <label className="mb-2 block text-sm font-medium text-gray-700">
                       Quận / Huyện <span className="text-red-500">*</span>
                     </label>
                     <select
@@ -473,7 +467,7 @@ const CheckoutPage = () => {
                       onChange={handleDistrictChange}
                       disabled={!selectedProvince}
                       required
-                      className="glass-select w-full disabled:bg-gray-100 disabled:cursor-not-allowed"
+                      className="glass-select w-full disabled:cursor-not-allowed disabled:bg-gray-100"
                     >
                       <option value="">Chọn quận/huyện</option>
                       {districts.map((district) => (
@@ -485,7 +479,7 @@ const CheckoutPage = () => {
                   </div>
 
                   <div className="md:col-span-2">
-                    <label className="block text-sm font-medium text-gray-700 mb-2">
+                    <label className="mb-2 block text-sm font-medium text-gray-700">
                       Phường / Xã <span className="text-red-500">*</span>
                     </label>
                     <select
@@ -493,7 +487,7 @@ const CheckoutPage = () => {
                       onChange={handleWardChange}
                       disabled={!selectedDistrict}
                       required
-                      className="glass-select w-full disabled:bg-gray-100 disabled:cursor-not-allowed"
+                      className="glass-select w-full disabled:cursor-not-allowed disabled:bg-gray-100"
                     >
                       <option value="">Chọn phường/xã</option>
                       {wards.map((ward) => (
@@ -504,7 +498,7 @@ const CheckoutPage = () => {
                     </select>
                   </div>
                   <div className="md:col-span-2">
-                    <label className="block text-sm font-medium text-gray-700 mb-2">
+                    <label className="mb-2 block text-sm font-medium text-gray-700">
                       Ghi chú (tùy chọn)
                     </label>
                     <textarea
@@ -520,20 +514,17 @@ const CheckoutPage = () => {
               </div>
 
               <div className="glass-card rounded-[28px] p-6">
-                <div className="flex items-center gap-3 mb-6">
+                <div className="mb-6 flex items-center gap-3">
                   <div className="glass-card rounded-2xl p-2">
-                    <CreditCard className="w-6 h-6 text-coffee-600" />
+                    <CreditCard className="h-6 w-6 text-coffee-600" />
                   </div>
-                  <h2 className="text-xl font-bold text-gray-900">
-                    Phương thức thanh toán
-                  </h2>
+                  <h2 className="text-xl font-bold text-gray-900">Phương thức thanh toán</h2>
                 </div>
 
                 <div className="space-y-3">
                   {paymentMethods.map((method) => {
                     const config =
-                      PAYMENT_METHOD_CONFIG[method.code] ||
-                      PAYMENT_METHOD_CONFIG.CASH;
+                      PAYMENT_METHOD_CONFIG[method.code] || PAYMENT_METHOD_CONFIG.COD;
 
                     return (
                       <label
@@ -551,15 +542,11 @@ const CheckoutPage = () => {
                           checked={formData.paymentMethod === method.code}
                           onChange={handleInputChange}
                           disabled={!method.enabled}
-                          className="w-5 h-5 text-coffee-600 focus:ring-coffee-500"
+                          className="h-5 w-5 text-coffee-600 focus:ring-coffee-500"
                         />
                         <div>
-                          <p className="font-semibold text-gray-900">
-                            {config.title}
-                          </p>
-                          <p className="text-sm text-gray-600">
-                            {config.description}
-                          </p>
+                          <p className="font-semibold text-gray-900">{config.title}</p>
+                          <p className="text-sm text-gray-600">{config.description}</p>
                           {!method.enabled && method.code === "VNPAY" && (
                             <p className="mt-1 text-xs text-amber-700">
                               VNPay chưa sẵn sàng vì server chưa cấu hình `VNPAY_*`.
@@ -570,28 +557,24 @@ const CheckoutPage = () => {
                     );
                   })}
                 </div>
-                <p className="mt-4 text-sm text-slate-500">
-                  {selectedPaymentConfig.description}
-                </p>
+                <p className="mt-4 text-sm text-slate-500">{selectedPaymentConfig.description}</p>
               </div>
             </div>
 
             <div className="lg:col-span-1">
               <div className="glass-panel sticky top-28 rounded-[32px] p-6">
-                <h2 className="text-xl font-bold text-gray-900 mb-6">
-                  Đơn hàng của bạn
-                </h2>
+                <h2 className="mb-6 text-xl font-bold text-gray-900">Đơn hàng của bạn</h2>
 
-                <div className="space-y-3 mb-6 max-h-60 overflow-y-auto">
+                <div className="mb-6 max-h-60 space-y-3 overflow-y-auto">
                   {items?.map((item) => (
                     <div key={item.id} className="flex gap-3">
                       <img
                         src={getImageSrc(item.imageUrl)}
                         alt={item.name}
-                        className="w-16 h-16 object-cover rounded-lg"
+                        className="h-16 w-16 rounded-lg object-cover"
                       />
                       <div className="flex-1">
-                        <p className="font-medium text-sm text-gray-900 line-clamp-2">
+                        <p className="line-clamp-2 text-sm font-medium text-gray-900">
                           {item.name}
                         </p>
                         <p className="text-sm text-gray-600">
@@ -602,8 +585,8 @@ const CheckoutPage = () => {
                   ))}
                 </div>
 
-                <div className="border-t border-white/25 pt-4 mb-4">
-                  <label className="block text-sm font-medium text-gray-700 mb-2">
+                <div className="mb-4 border-t border-white/25 pt-4">
+                  <label className="mb-2 block text-sm font-medium text-gray-700">
                     Mã giảm giá
                   </label>
                   {appliedCoupon ? (
@@ -617,7 +600,7 @@ const CheckoutPage = () => {
                       <button
                         type="button"
                         onClick={handleRemoveCoupon}
-                        className="text-red-600 hover:text-red-700 text-sm font-medium"
+                        className="text-sm font-medium text-red-600 hover:text-red-700"
                       >
                         Xóa
                       </button>
@@ -644,7 +627,7 @@ const CheckoutPage = () => {
                   )}
                 </div>
 
-                <div className="border-t border-white/25 pt-4 space-y-2 mb-6">
+                <div className="mb-6 space-y-2 border-t border-white/25 pt-4">
                   <div className="flex justify-between text-gray-600">
                     <span>Tạm tính</span>
                     <span>{formatCurrency(totalPrice)}</span>
@@ -662,9 +645,7 @@ const CheckoutPage = () => {
                   <div className="border-t border-white/25 pt-2">
                     <div className="flex justify-between text-lg font-bold text-gray-900">
                       <span>Tổng cộng</span>
-                      <span className="text-coffee-600">
-                        {formatCurrency(finalPrice)}
-                      </span>
+                      <span className="text-coffee-600">{formatCurrency(finalPrice)}</span>
                     </div>
                   </div>
                 </div>

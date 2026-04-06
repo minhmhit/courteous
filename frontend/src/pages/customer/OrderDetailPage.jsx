@@ -1,15 +1,11 @@
-import { useState, useEffect } from "react";
+﻿import { useEffect, useState } from "react";
 import { useParams, useNavigate, Link } from "react-router-dom";
-import { motion } from "framer-motion";
 import {
   Package,
   Clock,
   CheckCircle,
   XCircle,
   Truck,
-  MapPin,
-  Phone,
-  Mail,
   User,
 } from "lucide-react";
 import { orderAPI } from "../../services";
@@ -17,6 +13,79 @@ import useToastStore from "../../stores/useToastStore";
 import SkeletonLoader from "../../components/ui/SkeletonLoader";
 import Button from "../../components/ui/Button";
 import { formatCurrency } from "../../utils/formatDate";
+
+const STATUS_CONFIGS = {
+  PENDING: {
+    label: "Chờ thanh toán / xác nhận",
+    icon: Clock,
+    color: "text-yellow-600",
+    bg: "bg-yellow-50",
+  },
+  SHIPPING: {
+    label: "Đang giao hàng",
+    icon: Truck,
+    color: "text-blue-600",
+    bg: "bg-blue-50",
+  },
+  COMPLETED: {
+    label: "Hoàn tất",
+    icon: CheckCircle,
+    color: "text-green-600",
+    bg: "bg-green-50",
+  },
+  CANCELLED: {
+    label: "Đã hủy",
+    icon: XCircle,
+    color: "text-red-600",
+    bg: "bg-red-50",
+  },
+};
+
+const getStatusConfig = (status) => {
+  const normalizedStatus = String(status || "").toUpperCase();
+  return (
+    STATUS_CONFIGS[normalizedStatus] || {
+      label: "Không xác định",
+      icon: Package,
+      color: "text-gray-600",
+      bg: "bg-gray-50",
+    }
+  );
+};
+
+const getTimeline = (status) => {
+  const normalizedStatus = String(status || "").toUpperCase();
+  const allSteps = [
+    { key: "PENDING", label: "Chờ xử lý" },
+    { key: "SHIPPING", label: "Đang giao hàng" },
+    { key: "COMPLETED", label: "Hoàn tất" },
+  ];
+
+  if (normalizedStatus === "CANCELLED") {
+    return [
+      { key: "PENDING", label: "Chờ xử lý", completed: true },
+      { key: "CANCELLED", label: "Đã hủy", completed: true },
+    ];
+  }
+
+  const currentIndex = allSteps.findIndex((step) => step.key === normalizedStatus);
+  return allSteps.map((step, index) => ({
+    ...step,
+    completed: currentIndex >= 0 ? index <= currentIndex : false,
+  }));
+};
+
+const getImageSrc = (imageUrl) => {
+  if (!imageUrl) {
+    return "https://via.placeholder.com/160x160?text=Coffee";
+  }
+
+  if (imageUrl.startsWith("http")) {
+    return imageUrl;
+  }
+
+  return imageUrl.replace(/^\.\//, "/");
+};
 
 const OrderDetailPage = () => {
   const { id } = useParams();
@@ -46,6 +115,11 @@ const OrderDetailPage = () => {
     fetchOrderDetail();
   }, [id, navigate, toast]);
 
+  const refreshOrder = async () => {
+    const response = await orderAPI.getOrderById(id);
+    setOrder(response.data || response);
+  };
+
   const handleCancelOrder = async () => {
     if (!window.confirm("Bạn có chắc muốn hủy đơn hàng này?")) return;
 
@@ -53,9 +127,7 @@ const OrderDetailPage = () => {
     try {
       await orderAPI.cancelOrder(id);
       toast.success("Đã hủy đơn hàng thành công");
-      // Refresh order data
-      const response = await orderAPI.getOrderById(id);
-      setOrder(response.data || response);
+      await refreshOrder();
     } catch (error) {
       toast.error("Không thể hủy đơn hàng");
     } finally {
@@ -68,48 +140,14 @@ const OrderDetailPage = () => {
 
     setIsConfirming(true);
     try {
-      // Cập nhật trạng thái đơn hàng thành "delivered"
-      await orderAPI.updateOrderStatus(id, { status: "delivered" });
+      await orderAPI.updateOrderStatus(id, "COMPLETED");
       toast.success("Cảm ơn bạn đã xác nhận nhận hàng!");
-      // Refresh order data
-      const response = await orderAPI.getOrderById(id);
-      setOrder(response.data || response);
+      await refreshOrder();
     } catch (error) {
       toast.error("Không thể xác nhận nhận hàng");
     } finally {
       setIsConfirming(false);
     }
-  };
-
-  const getStatusConfig = (status) => {
-    const configs = {
-      pending: {
-        label: "Chờ xác nhận",
-        icon: Clock,
-        color: "text-yellow-600",
-        bg: "bg-yellow-50",
-      },
-      delivered: {
-        label: "Đã giao",
-        icon: CheckCircle,
-        color: "text-green-600",
-        bg: "bg-green-50",
-      },
-      cancelled: {
-        label: "Đã hủy",
-        icon: XCircle,
-        color: "text-red-600",
-        bg: "bg-red-50",
-      },
-    };
-    return (
-      configs[status] || {
-        label: "Không xác định",
-        icon: Package,
-        color: "text-gray-600",
-        bg: "bg-gray-50",
-      }
-    );
   };
 
   const formatDate = (dateString) => {
@@ -120,29 +158,6 @@ const OrderDetailPage = () => {
       hour: "2-digit",
       minute: "2-digit",
     });
-  };
-
-  // Order Status Timeline
-  const getTimeline = (status) => {
-    const allSteps = [
-      { key: "pending", label: "Chờ xác nhận" },
-      { key: "confirmed", label: "Đã xác nhận" },
-      { key: "shipping", label: "Đang giao hàng" },
-      { key: "delivered", label: "Đã giao hàng" },
-    ];
-
-    if (status === "cancelled") {
-      return [
-        { key: "pending", label: "Chờ xác nhận", completed: true },
-        { key: "cancelled", label: "Đã hủy", completed: true },
-      ];
-    }
-
-    const currentIndex = allSteps.findIndex((step) => step.key === status);
-    return allSteps.map((step, index) => ({
-      ...step,
-      completed: index <= currentIndex,
-    }));
   };
 
   if (isLoading) {
@@ -160,67 +175,79 @@ const OrderDetailPage = () => {
   const statusConfig = getStatusConfig(order.status);
   const StatusIcon = statusConfig.icon;
   const timeline = getTimeline(order.status);
+  const normalizedStatus = String(order.status || "").toUpperCase();
 
   return (
     <div className="min-h-screen bg-gray-50 py-8">
       <div className="container mx-auto px-4">
-        {/* Header */}
-        <div className="flex items-center justify-between mb-8">
+        <div className="mb-8 flex items-center justify-between">
           <div>
             <Link
               to="/profile/orders"
-              className="text-coffee-600 hover:text-coffee-700 font-medium mb-2 inline-block"
+              className="mb-2 inline-block font-medium text-coffee-600 hover:text-coffee-700"
             >
               ← Quay lại danh sách
             </Link>
-            <h1 className="text-3xl font-bold text-gray-900">
-              Chi tiết đơn hàng #{order.id}
-            </h1>
+            <h1 className="text-3xl font-bold text-gray-900">Chi tiết đơn hàng #{order.id}</h1>
+            <p className="mt-2 text-sm text-gray-500">
+              {formatDate(order.orderDate || order.createdAt || new Date())}
+            </p>
           </div>
-          <div
-            className={`flex items-center gap-2 px-6 py-3 rounded-full ${statusConfig.bg}`}
-          >
-            <StatusIcon className={`w-6 h-6 ${statusConfig.color}`} />
-            <span className={`font-semibold text-lg ${statusConfig.color}`}>
+          <div className={`flex items-center gap-2 rounded-full px-6 py-3 ${statusConfig.bg}`}>
+            <StatusIcon className={`h-6 w-6 ${statusConfig.color}`} />
+            <span className={`text-lg font-semibold ${statusConfig.color}`}>
               {statusConfig.label}
             </span>
           </div>
         </div>
 
-        <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
-          {/* Main Content */}
-          <div className="lg:col-span-2 space-y-6">
-            {/* Products */}
-            <div className="bg-white rounded-lg shadow-sm p-6">
-              <h2 className="text-xl font-bold text-gray-900 mb-6">
+        <div className="mb-6 rounded-lg bg-white p-6 shadow-sm">
+          <h2 className="mb-4 text-xl font-bold text-gray-900">Tiến trình đơn hàng</h2>
+          <div className="grid gap-3 md:grid-cols-3">
+            {timeline.map((step) => (
+              <div
+                key={step.key}
+                className={`rounded-lg border p-4 ${
+                  step.completed ? "border-coffee-300 bg-coffee-50" : "border-gray-200 bg-gray-50"
+                }`}
+              >
+                <p className="text-sm font-semibold text-gray-900">{step.label}</p>
+              </div>
+            ))}
+          </div>
+        </div>
+
+        <div className="grid grid-cols-1 gap-8 lg:grid-cols-3">
+          <div className="space-y-6 lg:col-span-2">
+            <div className="rounded-lg bg-white p-6 shadow-sm">
+              <h2 className="mb-6 text-xl font-bold text-gray-900">
                 Sản phẩm ({order.items?.length || 0})
               </h2>
               <div className="space-y-4">
                 {(order.items || []).map((item, index) => (
                   <div
                     key={index}
-                    className="flex gap-4 pb-4 border-b border-gray-200 last:border-0"
+                    className="flex gap-4 border-b border-gray-200 pb-4 last:border-0"
                   >
                     <img
-                      src={`../.${item.imageUrl}
-                        `}
+                      src={getImageSrc(item.imageUrl)}
                       alt={item.productName || item.product?.name}
-                      className="w-20 h-20 object-cover rounded-lg"
+                      className="h-20 w-20 rounded-lg object-cover"
                     />
                     <div className="flex-1">
                       <h3 className="font-semibold text-gray-900">
                         {item.productName || item.product?.name || "Sản phẩm"}
                       </h3>
-                      <p className="text-sm text-gray-600 mt-1">
-                        Số lượng: {item.quantity}
-                      </p>
+                      <p className="mt-1 text-sm text-gray-600">Số lượng: {item.quantity}</p>
                       <p className="text-sm text-gray-600">
-                        Đơn giá: {formatCurrency(item.unitPrice)}
+                        Đơn giá: {formatCurrency(item.unitPrice || item.price || 0)}
                       </p>
                     </div>
                     <div className="text-right">
                       <p className="font-bold text-coffee-600">
-                        {formatCurrency(item.unitPrice * item.quantity)}
+                        {formatCurrency(
+                          Number(item.unitPrice || item.price || 0) * Number(item.quantity || 0),
+                        )}
                       </p>
                     </div>
                   </div>
@@ -229,13 +256,9 @@ const OrderDetailPage = () => {
             </div>
           </div>
 
-          {/* Sidebar */}
-          <div className="lg:col-span-1 space-y-6">
-            {/* Order Summary */}
-            <div className="bg-white rounded-lg shadow-sm p-6">
-              <h2 className="text-xl font-bold text-gray-900 mb-4">
-                Tóm tắt đơn hàng
-              </h2>
+          <div className="space-y-6 lg:col-span-1">
+            <div className="rounded-lg bg-white p-6 shadow-sm">
+              <h2 className="mb-4 text-xl font-bold text-gray-900">Tóm tắt đơn hàng</h2>
               <div className="space-y-3">
                 <div className="flex justify-between text-gray-600">
                   <span>Tạm tính:</span>
@@ -255,10 +278,8 @@ const OrderDetailPage = () => {
                 </div>
               </div>
 
-              {/* Action Buttons */}
               <div className="mt-6 space-y-3">
-                {/* Nút Hủy đơn - Chỉ hiện khi đơn hàng đang chờ xác nhận */}
-                {order.status === "pending" && (
+                {normalizedStatus === "PENDING" && (
                   <Button
                     variant="danger"
                     className="w-full"
@@ -269,8 +290,7 @@ const OrderDetailPage = () => {
                   </Button>
                 )}
 
-                {/* Nút Nhận hàng - Chỉ hiện khi đơn hàng đang giao */}
-                {order.status === "shipping" && (
+                {normalizedStatus === "SHIPPING" && (
                   <Button
                     variant="primary"
                     className="w-full"
@@ -281,92 +301,41 @@ const OrderDetailPage = () => {
                   </Button>
                 )}
 
-                {/* Hiển thị thông báo cho các trạng thái khác */}
-                {order.status === "delivered" && (
-                  <div className="p-4 bg-green-50 border border-green-200 rounded-lg text-center">
-                    <CheckCircle className="w-6 h-6 text-green-600 mx-auto mb-2" />
-                    <p className="text-green-700 font-medium">
-                      Đơn hàng đã hoàn thành
-                    </p>
+                {normalizedStatus === "COMPLETED" && (
+                  <div className="rounded-lg border border-green-200 bg-green-50 p-4 text-center">
+                    <CheckCircle className="mx-auto mb-2 h-6 w-6 text-green-600" />
+                    <p className="font-medium text-green-700">Đơn hàng đã hoàn thành</p>
                   </div>
                 )}
 
-                {order.status === "cancelled" && (
-                  <div className="p-4 bg-red-50 border border-red-200 rounded-lg text-center">
-                    <XCircle className="w-6 h-6 text-red-600 mx-auto mb-2" />
-                    <p className="text-red-700 font-medium">
-                      Đơn hàng đã bị hủy
-                    </p>
-                  </div>
-                )}
-
-                {order.status === "confirmed" && (
-                  <div className="p-4 bg-blue-50 border border-blue-200 rounded-lg text-center">
-                    <Package className="w-6 h-6 text-blue-600 mx-auto mb-2" />
-                    <p className="text-blue-700 font-medium">
-                      Đơn hàng đang được chuẩn bị
-                    </p>
+                {normalizedStatus === "CANCELLED" && (
+                  <div className="rounded-lg border border-red-200 bg-red-50 p-4 text-center">
+                    <XCircle className="mx-auto mb-2 h-6 w-6 text-red-600" />
+                    <p className="font-medium text-red-700">Đơn hàng đã bị hủy</p>
                   </div>
                 )}
               </div>
             </div>
 
-            {/* Customer Info */}
-            <div className="bg-white rounded-lg shadow-sm p-6">
-              <h2 className="text-xl font-bold text-gray-900 mb-4">
-                Thông tin khách hàng
-              </h2>
+            <div className="rounded-lg bg-white p-6 shadow-sm">
+              <h2 className="mb-4 text-xl font-bold text-gray-900">Thông tin khách hàng</h2>
               <div className="space-y-3">
                 <div className="flex items-start gap-3">
-                  <User className="w-5 h-5 text-gray-400 mt-0.5" />
+                  <User className="mt-0.5 h-5 w-5 text-gray-400" />
                   <div>
                     <p className="text-sm text-gray-600">Họ tên</p>
-                    <p className="font-medium text-gray-900">
-                      {order.customerName || "N/A"}
-                    </p>
-                  </div>
-                </div>
-                {/* <div className="flex items-start gap-3">
-                  <Phone className="w-5 h-5 text-gray-400 mt-0.5" />
-                  <div>
-                    <p className="text-sm text-gray-600">Số điện thoại</p>
-                    <p className="font-medium text-gray-900">
-                      {order.customerPhone || "N/A"}
-                    </p>
+                    <p className="font-medium text-gray-900">{order.customerName || "N/A"}</p>
                   </div>
                 </div>
                 <div className="flex items-start gap-3">
-                  <Mail className="w-5 h-5 text-gray-400 mt-0.5" />
-                  <div>
-                    <p className="text-sm text-gray-600">Email</p>
-                    <p className="font-medium text-gray-900">
-                      {order.customerEmail || "N/A"}
-                    </p>
-                  </div>
-                </div>
-                <div className="flex items-start gap-3">
-                  <MapPin className="w-5 h-5 text-gray-400 mt-0.5" />
+                  <Package className="mt-0.5 h-5 w-5 text-gray-400" />
                   <div>
                     <p className="text-sm text-gray-600">Địa chỉ giao hàng</p>
-                    <p className="font-medium text-gray-900">
-                      {order.shippingAddress || "N/A"}
-                    </p>
+                    <p className="font-medium text-gray-900">{order.shipAddress || "N/A"}</p>
                   </div>
-                </div> */}
+                </div>
               </div>
             </div>
-
-            {/* Payment Method */}
-            {/* <div className="bg-white rounded-lg shadow-sm p-6">
-              <h2 className="text-xl font-bold text-gray-900 mb-4">
-                Thanh toán
-              </h2>
-              <p className="text-gray-700">
-                {order.paymentMethod === "cod"
-                  ? "Thanh toán khi nhận hàng (COD)"
-                  : "Chuyển khoản ngân hàng"}
-              </p>
-            </div> */}
           </div>
         </div>
       </div>
