@@ -4,7 +4,12 @@ import useAuthStore from "../../stores/useAuthStore";
 import useToastStore from "../../stores/useToastStore";
 import Button from "../../components/ui/Button";
 import Input from "../../components/ui/Input";
-import { employeeAPI, leaveAPI, resignationAPI } from "../../services";
+import {
+  employeeAPI,
+  leaveAPI,
+  leaveTypeAPI,
+  resignationAPI,
+} from "../../services";
 import { formatDate } from "../../utils/formatDate";
 
 const STATUS_COLORS = {
@@ -21,35 +26,25 @@ const STATUS_LABELS = {
   CANCELLED: "Đã hủy",
 };
 
-const REQUEST_TYPE_LABELS = {
-  LEAVE: "Nghỉ phép",
-  ANNUAL_LEAVE: "Nghỉ phép năm",
-  ANNUAL: "Nghỉ phép năm",
-  SICK_LEAVE: "Nghỉ ốm",
-  SICK: "Nghỉ ốm",
-  MATERNITY_LEAVE: "Nghỉ thai sản",
-  MATERNITY: "Nghỉ thai sản",
-  UNPAID_LEAVE: "Nghỉ không lương",
-  UNPAID: "Nghỉ không lương",
-  RESIGNATION: "Nghỉ việc",
-  OTHER: "Khác",
-};
-
-const LEAVE_TYPE_MAP = {
-  ANNUAL: 1,
-  SICK: 2,
-  MATERNITY: 3,
-  UNPAID: 4,
-  OTHER: 5,
-};
-
-const REQUEST_TYPE_MAP = {
+const LEAVE_CODE_ALIASES = {
   ANNUAL: "ANNUAL_LEAVE",
-  SICK: "ANNUAL_LEAVE",
-  MATERNITY: "ANNUAL_LEAVE",
-  UNPAID: "ANNUAL_LEAVE",
+  ANNUAL_LEAVE: "ANNUAL_LEAVE",
+  LEAVE: "ANNUAL_LEAVE",
+  SICK: "SICK_LEAVE",
+  SICK_LEAVE: "SICK_LEAVE",
+  MATERNITY: "MATERNITY_LEAVE",
+  MATERNITY_LEAVE: "MATERNITY_LEAVE",
+  UNPAID: "UNPAID_LEAVE",
+  UNPAID_LEAVE: "UNPAID_LEAVE",
   OTHER: "OTHER",
 };
+
+const DEFAULT_TYPE_OPTIONS = [
+  { value: "ANNUAL_LEAVE", label: "Nghỉ phép năm" },
+  { value: "SICK_LEAVE", label: "Nghỉ ốm" },
+  { value: "MATERNITY_LEAVE", label: "Nghỉ thai sản" },
+  { value: "RESIGNATION", label: "Nghỉ việc" },
+];
 
 const toArray = (res) => {
   const data = res?.data ?? res;
@@ -59,8 +54,12 @@ const toArray = (res) => {
   if (Array.isArray(data?.list)) return data.list;
   if (Array.isArray(data?.leaveRequests)) return data.leaveRequests;
   if (Array.isArray(data?.resignationRequests)) return data.resignationRequests;
+  if (Array.isArray(data?.payrollPeriods)) return data.payrollPeriods;
   return [];
 };
+
+const normalizeLeaveCode = (value) =>
+  LEAVE_CODE_ALIASES[String(value || "").trim().toUpperCase()] || null;
 
 const normalizeStatus = (req) =>
   String(
@@ -68,74 +67,173 @@ const normalizeStatus = (req) =>
       req?.requestStatus ||
       req?.approvalStatus ||
       req?.approval_status ||
-      "PENDING"
+      "PENDING",
   ).toUpperCase();
 
-const normalizeStartDate = (req) => req?.startDate || req?.start_date;
+const normalizeStartDate = (req) =>
+  req?.startDate || req?.start_date || req?.desiredLastWorkingDate || req?.desired_last_working_date;
 
 const normalizeEndDate = (req) =>
-  req?.endDate || req?.end_date || req?.startDate || req?.start_date;
+  req?.endDate ||
+  req?.end_date ||
+  req?.startDate ||
+  req?.start_date ||
+  req?.desiredLastWorkingDate ||
+  req?.desired_last_working_date;
+
+const formatDisplayDate = (value) => {
+  if (!value || value === "--") return "--";
+
+  if (typeof value === "string") {
+    const match = value.match(/^(\d{4})-(\d{2})-(\d{2})$/);
+    if (match) {
+      return `${match[3]}/${match[2]}/${match[1]}`;
+    }
+  }
+
+  return formatDate(value);
+};
+
+const formatDisplayRange = (startDate, endDate) => {
+  const start = formatDisplayDate(startDate);
+  const end = formatDisplayDate(endDate);
+  if (start === "--" && end === "--") return "--";
+  if (start === end) return start;
+  return `${start} - ${end}`;
+};
+
+const calculateTotalDays = (startDate, endDate) => {
+  const start = new Date(startDate);
+  const end = new Date(endDate);
+  if (Number.isNaN(start.getTime()) || Number.isNaN(end.getTime())) return 0;
+  return (end.getTime() - start.getTime()) / (1000 * 60 * 60 * 24) + 1;
+};
 
 const AdminLeavePage = () => {
   const { user, isAuthenticated, isInitialized } = useAuthStore();
   const toast = useToastStore();
   const roleId = user?.roleId || user?.role_id || user?.role;
-  const userId = user?.id || user?.userId || user?.user_id;
   const isHR = roleId === 1 || roleId === 5;
 
   const [requests, setRequests] = useState([]);
+  const [leaveTypes, setLeaveTypes] = useState([]);
   const [employeeProfile, setEmployeeProfile] = useState(null);
-  const [isEmployeeProfileLoading, setIsEmployeeProfileLoading] = useState(true);
+  const [isLoadingProfile, setIsLoadingProfile] = useState(true);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [formData, setFormData] = useState({
-    type: "ANNUAL",
+    type: "ANNUAL_LEAVE",
     startDate: "",
     endDate: "",
     reason: "",
     attachmentUrl: "",
   });
 
-  const myRequests = useMemo(() => {
-    return requests.filter((req) => {
-      if (!req) return false;
-      const employeeId =
-        req.employeeId || req.employee_id || req.employee?.id || req.userId;
-      return employeeId === userId;
-    });
-  }, [requests, userId]);
-
-  const isEligibleForLeave =
-    !isEmployeeProfileLoading && (isHR || !!employeeProfile);
-
-  const calculateTotalDays = (startDate, endDate) => {
-    const start = new Date(startDate);
-    const end = new Date(endDate);
-    if (Number.isNaN(start.getTime()) || Number.isNaN(end.getTime())) return 0;
-    const diffTime = end.getTime() - start.getTime();
-    return diffTime / (1000 * 60 * 60 * 24) + 1;
-  };
-
-  const formatDisplayDate = (value) => {
-    if (!value || value === "--") return "--";
-
-    if (typeof value === "string") {
-      const dateMatch = value.match(/^(\d{4})-(\d{2})-(\d{2})$/);
-      if (dateMatch) {
-        return `${dateMatch[3]}/${dateMatch[2]}/${dateMatch[1]}`;
+  const leaveTypeMap = useMemo(() => {
+    const map = new Map();
+    leaveTypes.forEach((item) => {
+      const code = normalizeLeaveCode(item.code);
+      if (code) {
+        map.set(code, item);
       }
+    });
+    return map;
+  }, [leaveTypes]);
+
+  const typeOptions = useMemo(() => {
+    if (!leaveTypes.length) return DEFAULT_TYPE_OPTIONS;
+
+    const options = leaveTypes
+      .map((item) => {
+        const code = normalizeLeaveCode(item.code);
+        if (!code) return null;
+        return {
+          value: code,
+          label: item.name || code,
+        };
+      })
+      .filter(Boolean);
+
+    return [...options, { value: "RESIGNATION", label: "Nghỉ việc" }];
+  }, [leaveTypes]);
+
+  const myRequests = useMemo(() => {
+    const employeeId = employeeProfile?.id;
+    if (!employeeId) return [];
+
+    return requests.filter((req) => {
+      const reqEmployeeId = req.employeeId || req.employee_id || req.employee?.id;
+      return Number(reqEmployeeId) === Number(employeeId);
+    });
+  }, [employeeProfile, requests]);
+
+  const isEligibleForLeave = !isLoadingProfile && (isHR || !!employeeProfile);
+
+  const fetchLeaveTypes = async () => {
+    try {
+      const res = await leaveTypeAPI.getAllLeaveTypes({ isActive: true });
+      const list = toArray(res);
+      setLeaveTypes(Array.isArray(list) ? list : []);
+    } catch (error) {
+      console.error("Error fetching leave types:", error);
+      setLeaveTypes([]);
     }
-
-    return formatDate(value);
   };
 
-  const formatDisplayRange = (startDate, endDate) => {
-    const start = formatDisplayDate(startDate);
-    const end = formatDisplayDate(endDate);
+  const fetchRequests = async () => {
+    try {
+      if (isHR) {
+        const [leaveRes, resignationRes] = await Promise.all([
+          leaveAPI.getPendingLeaveRequests().catch(() => []),
+          resignationAPI.getPendingResignations().catch(() => []),
+        ]);
 
-    if (start === "--" && end === "--") return "--";
-    if (start === end) return start;
-    return `${start} - ${end}`;
+        setRequests([
+          ...toArray(leaveRes).map((item) => ({ ...item, requestKind: "LEAVE" })),
+          ...toArray(resignationRes).map((item) => ({
+            ...item,
+            requestKind: "RESIGNATION",
+          })),
+        ]);
+        return;
+      }
+
+      const [leaveRes, resignationRes] = await Promise.all([
+        leaveAPI.getMyLeaveRequests().catch(() => []),
+        resignationAPI.getMyResignations().catch(() => []),
+      ]);
+
+      setRequests([
+        ...toArray(leaveRes).map((item) => ({ ...item, requestKind: "LEAVE" })),
+        ...toArray(resignationRes).map((item) => ({
+          ...item,
+          requestKind: "RESIGNATION",
+        })),
+      ]);
+    } catch (error) {
+      console.error("Error fetching requests:", error);
+      toast.error("Không thể tải danh sách đơn");
+    }
   };
+
+  useEffect(() => {
+    if (!isInitialized || !isAuthenticated || !user) return;
+
+    const fetchProfile = async () => {
+      setIsLoadingProfile(true);
+      try {
+        const res = await employeeAPI.getMyProfile();
+        setEmployeeProfile(res?.data || res);
+      } catch {
+        setEmployeeProfile(null);
+      } finally {
+        setIsLoadingProfile(false);
+      }
+    };
+
+    fetchProfile();
+    fetchLeaveTypes();
+    fetchRequests();
+  }, [isAuthenticated, isHR, isInitialized, user]);
 
   const hasDateOverlap = (startDate, endDate) => {
     const start = new Date(startDate);
@@ -146,17 +244,11 @@ const AdminLeavePage = () => {
     }
 
     return myRequests.some((req) => {
-      if (!["PENDING", "APPROVED"].includes(normalizeStatus(req))) {
-        return false;
-      }
-
-      if (String(req?.requestType || "").toUpperCase() === "RESIGNATION") {
-        return false;
-      }
+      if (req.requestKind === "RESIGNATION") return false;
+      if (!["PENDING", "APPROVED"].includes(normalizeStatus(req))) return false;
 
       const reqStart = new Date(normalizeStartDate(req));
       const reqEnd = new Date(normalizeEndDate(req));
-
       if (Number.isNaN(reqStart.getTime()) || Number.isNaN(reqEnd.getTime())) {
         return false;
       }
@@ -165,74 +257,24 @@ const AdminLeavePage = () => {
     });
   };
 
-  const fetchRequests = async () => {
-    try {
-      if (isHR) {
-        const [leaveRes, resignRes] = await Promise.all([
-          leaveAPI.getPendingLeaveRequests().catch(() => []),
-          resignationAPI.getPendingResignations().catch(() => []),
-        ]);
-
-        setRequests([
-          ...toArray(leaveRes).map((item) => ({ ...item, requestType: "LEAVE" })),
-          ...toArray(resignRes).map((item) => ({
-            ...item,
-            requestType: "RESIGNATION",
-          })),
-        ]);
-        return;
-      }
-
-      const [leaveRes, resignRes] = await Promise.all([
-        leaveAPI.getMyLeaveRequests().catch(() => []),
-        resignationAPI.getMyResignations().catch(() => []),
-      ]);
-
-      setRequests([
-        ...toArray(leaveRes).map((item) => ({ ...item, requestType: "LEAVE" })),
-        ...toArray(resignRes).map((item) => ({
-          ...item,
-          requestType: "RESIGNATION",
-        })),
-      ]);
-    } catch (error) {
-      console.error("Error fetching leave requests:", error);
-      toast.error("Không thể tải danh sách đơn");
-    }
+  const resetForm = () => {
+    setFormData({
+      type: "ANNUAL_LEAVE",
+      startDate: "",
+      endDate: "",
+      reason: "",
+      attachmentUrl: "",
+    });
   };
-
-  useEffect(() => {
-    if (!isInitialized || !isAuthenticated || !user) {
-      return;
-    }
-
-    const fetchProfile = async () => {
-      setIsEmployeeProfileLoading(true);
-      try {
-        const res = await employeeAPI.getMyProfile();
-        setEmployeeProfile(res?.data || res);
-      } catch {
-        setEmployeeProfile(null);
-      } finally {
-        setIsEmployeeProfileLoading(false);
-      }
-    };
-
-    fetchProfile();
-    fetchRequests();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [isHR, isAuthenticated, isInitialized, user]);
 
   const handleSubmit = async (event) => {
     event.preventDefault();
     if (isSubmitting) return;
 
-    const requiresAttachment =
-      formData.type === "SICK" || formData.type === "MATERNITY";
-    const effectiveEndDate =
-      formData.type === "RESIGNATION"
-        ? formData.endDate || formData.startDate
-        : formData.endDate;
+    const isResignation = formData.type === "RESIGNATION";
+    const effectiveEndDate = isResignation
+      ? formData.endDate || formData.startDate
+      : formData.endDate;
 
     if (!formData.startDate || !effectiveEndDate) {
       toast.error("Vui lòng chọn thời gian nghỉ");
@@ -241,69 +283,59 @@ const AdminLeavePage = () => {
 
     const start = new Date(formData.startDate);
     const end = new Date(effectiveEndDate);
-
     if (Number.isNaN(start.getTime()) || Number.isNaN(end.getTime())) {
       toast.error("Ngày không hợp lệ");
       return;
     }
-
     if (end < start) {
       toast.error("Ngày kết thúc phải lớn hơn hoặc bằng ngày bắt đầu");
       return;
     }
 
-    if (formData.type !== "RESIGNATION" && hasDateOverlap(formData.startDate, effectiveEndDate)) {
-      toast.error(
-        "Khoảng thời gian này bị trùng với một đơn nghỉ đang chờ duyệt hoặc đã duyệt."
-      );
+    if (!isEligibleForLeave) {
+      toast.error("Tài khoản chưa có hồ sơ nhân viên");
       return;
     }
 
-    if (!isEligibleForLeave) {
-      toast.error(
-        "Tài khoản chưa có hồ sơ nhân viên. Liên hệ HRM để tạo hồ sơ trước khi gửi đơn nghỉ phép."
-      );
+    if (!isResignation && hasDateOverlap(formData.startDate, effectiveEndDate)) {
+      toast.error("Khoảng thời gian này bị trùng với đơn nghỉ khác");
       return;
     }
 
     try {
       setIsSubmitting(true);
 
-      if (formData.type === "RESIGNATION") {
+      if (isResignation) {
         await resignationAPI.createResignation({
           desiredLastWorkingDate: effectiveEndDate,
           reason: formData.reason,
         });
       } else {
-        if (requiresAttachment && !formData.attachmentUrl.trim()) {
-          toast.error("Nghỉ ốm và nghỉ thai sản cần đính kèm chứng từ");
+        const leaveType = leaveTypeMap.get(formData.type);
+        if (!leaveType) {
+          toast.error("Không tìm thấy cấu hình loại nghỉ");
           return;
         }
 
-        const leaveTypeId = LEAVE_TYPE_MAP[formData.type] || LEAVE_TYPE_MAP.ANNUAL;
-        const requestType =
-          REQUEST_TYPE_MAP[formData.type] || REQUEST_TYPE_MAP.ANNUAL;
-        const totalDays = calculateTotalDays(formData.startDate, effectiveEndDate);
+        const requiresAttachment =
+          leaveType.requiresAttachment || leaveType.requires_attachment;
+        if (requiresAttachment && !formData.attachmentUrl.trim()) {
+          toast.error("Loại nghỉ này yêu cầu đính kèm chứng từ");
+          return;
+        }
 
         await leaveAPI.createLeaveRequest({
-          leaveTypeId,
-          requestType,
+          leaveTypeId: leaveType.id,
+          requestType: formData.type,
           startDate: formData.startDate,
           endDate: effectiveEndDate,
-          totalDays,
+          totalDays: calculateTotalDays(formData.startDate, effectiveEndDate),
           reason: formData.reason,
           attachmentUrl: formData.attachmentUrl.trim() || undefined,
         });
       }
 
-      setFormData({
-        type: "ANNUAL",
-        startDate: "",
-        endDate: "",
-        reason: "",
-        attachmentUrl: "",
-      });
-
+      resetForm();
       toast.success("Đã gửi đơn");
       fetchRequests();
     } catch (error) {
@@ -315,7 +347,7 @@ const AdminLeavePage = () => {
         error?.response?.data?.errors?.[0]?.msg ||
         error?.response?.data?.error ||
         error?.response?.data?.message ||
-        "Khoảng thời gian nghỉ bị xung đột với đơn khác hoặc dữ liệu hiện tại không được backend chấp nhận.";
+        "Không thể gửi đơn";
       toast.error(msg);
     } finally {
       setIsSubmitting(false);
@@ -329,42 +361,62 @@ const AdminLeavePage = () => {
         req?.requestId ||
         req?.leaveRequestId ||
         req?.resignationRequestId;
-
       if (!requestId) {
         toast.error("Không tìm thấy mã đơn");
         return;
       }
 
-      if (req.requestType === "RESIGNATION") {
+      const rejectedReason =
+        status === "REJECTED"
+          ? window.prompt("Nhập lý do từ chối:", req?.rejectedReason || "")
+          : null;
+
+      if (status === "REJECTED" && !rejectedReason?.trim()) {
+        toast.error("Lý do từ chối là bắt buộc");
+        return;
+      }
+
+      if (req.requestKind === "RESIGNATION") {
         if (status === "APPROVED") {
           await resignationAPI.approveResignation(requestId);
         } else {
-          await resignationAPI.rejectResignation(requestId);
+          await resignationAPI.rejectResignation(requestId, {
+            rejectedReason: rejectedReason.trim(),
+          });
         }
       } else if (status === "APPROVED") {
         await leaveAPI.approveLeaveRequest(requestId);
       } else {
-        await leaveAPI.rejectLeaveRequest(requestId);
+        await leaveAPI.rejectLeaveRequest(requestId, {
+          rejectedReason: rejectedReason.trim(),
+        });
       }
 
       toast.success("Đã cập nhật trạng thái");
       fetchRequests();
     } catch (error) {
       console.error("Error updating status:", error);
-      toast.error("Không thể cập nhật trạng thái");
+      const msg =
+        error?.errors?.[0]?.msg ||
+        error?.error ||
+        error?.message ||
+        error?.response?.data?.errors?.[0]?.msg ||
+        error?.response?.data?.error ||
+        error?.response?.data?.message ||
+        "Không thể cập nhật trạng thái";
+      toast.error(msg);
     }
   };
 
   const renderStatus = (status) => {
-    const normalizedStatus = String(status || "PENDING").toUpperCase();
-
+    const normalized = String(status || "PENDING").toUpperCase();
     return (
       <span
         className={`rounded-full px-3 py-1 text-xs font-medium ${
-          STATUS_COLORS[normalizedStatus] || STATUS_COLORS.PENDING
+          STATUS_COLORS[normalized] || STATUS_COLORS.PENDING
         }`}
       >
-        {STATUS_LABELS[normalizedStatus] || normalizedStatus}
+        {STATUS_LABELS[normalized] || normalized}
       </span>
     );
   };
@@ -372,67 +424,39 @@ const AdminLeavePage = () => {
   const listData = isHR ? requests : myRequests;
 
   const getRequestMeta = (req) => {
-    if (!req) {
-      return {
-        employeeName: "N/A",
-        requestType: "LEAVE",
-        requestTypeLabel: REQUEST_TYPE_LABELS.LEAVE,
-        startDate: "--",
-        endDate: "--",
-        detailRange: "--",
-        status: "PENDING",
-        reason: "Không có lý do",
-      };
-    }
-
+    const isResignation = req?.requestKind === "RESIGNATION";
     const employeeName =
-      req.employeeName ||
-      req.employee_name ||
-      req.employee?.employeeName ||
-      req.employee?.employee_name ||
-      req.employee?.name ||
-      req.employee?.fullName ||
-      req.employee?.user?.name ||
-      req.employee?.user?.fullName ||
-      req.employee?.userName ||
-      req.employee?.username ||
-      req.userName ||
-      req.username ||
-      req.user?.name ||
-      req.user?.fullName ||
-      req.name ||
+      req?.employeeName ||
+      req?.employee_name ||
+      req?.employee?.name ||
+      req?.employee?.fullName ||
+      req?.userName ||
+      req?.user?.name ||
+      req?.name ||
       "N/A";
 
-    const requestTypeRaw =
-      req.leaveType ||
-      req.type ||
-      req.requestType ||
-      req.request_type ||
-      req.leaveTypeName;
-    const requestType =
-      String(requestTypeRaw || "").toUpperCase().trim() || "LEAVE";
+    const leaveCode = normalizeLeaveCode(
+      req?.leaveTypeCode || req?.leave_type_code || req?.requestType || req?.request_type,
+    );
+    const leaveTypeLabel =
+      req?.leaveTypeName ||
+      req?.leave_type_name ||
+      leaveTypeMap.get(leaveCode)?.name ||
+      leaveCode ||
+      "Nghỉ phép";
+
     const startDate = normalizeStartDate(req) || "--";
     const endDate = normalizeEndDate(req) || "--";
-    const status = normalizeStatus(req);
-    const reason =
-      req.reason ||
-      req.leaveReason ||
-      req.leave_reason ||
-      req.resignationReason ||
-      req.resignation_reason ||
-      req.note ||
-      req.notes ||
-      "Không có lý do";
 
     return {
       employeeName,
-      requestType,
-      requestTypeLabel: REQUEST_TYPE_LABELS[requestType] || requestType,
+      requestKind: isResignation ? "RESIGNATION" : "LEAVE",
+      requestTypeLabel: isResignation ? "Nghỉ việc" : leaveTypeLabel,
       startDate,
       endDate,
       detailRange: formatDisplayRange(startDate, endDate),
-      status,
-      reason,
+      status: normalizeStatus(req),
+      reason: req?.reason || "Không có lý do",
     };
   };
 
@@ -459,18 +483,19 @@ const AdminLeavePage = () => {
               <select
                 value={formData.type}
                 onChange={(e) =>
-                  setFormData({
-                    ...formData,
+                  setFormData((prev) => ({
+                    ...prev,
                     type: e.target.value,
                     attachmentUrl: "",
-                  })
+                  }))
                 }
                 className="w-full rounded-lg border border-gray-300 px-3 py-2 focus:outline-none focus:ring-2 focus:ring-coffee-500"
               >
-                <option value="ANNUAL">Nghỉ phép năm</option>
-                <option value="SICK">Nghỉ ốm</option>
-                <option value="MATERNITY">Nghỉ thai sản</option>
-                <option value="RESIGNATION">Nghỉ việc</option>
+                {typeOptions.map((option) => (
+                  <option key={option.value} value={option.value}>
+                    {option.label}
+                  </option>
+                ))}
               </select>
             </div>
 
@@ -479,7 +504,7 @@ const AdminLeavePage = () => {
               type="date"
               value={formData.startDate}
               onChange={(e) =>
-                setFormData({ ...formData, startDate: e.target.value })
+                setFormData((prev) => ({ ...prev, startDate: e.target.value }))
               }
               required
             />
@@ -489,7 +514,7 @@ const AdminLeavePage = () => {
               type="date"
               value={formData.endDate}
               onChange={(e) =>
-                setFormData({ ...formData, endDate: e.target.value })
+                setFormData((prev) => ({ ...prev, endDate: e.target.value }))
               }
               required={formData.type !== "RESIGNATION"}
             />
@@ -498,23 +523,27 @@ const AdminLeavePage = () => {
               label="Lý do"
               value={formData.reason}
               onChange={(e) =>
-                setFormData({ ...formData, reason: e.target.value })
+                setFormData((prev) => ({ ...prev, reason: e.target.value }))
               }
               placeholder="Mô tả lý do nghỉ"
             />
 
-            {(formData.type === "SICK" || formData.type === "MATERNITY") && (
-              <Input
-                label="Đính kèm chứng từ"
-                type="url"
-                value={formData.attachmentUrl}
-                onChange={(e) =>
-                  setFormData({ ...formData, attachmentUrl: e.target.value })
-                }
-                placeholder="Dán URL giấy khám hoặc xác nhận liên quan"
-                required
-              />
-            )}
+            {formData.type !== "RESIGNATION" &&
+              leaveTypeMap.get(formData.type)?.requiresAttachment && (
+                <Input
+                  label="Đính kèm chứng từ"
+                  type="url"
+                  value={formData.attachmentUrl}
+                  onChange={(e) =>
+                    setFormData((prev) => ({
+                      ...prev,
+                      attachmentUrl: e.target.value,
+                    }))
+                  }
+                  placeholder="Dán URL chứng từ liên quan"
+                  required
+                />
+              )}
 
             <Button type="submit" variant="primary" isLoading={isSubmitting}>
               <Send className="mr-2 h-4 w-4" />
@@ -540,7 +569,7 @@ const AdminLeavePage = () => {
                   req.requestId ||
                   req.leaveRequestId ||
                   req.resignationRequestId ||
-                  `${meta.requestType}-${meta.startDate}-${meta.endDate}`;
+                  `${meta.requestKind}-${meta.startDate}-${meta.endDate}`;
 
                 return (
                   <div
@@ -560,7 +589,7 @@ const AdminLeavePage = () => {
                         </p>
                       </div>
 
-                      {isHR && (
+                      {isHR && meta.status === "PENDING" && (
                         <div className="flex flex-wrap gap-3">
                           <Button
                             onClick={() => updateStatus(req, "APPROVED")}
@@ -593,9 +622,7 @@ const AdminLeavePage = () => {
                           <p className="text-xs font-medium uppercase text-gray-400">
                             Lý do
                           </p>
-                          <p className="mt-1 text-sm text-gray-700">
-                            {meta.reason}
-                          </p>
+                          <p className="mt-1 text-sm text-gray-700">{meta.reason}</p>
                         </div>
 
                         <div>

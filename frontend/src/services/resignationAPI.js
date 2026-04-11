@@ -27,9 +27,10 @@ const resignationAPI = {
     );
   },
 
-  rejectResignation: async (requestId) => {
+  rejectResignation: async (requestId, payload) => {
     return await axiosInstance.patch(
-      `/resignation-requests/${requestId}/reject`
+      `/resignation-requests/${requestId}/reject`,
+      payload
     );
   },
 };

@@ -13,6 +13,7 @@ import paymentAPI from "./paymentAPI";
 import attendanceAPI from "./attendanceAPI";
 import employeeAPI from "./employeeAPI";
 import leaveAPI from "./leaveAPI";
+import leaveTypeAPI from "./leaveTypeAPI";
 import resignationAPI from "./resignationAPI";
 import payrollAPI from "./payrollAPI";
 import payrollPeriodAPI from "./payrollPeriodAPI";
@@ -35,6 +36,7 @@ export {
   attendanceAPI,
   employeeAPI,
   leaveAPI,
+  leaveTypeAPI,
   resignationAPI,
   payrollAPI,
   payrollPeriodAPI,
@@ -58,6 +60,7 @@ export default {
   attendance: attendanceAPI,
   employee: employeeAPI,
   leave: leaveAPI,
+  leaveType: leaveTypeAPI,
   resignation: resignationAPI,
   payroll: payrollAPI,
   payrollPeriod: payrollPeriodAPI,

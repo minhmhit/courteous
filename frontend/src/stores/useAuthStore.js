@@ -6,6 +6,14 @@ import {
   setStoredUser,
 } from "../utils/authSession";
 
+const extractUserPayload = (payload) =>
+  payload?.data?.user ||
+  payload?.data?.data ||
+  payload?.user ||
+  payload?.data ||
+  payload ||
+  null;
+
 const useAuthStore = create((set) => ({
   user: null,
   token: null,
@@ -60,8 +68,9 @@ const useAuthStore = create((set) => ({
     try {
       const response = await authAPI.login(credentials);
       const payload = response?.data || response;
-      const token = payload?.accessToken || payload?.token;
-      const user = payload?.user;
+      const authData = payload?.data || payload;
+      const token = authData?.accessToken || authData?.token;
+      const user = extractUserPayload(payload);
 
       set({
         user,
@@ -109,7 +118,7 @@ const useAuthStore = create((set) => ({
     set({ isLoading: true, error: null });
     try {
       const response = await authAPI.updateProfile(userData);
-      const updatedUser = response?.data || response || null;
+      const updatedUser = extractUserPayload(response);
 
       if (updatedUser) {
         setStoredUser(updatedUser);

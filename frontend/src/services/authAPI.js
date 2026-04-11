@@ -10,6 +10,10 @@ import {
 import { applySessionPayload, refreshSession } from "./sessionManager";
 
 const normalizePayload = (response) => response?.data || response || {};
+const normalizeUserPayload = (response) => {
+  const payload = normalizePayload(response);
+  return payload?.data || payload?.user || payload || null;
+};
 
 const authAPI = {
   register: async (userData) => {
@@ -47,7 +51,7 @@ const authAPI = {
 
     await refreshSession();
     const profile = await authAPI.getProfile();
-    const user = normalizePayload(profile);
+    const user = normalizeUserPayload(profile);
     setStoredUser(user);
 
     return {
@@ -87,7 +91,7 @@ const authAPI = {
       headers: { "Content-Type": "application/x-www-form-urlencoded" },
     });
 
-    const user = normalizePayload(response);
+    const user = normalizeUserPayload(response);
     if (user) {
       setStoredUser(user);
     }

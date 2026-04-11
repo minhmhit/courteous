@@ -15,6 +15,8 @@ const ProductsPage = () => {
   const [isLoading, setIsLoading] = useState(true);
   const [selectedCategory, setSelectedCategory] = useState(null);
   const [sortBy, setSortBy] = useState("newest");
+  const [priceRange, setPriceRange] = useState({ min: "", max: "" });
+  const [stockFilter, setStockFilter] = useState("all");
   const [showFilters, setShowFilters] = useState(false);
   const [currentPage, setCurrentPage] = useState(1);
   const [totalPages, setTotalPages] = useState(1);
@@ -45,9 +47,25 @@ const ProductsPage = () => {
         if (selectedCategory) {
           productList = productList.filter((p) => p.categoryId === selectedCategory);
         }
+        if (priceRange.min) {
+          productList = productList.filter(
+            (p) => Number(p.price || 0) >= Number(priceRange.min),
+          );
+        }
+        if (priceRange.max) {
+          productList = productList.filter(
+            (p) => Number(p.price || 0) <= Number(priceRange.max),
+          );
+        }
+        if (stockFilter === "in-stock") {
+          productList = productList.filter((p) => Number(p.stockQuantity || 0) > 0);
+        }
+        if (stockFilter === "out-of-stock") {
+          productList = productList.filter((p) => Number(p.stockQuantity || 0) <= 0);
+        }
         productList = sortProducts(productList, sortBy);
         setProducts(productList);
-        const total = response.total || productList.length;
+        const total = productList.length;
         setTotalPages(Math.ceil(total / itemsPerPage));
       } catch (error) {
         console.error("Lỗi khi tải sản phẩm:", error);
@@ -58,7 +76,7 @@ const ProductsPage = () => {
     };
 
     fetchProducts();
-  }, [searchQuery, currentPage, selectedCategory, sortBy, toast]);
+  }, [searchQuery, currentPage, selectedCategory, sortBy, priceRange.min, priceRange.max, stockFilter, toast]);
 
   const sortProducts = (productList, sortType) => {
     const sorted = [...productList];
@@ -87,7 +105,10 @@ const ProductsPage = () => {
   const clearFilters = () => {
     setSelectedCategory(null);
     setSortBy("newest");
+    setPriceRange({ min: "", max: "" });
+    setStockFilter("all");
     setSearchParams({});
+    setCurrentPage(1);
   };
 
   return (
@@ -107,7 +128,7 @@ const ProductsPage = () => {
             <div className="glass-card sticky top-28 rounded-[28px] p-6">
               <div className="mb-5 flex items-center justify-between">
                 <h2 className="text-lg font-semibold text-slate-900">Bộ lọc</h2>
-                {(selectedCategory || searchQuery) && (
+                {(selectedCategory || searchQuery || priceRange.min || priceRange.max || stockFilter !== "all") && (
                   <button onClick={clearFilters} className="text-sm font-medium text-coffee-700 hover:text-coffee-900">
                     Xóa
                   </button>
@@ -143,6 +164,36 @@ const ProductsPage = () => {
                   <option value="price-asc">Giá thấp đến cao</option>
                   <option value="price-desc">Giá cao đến thấp</option>
                 </select>
+              </div>
+              <div className="mt-6">
+                <h3 className="mb-3 text-sm font-semibold uppercase tracking-[0.18em] text-slate-500">Khoảng giá</h3>
+                <div className="space-y-3">
+                  <input
+                    type="number"
+                    min="0"
+                    placeholder="Giá từ"
+                    value={priceRange.min}
+                    onChange={(e) => setPriceRange((prev) => ({ ...prev, min: e.target.value }))}
+                    className="glass-input w-full"
+                  />
+                  <input
+                    type="number"
+                    min="0"
+                    placeholder="Giá đến"
+                    value={priceRange.max}
+                    onChange={(e) => setPriceRange((prev) => ({ ...prev, max: e.target.value }))}
+                    className="glass-input w-full"
+                  />
+                  <select
+                    value={stockFilter}
+                    onChange={(e) => setStockFilter(e.target.value)}
+                    className="glass-select w-full"
+                  >
+                    <option value="all">Tất cả tồn kho</option>
+                    <option value="in-stock">Còn hàng</option>
+                    <option value="out-of-stock">Hết hàng</option>
+                  </select>
+                </div>
               </div>
             </div>
           </aside>
@@ -190,6 +241,29 @@ const ProductsPage = () => {
                   <option value="price-asc">Giá thấp đến cao</option>
                   <option value="price-desc">Giá cao đến thấp</option>
                 </select>
+                <div className="mt-4 space-y-3">
+                  <input
+                    type="number"
+                    min="0"
+                    placeholder="Giá từ"
+                    value={priceRange.min}
+                    onChange={(e) => setPriceRange((prev) => ({ ...prev, min: e.target.value }))}
+                    className="glass-input w-full"
+                  />
+                  <input
+                    type="number"
+                    min="0"
+                    placeholder="Giá đến"
+                    value={priceRange.max}
+                    onChange={(e) => setPriceRange((prev) => ({ ...prev, max: e.target.value }))}
+                    className="glass-input w-full"
+                  />
+                  <select value={stockFilter} onChange={(e) => setStockFilter(e.target.value)} className="glass-select w-full">
+                    <option value="all">Tất cả tồn kho</option>
+                    <option value="in-stock">Còn hàng</option>
+                    <option value="out-of-stock">Hết hàng</option>
+                  </select>
+                </div>
               </motion.div>
             )}
           </div>
@@ -204,7 +278,7 @@ const ProductsPage = () => {
             ) : products.length === 0 ? (
               <div className="glass-card rounded-[32px] p-12 text-center">
                 <p className="text-lg text-slate-500">Không tìm thấy sản phẩm nào</p>
-                {(selectedCategory || searchQuery) && (
+                {(selectedCategory || searchQuery || priceRange.min || priceRange.max || stockFilter !== "all") && (
                   <button onClick={clearFilters} className="glass-button mt-4 px-6 py-3 text-white">
                     Xóa bộ lọc
                   </button>

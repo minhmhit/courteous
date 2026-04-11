@@ -1,5 +1,5 @@
-﻿import { useEffect, useState } from "react";
-import { Plus, Edit, Trash2, Tag } from "lucide-react";
+import { useEffect, useState } from "react";
+import { Plus, Edit, Trash2, Tag, Search } from "lucide-react";
 import { couponAPI } from "../../services";
 import Button from "../../components/ui/Button";
 import Modal from "../../components/ui/Modal";
@@ -22,6 +22,13 @@ export default function AdminCouponsPage() {
   const [loading, setLoading] = useState(true);
   const [showModal, setShowModal] = useState(false);
   const [editing, setEditing] = useState(null);
+  const [searchTerm, setSearchTerm] = useState("");
+  const [filters, setFilters] = useState({
+    status: "all",
+    validFrom: "",
+    validUntil: "",
+    sort: "newest",
+  });
   const [form, setForm] = useState(emptyForm);
   const [submitting, setSubmitting] = useState(false);
 
@@ -89,7 +96,7 @@ export default function AdminCouponsPage() {
       await loadCoupons();
     } catch (err) {
       console.error(err);
-      toast.error(err.response?.data?.message || "Lỗi khi lưu mã giảm giá");
+      toast.error("Lỗi khi lưu mã giảm giá");
     } finally {
       setSubmitting(false);
     }
@@ -107,6 +114,32 @@ export default function AdminCouponsPage() {
     }
   };
 
+  const filteredCoupons = [...coupons]
+    .filter((coupon) => {
+      const now = new Date();
+      const validFrom = coupon.validFrom ? new Date(coupon.validFrom) : null;
+      const validUntil = coupon.validUntil ? new Date(coupon.validUntil) : null;
+      const isInValidPeriod =
+        (!validFrom || now >= validFrom) && (!validUntil || now <= validUntil);
+      const status = coupon.isActive && isInValidPeriod ? "active" : coupon.isActive ? "scheduled" : "inactive";
+      const keyword = searchTerm.toLowerCase();
+      const searchMatch = !keyword || coupon.code?.toLowerCase().includes(keyword);
+      const statusMatch = filters.status === "all" || filters.status === status;
+      const fromMatch =
+        !filters.validFrom ||
+        (validFrom && validFrom >= new Date(`${filters.validFrom}T00:00:00`));
+      const toMatch =
+        !filters.validUntil ||
+        (validUntil && validUntil <= new Date(`${filters.validUntil}T23:59:59`));
+      return searchMatch && statusMatch && fromMatch && toMatch;
+    })
+    .sort((a, b) => {
+      if (filters.sort === "code-asc") return (a.code || "").localeCompare(b.code || "");
+      if (filters.sort === "code-desc") return (b.code || "").localeCompare(a.code || "");
+      if (filters.sort === "highest-discount") return Number(b.discountPercent || 0) - Number(a.discountPercent || 0);
+      return new Date(b.validFrom || 0) - new Date(a.validFrom || 0);
+    });
+
   return (
     <div className="space-y-6">
       <div className="flex items-center justify-between">
@@ -117,6 +150,31 @@ export default function AdminCouponsPage() {
         <Button onClick={openCreate} variant="primary">
           <Plus className="mr-2 h-4 w-4" /> Tạo mã mới
         </Button>
+      </div>
+
+      <div className="rounded-3xl border border-white/20 bg-white/10 p-4 shadow-sm">
+        <div className="grid grid-cols-1 gap-3 xl:grid-cols-[1fr_repeat(4,220px)]">
+          <Input
+            placeholder="Tìm theo mã coupon..."
+            value={searchTerm}
+            onChange={(e) => setSearchTerm(e.target.value)}
+            icon={<Search className="h-4 w-4" />}
+          />
+          <select value={filters.status} onChange={(e) => setFilters((prev) => ({ ...prev, status: e.target.value }))} className="glass-input w-full">
+            <option value="all">Tất cả trạng thái</option>
+            <option value="active">Đang hoạt động</option>
+            <option value="scheduled">Chưa trong thời gian</option>
+            <option value="inactive">Tắt kích hoạt</option>
+          </select>
+          <input type="date" value={filters.validFrom} onChange={(e) => setFilters((prev) => ({ ...prev, validFrom: e.target.value }))} className="glass-input w-full" />
+          <input type="date" value={filters.validUntil} onChange={(e) => setFilters((prev) => ({ ...prev, validUntil: e.target.value }))} className="glass-input w-full" />
+          <select value={filters.sort} onChange={(e) => setFilters((prev) => ({ ...prev, sort: e.target.value }))} className="glass-input w-full">
+            <option value="newest">Hiệu lực mới nhất</option>
+            <option value="code-asc">Mã A-Z</option>
+            <option value="code-desc">Mã Z-A</option>
+            <option value="highest-discount">% giảm cao nhất</option>
+          </select>
+        </div>
       </div>
 
       <div className="admin-table-shell">
@@ -132,17 +190,9 @@ export default function AdminCouponsPage() {
               </tr>
             </thead>
             <tbody className="divide-y divide-white/20">
-              {loading && (
-                <tr>
-                  <td colSpan={5} className="p-6 text-center text-slate-500">Đang tải...</td>
-                </tr>
-              )}
-              {!loading && coupons.length === 0 && (
-                <tr>
-                  <td colSpan={5} className="p-6 text-center text-slate-500">Không có mã giảm giá</td>
-                </tr>
-              )}
-              {coupons.map((coupon) => {
+              {loading && <tr><td colSpan={5} className="p-6 text-center text-slate-500">Đang tải...</td></tr>}
+              {!loading && filteredCoupons.length === 0 && <tr><td colSpan={5} className="p-6 text-center text-slate-500">Không có mã giảm giá phù hợp</td></tr>}
+              {filteredCoupons.map((coupon) => {
                 const now = new Date();
                 const validFrom = coupon.validFrom ? new Date(coupon.validFrom) : null;
                 const validUntil = coupon.validUntil ? new Date(coupon.validUntil) : null;

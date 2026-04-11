@@ -19,6 +19,8 @@ import useCartStore from "../../stores/useCartStore";
 import useToastStore from "../../stores/useToastStore";
 import { formatCurrency } from "../../utils/formatDate";
 
+const normalizeProductId = (value) => String(value ?? "");
+
 const getProductImageSrc = (imageUrl) => {
   if (!imageUrl) {
     return "https://via.placeholder.com/900x900?text=Coffee";
@@ -56,7 +58,9 @@ const ProductDetailPage = () => {
           const allProducts = await productAPI.getAllProducts(1, 20);
           const related = (allProducts.data || [])
             .filter(
-              (p) => p.categoryId === response.data.categoryId && p.id !== id
+              (p) =>
+                p.categoryId === response.data.categoryId &&
+                normalizeProductId(p.id) !== normalizeProductId(id)
             )
             .slice(0, 4);
           setRelatedProducts(related);
@@ -75,6 +79,11 @@ const ProductDetailPage = () => {
   }, [id, navigate, toast]);
 
   const handleAddToCart = async () => {
+    if (!product?.stockQuantity || quantity > product.stockQuantity) {
+      toast.error("Số lượng vượt quá tồn kho hiện có");
+      return;
+    }
+
     try {
       await addToCart(product.id, quantity);
       toast.success(`Đã thêm ${quantity} sản phẩm vào giỏ hàng`);
@@ -84,6 +93,11 @@ const ProductDetailPage = () => {
   };
 
   const handleBuyNow = async () => {
+    if (!product?.stockQuantity || quantity > product.stockQuantity) {
+      toast.error("Số lượng vượt quá tồn kho hiện có");
+      return;
+    }
+
     try {
       await addToCart(product.id, quantity);
       navigate("/cart");
@@ -294,9 +308,15 @@ const ProductDetailPage = () => {
                   <span className="px-6 font-semibold">{quantity}</span>
                   <button
                     onClick={() =>
-                      setQuantity(Math.min(product.stockQuantity || null, quantity + 1))
+                      setQuantity(
+                        Math.min(
+                          Math.max(Number(product.stockQuantity || 1), 1),
+                          quantity + 1,
+                        ),
+                      )
                     }
-                    className="p-3 hover:bg-gray-100 transition-colors"
+                    disabled={Number(product.stockQuantity || 0) <= 0}
+                    className="p-3 hover:bg-gray-100 transition-colors disabled:cursor-not-allowed disabled:opacity-50"
                   >
                     <Plus className="w-5 h-5" />
                   </button>

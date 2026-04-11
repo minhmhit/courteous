@@ -79,7 +79,7 @@ const VnpayReturnPage = () => {
   if (isLoading) {
     return (
       <div className="page-shell min-h-screen px-3 py-10 md:px-6">
-        <div className="mx-auto max-w-2xl rounded-[32px] border border-white/25  p-10 text-center shadow-[0_14px_40px_rgba(64,33,12,0.08)] backdrop-blur-xl">
+        <div className="mx-auto max-w-2xl rounded-[32px] border border-white/25 p-10 text-center shadow-[0_14px_40px_rgba(64,33,12,0.08)] backdrop-blur-xl">
           <LoaderCircle className="mx-auto mb-4 h-14 w-14 animate-spin text-coffee-600" />
           <h1 className="text-2xl font-bold text-slate-900">
             Đang xác minh thanh toán VNPay
@@ -129,6 +129,12 @@ const VnpayReturnPage = () => {
     {
       label: "Phương thức",
       value: "VNPay",
+    },
+    {
+      label: "Hướng xử lý",
+      value: isSuccess
+        ? "Đơn hàng đã được ghi nhận thanh toán."
+        : "Kiểm tra đơn hàng và thực hiện thanh toán lại nếu cần.",
     },
   ];
 
@@ -216,7 +222,7 @@ const VnpayReturnPage = () => {
                   className="flex items-center justify-between gap-4 rounded-[22px] border border-white/16 bg-white/[0.12] px-4 py-3 backdrop-blur-xl"
                 >
                   <span className="text-sm text-slate-500">{row.label}</span>
-                  <span className="font-semibold text-slate-900">
+                  <span className="text-right font-semibold text-slate-900">
                     {row.value}
                   </span>
                 </div>
@@ -245,12 +251,27 @@ const VnpayReturnPage = () => {
                   Xem lịch sử đơn hàng
                 </Button>
               </Link>
+              {!isSuccess && result?.orderId && (
+                <Link to={`/orders/${result.orderId}`}>
+                  <Button variant="secondary" className="w-full justify-center">
+                    Kiểm tra lại đơn và thanh toán lại
+                  </Button>
+                </Link>
+              )}
               <Link to="/products">
                 <Button variant="ghost" className="w-full justify-center">
                   Tiếp tục mua sắm
                 </Button>
               </Link>
             </div>
+
+            {!isSuccess && (
+              <p className="mt-4 text-sm text-amber-700">
+                Nếu giao dịch đã trừ tiền nhưng trạng thái chưa cập nhật, khách
+                hàng nên liên hệ hỗ trợ. Chính sách tự hủy đơn quá hạn vẫn cần
+                backend xử lý để đồng bộ kho và trạng thái đơn.
+              </p>
+            )}
           </div>
         </div>
       </div>
