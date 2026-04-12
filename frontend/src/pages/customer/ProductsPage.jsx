@@ -1,4 +1,4 @@
-﻿import { useState, useEffect } from "react";
+﻿import { useEffect, useMemo, useState } from "react";
 import { useSearchParams } from "react-router-dom";
 import { motion } from "framer-motion";
 import { Filter, X, ChevronDown } from "lucide-react";
@@ -7,10 +7,12 @@ import SkeletonLoader from "../../components/ui/SkeletonLoader";
 import { productAPI, categoryAPI } from "../../services";
 import useToastStore from "../../stores/useToastStore";
 
+const ITEMS_PER_PAGE = 9;
+
 const ProductsPage = () => {
   const [searchParams, setSearchParams] = useSearchParams();
   const toast = useToastStore();
-  const [products, setProducts] = useState([]);
+  const [allProducts, setAllProducts] = useState([]);
   const [categories, setCategories] = useState([]);
   const [isLoading, setIsLoading] = useState(true);
   const [selectedCategory, setSelectedCategory] = useState(null);
@@ -19,9 +21,7 @@ const ProductsPage = () => {
   const [stockFilter, setStockFilter] = useState("all");
   const [showFilters, setShowFilters] = useState(false);
   const [currentPage, setCurrentPage] = useState(1);
-  const [totalPages, setTotalPages] = useState(1);
-  const itemsPerPage = 12;
-  const searchQuery = searchParams.get("search") || "";
+  const searchQuery = (searchParams.get("search") || "").trim();
 
   useEffect(() => {
     const fetchCategories = async () => {
@@ -32,6 +32,7 @@ const ProductsPage = () => {
         console.error("Không thể tải danh mục:", error);
       }
     };
+
     fetchCategories();
   }, []);
 
@@ -39,67 +40,115 @@ const ProductsPage = () => {
     const fetchProducts = async () => {
       setIsLoading(true);
       try {
-        const response = searchQuery
-          ? await productAPI.searchProducts(searchQuery, currentPage, itemsPerPage)
-          : await productAPI.getAllProducts(currentPage, itemsPerPage);
-
-        let productList = response.data || [];
-        if (selectedCategory) {
-          productList = productList.filter((p) => p.categoryId === selectedCategory);
-        }
-        if (priceRange.min) {
-          productList = productList.filter(
-            (p) => Number(p.price || 0) >= Number(priceRange.min),
-          );
-        }
-        if (priceRange.max) {
-          productList = productList.filter(
-            (p) => Number(p.price || 0) <= Number(priceRange.max),
-          );
-        }
-        if (stockFilter === "in-stock") {
-          productList = productList.filter((p) => Number(p.stockQuantity || 0) > 0);
-        }
-        if (stockFilter === "out-of-stock") {
-          productList = productList.filter((p) => Number(p.stockQuantity || 0) <= 0);
-        }
-        productList = sortProducts(productList, sortBy);
-        setProducts(productList);
-        const total = productList.length;
-        setTotalPages(Math.ceil(total / itemsPerPage));
+        const response = await productAPI.getAllProducts();
+        setAllProducts(Array.isArray(response.data) ? response.data : []);
       } catch (error) {
         console.error("Lỗi khi tải sản phẩm:", error);
-        toast.error("Không thể tải danh sách sản phẩm");
+        toast.error(error?.message || "Không thể tải danh sách sản phẩm");
+        setAllProducts([]);
       } finally {
         setIsLoading(false);
       }
     };
 
     fetchProducts();
-  }, [searchQuery, currentPage, selectedCategory, sortBy, priceRange.min, priceRange.max, stockFilter, toast]);
+  }, [toast]);
+
+  useEffect(() => {
+    setCurrentPage(1);
+  }, [searchQuery, selectedCategory, sortBy, priceRange.min, priceRange.max, stockFilter]);
 
   const sortProducts = (productList, sortType) => {
     const sorted = [...productList];
     switch (sortType) {
       case "price-asc":
-        return sorted.sort((a, b) => a.price - b.price);
+        return sorted.sort((a, b) => Number(a.price || 0) - Number(b.price || 0));
       case "price-desc":
-        return sorted.sort((a, b) => b.price - a.price);
+        return sorted.sort((a, b) => Number(b.price || 0) - Number(a.price || 0));
       case "name":
-        return sorted.sort((a, b) => a.name.localeCompare(b.name));
+        return sorted.sort((a, b) => String(a.name || "").localeCompare(String(b.name || "")));
       default:
         return sorted;
     }
   };
 
+  const filteredProducts = useMemo(() => {
+    let productList = [...allProducts];
+
+    if (selectedCategory) {
+      productList = productList.filter(
+        (product) => Number(product.categoryId) === Number(selectedCategory),
+      );
+    }
+
+    if (priceRange.min) {
+      productList = productList.filter(
+        (product) => Number(product.price || 0) >= Number(priceRange.min),
+      );
+    }
+
+    if (priceRange.max) {
+      productList = productList.filter(
+        (product) => Number(product.price || 0) <= Number(priceRange.max),
+      );
+    }
+
+    if (stockFilter === "in-stock") {
+      productList = productList.filter(
+        (product) => Number(product.stockQuantity || 0) > 0,
+      );
+    }
+
+    if (stockFilter === "out-of-stock") {
+      productList = productList.filter(
+        (product) => Number(product.stockQuantity || 0) <= 0,
+      );
+    }
+
+    if (searchQuery) {
+      const normalizedQuery = searchQuery.toLowerCase();
+      productList = productList.filter((product) => {
+        const name = String(product.name || "").toLowerCase();
+        const description = String(product.description || "").toLowerCase();
+        const categoryName = String(product.categoryName || "").toLowerCase();
+        return (
+          name.includes(normalizedQuery) ||
+          description.includes(normalizedQuery) ||
+          categoryName.includes(normalizedQuery)
+        );
+      });
+    }
+
+    return sortProducts(productList, sortBy);
+  }, [
+    allProducts,
+    priceRange.max,
+    priceRange.min,
+    searchQuery,
+    selectedCategory,
+    sortBy,
+    stockFilter,
+  ]);
+
+  const totalPages = Math.max(1, Math.ceil(filteredProducts.length / ITEMS_PER_PAGE));
+
+  useEffect(() => {
+    if (currentPage > totalPages) {
+      setCurrentPage(totalPages);
+    }
+  }, [currentPage, totalPages]);
+
+  const paginatedProducts = useMemo(() => {
+    const startIndex = (currentPage - 1) * ITEMS_PER_PAGE;
+    return filteredProducts.slice(startIndex, startIndex + ITEMS_PER_PAGE);
+  }, [currentPage, filteredProducts]);
+
   const handleCategoryChange = (categoryId) => {
     setSelectedCategory(categoryId === selectedCategory ? null : categoryId);
-    setCurrentPage(1);
   };
 
   const handleSortChange = (value) => {
     setSortBy(value);
-    setCurrentPage(1);
   };
 
   const clearFilters = () => {
@@ -108,7 +157,6 @@ const ProductsPage = () => {
     setPriceRange({ min: "", max: "" });
     setStockFilter("all");
     setSearchParams({});
-    setCurrentPage(1);
   };
 
   return (
@@ -119,7 +167,7 @@ const ProductsPage = () => {
             {searchQuery ? `Kết quả tìm kiếm: "${searchQuery}"` : "Sản phẩm"}
           </h1>
           <p className="mt-2 text-slate-600">
-            {isLoading ? "Đang tải..." : `${products.length} sản phẩm.`}
+            {isLoading ? "Đang tải..." : `${filteredProducts.length} sản phẩm.`}
           </p>
         </div>
 
@@ -271,11 +319,11 @@ const ProductsPage = () => {
           <div className="flex-1">
             {isLoading ? (
               <div className="grid grid-cols-1 gap-6 sm:grid-cols-2 xl:grid-cols-3">
-                {[...Array(6)].map((_, i) => (
+                {[...Array(9)].map((_, i) => (
                   <SkeletonLoader key={i} className="h-96" />
                 ))}
               </div>
-            ) : products.length === 0 ? (
+            ) : paginatedProducts.length === 0 ? (
               <div className="glass-card rounded-[32px] p-12 text-center">
                 <p className="text-lg text-slate-500">Không tìm thấy sản phẩm nào</p>
                 {(selectedCategory || searchQuery || priceRange.min || priceRange.max || stockFilter !== "all") && (
@@ -287,7 +335,7 @@ const ProductsPage = () => {
             ) : (
               <>
                 <div className="grid grid-cols-1 gap-6 sm:grid-cols-2 xl:grid-cols-3">
-                  {products.map((product) => (
+                  {paginatedProducts.map((product) => (
                     <ProductCard key={product.id} product={product} />
                   ))}
                 </div>
@@ -295,7 +343,7 @@ const ProductsPage = () => {
                 {totalPages > 1 && (
                   <div className="mt-8 flex flex-wrap items-center justify-center gap-2">
                     <button
-                      onClick={() => setCurrentPage((p) => Math.max(1, p - 1))}
+                      onClick={() => setCurrentPage((page) => Math.max(1, page - 1))}
                       disabled={currentPage === 1}
                       className="glass-card rounded-2xl px-4 py-2 text-sm disabled:opacity-50"
                     >
@@ -311,7 +359,7 @@ const ProductsPage = () => {
                       </button>
                     ))}
                     <button
-                      onClick={() => setCurrentPage((p) => Math.min(totalPages, p + 1))}
+                      onClick={() => setCurrentPage((page) => Math.min(totalPages, page + 1))}
                       disabled={currentPage === totalPages}
                       className="glass-card rounded-2xl px-4 py-2 text-sm disabled:opacity-50"
                     >
