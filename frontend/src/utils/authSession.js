@@ -1,7 +1,10 @@
 const ACCESS_TOKEN_KEY = "token";
 const USER_KEY = "user";
 const REFRESH_COOKIE_KEY = "refreshToken";
-const REFRESH_INTERVAL_MS = 14 * 60 * 1000 + 30 * 1000;
+// Refresh token mỗi 13 phút (giữ 2 phút buffer trước 15 phút hết hạn)
+const REFRESH_INTERVAL_MS = 13 * 60 * 1000;
+// Time buffer để detect token sắp hết hạn (60 giây)
+const TOKEN_EXPIRY_BUFFER_SECONDS = 60;
 const REFRESH_COOKIE_MAX_AGE = 30 * 24 * 60 * 60;
 
 let refreshTimerId = null;
@@ -91,6 +94,39 @@ export const cancelScheduledRefresh = () => {
   if (refreshTimerId) {
     window.clearTimeout(refreshTimerId);
     refreshTimerId = null;
+  }
+};
+
+/**
+ * Kiểm tra xem token có sắp hết hạn không (trong 60 giây)
+ * @param {string} token - Access token (JWT)
+ * @returns {boolean} - true nếu token sắp hết hạn
+ */
+export const isTokenExpiringSoon = (token) => {
+  if (!token) return true;
+
+  try {
+    // Parse JWT payload (format: header.payload.signature)
+    const parts = token.split(".");
+    if (parts.length !== 3) return true;
+
+    // Decode payload từ base64url
+    const payload = JSON.parse(
+      atob(parts[1].replace(/-/g, "+").replace(/_/g, "/"))
+    );
+
+    if (!payload.exp) return true;
+
+    // exp là timestamp trong giây, cần convert sang milliseconds
+    const expiryTime = payload.exp * 1000;
+    const currentTime = Date.now();
+    const timeUntilExpiry = expiryTime - currentTime;
+
+    // Token sắp hết hạn nếu chỉ còn < 60 giây
+    return timeUntilExpiry < TOKEN_EXPIRY_BUFFER_SECONDS * 1000;
+  } catch (error) {
+    console.error("Error checking token expiry", error);
+    return true; // Nếu lỗi, coi như token sắp hết
   }
 };
 

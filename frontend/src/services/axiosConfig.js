@@ -1,5 +1,5 @@
 import axios from "axios";
-import { clearSession, getAccessToken } from "../utils/authSession";
+import { clearSession, getAccessToken, isTokenExpiringSoon } from "../utils/authSession";
 import { refreshSession } from "./sessionManager";
 
 const API_BASE_URL =
@@ -21,8 +21,19 @@ const axiosInstance = axios.create({
 });
 
 axiosInstance.interceptors.request.use(
-  (config) => {
-    const token = getAccessToken();
+  async (config) => {
+    let token = getAccessToken();
+    
+    // Nếu token sắp hết hạn, refresh ngay trước khi gửi request
+    if (token && isTokenExpiringSoon(token)) {
+      try {
+        await refreshSession();
+        token = getAccessToken();
+      } catch (error) {
+        console.error("Failed to refresh token before request", error);
+      }
+    }
+    
     if (token) {
       config.headers.Authorization = `Bearer ${token}`;
     }
