@@ -243,7 +243,7 @@ const AdminProductsPage = () => {
       "Mã SP": product.id,
       "Tên Sản Phẩm": product.name,
       "Danh Mục": product.categoryName,
-      "Giá Nhập": product.costPrice || product.cost_price || "",
+      
       "Giá": product.price,
       "Tồn Kho": product.stockQuantity || 0,
       "Nhà Cung Cấp": product.supplierName || "",
@@ -517,9 +517,7 @@ const AdminProductsPage = () => {
                   <th className="px-6 py-4 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                     Nhà Cung Cấp
                   </th>
-                  <th className="px-6 py-4 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                    Giá Nhập
-                  </th>
+                 
                   <th className="px-6 py-4 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                     Giá Bán
                   </th>
@@ -564,13 +562,7 @@ const AdminProductsPage = () => {
                           )}
                         </span>
                       </td>
-                      <td className="px-6 py-4">
-                        <span className="font-semibold text-slate-700">
-                          {formatPrice(
-                            product.costPrice || product.cost_price || 0
-                          )}
-                        </span>
-                      </td>
+                     
                       <td className="px-6 py-4">
                         <span className="font-semibold text-coffee-600">
                           {formatPrice(product.price)}
@@ -694,21 +686,7 @@ const AdminProductsPage = () => {
                     </div>
 
                     <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                      <div>
-                        <label className="block text-sm font-medium text-gray-700 mb-2">Giá Nhập (VNĐ)</label>
-                        <input
-                          type="number"
-                          value={formData.costPrice}
-                          onChange={(e) =>
-                            setFormData({ ...formData, costPrice: e.target.value })
-                          }
-                          onWheel={(e) => e.target.blur()}
-                          placeholder="150000"
-                          min="0"
-                          step="1000"
-                          className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-coffee-500"
-                        />
-                      </div>
+                     
 
                       <div>
                         <label className="block text-sm font-medium text-gray-700 mb-2">Giá Bán (VNĐ) *</label>
