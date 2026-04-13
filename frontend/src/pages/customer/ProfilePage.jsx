@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useState } from "react";
 import { motion } from "framer-motion";
 import {
   User,
@@ -11,8 +11,9 @@ import useAuthStore from "../../stores/useAuthStore";
 import useToastStore from "../../stores/useToastStore";
 import Input from "../../components/ui/Input";
 import Button from "../../components/ui/Button";
-import { authAPI, orderAPI, userAPI } from "../../services";
+import { authAPI, orderAPI, userAPI, addressAPI } from "../../services";
 import { formatDate } from "../../utils/formatDate";
+import { Trash2 } from "lucide-react";
 
 const ProfilePage = () => {
   const { user, updateProfile } = useAuthStore();
@@ -21,6 +22,18 @@ const ProfilePage = () => {
   const [isLoading, setIsLoading] = useState(false);
   const [profileData, setProfileData] = useState(user || null);
   const [recentOrders, setRecentOrders] = useState([]);
+
+  // Address management states
+  const [addresses, setAddresses] = useState([]);
+  const [isLoadingAddresses, setIsLoadingAddresses] = useState(false);
+  const [showAddressForm, setShowAddressForm] = useState(false);
+  const [newAddressForm, setNewAddressForm] = useState({
+    receiverName: user?.name || "",
+    phoneNumber: "",
+    fullAddress: "",
+    addressType: "home",
+    isDefault: false,
+  });
 
   const [infoForm, setInfoForm] = useState({
     name: user?.name || "",
@@ -69,6 +82,26 @@ const ProfilePage = () => {
 
     loadProfile();
   }, [user]);
+
+  // Fetch addresses
+  useEffect(() => {
+    const fetchAddresses = async () => {
+      setIsLoadingAddresses(true);
+      try {
+        const response = await addressAPI.getMyAddresses();
+        console.log("Addresses response:", response);
+        const addressList = response?.data || response || [];
+        setAddresses(Array.isArray(addressList) ? addressList : []);
+      } catch (error) {
+        console.error("Error fetching addresses:", error);
+        setAddresses([]);
+      } finally {
+        setIsLoadingAddresses(false);
+      }
+    };
+
+    fetchAddresses();
+  }, []);
 
   const handleInfoChange = (e) => {
     setInfoForm({ ...infoForm, [e.target.name]: e.target.value });
@@ -124,6 +157,78 @@ const ProfilePage = () => {
     }
   };
 
+  const handleNewAddressChange = (e) => {
+    const { name, value, type, checked } = e.target;
+    setNewAddressForm({
+      ...newAddressForm,
+      [name]: type === "checkbox" ? checked : value,
+    });
+  };
+
+  const handleAddAddress = async (e) => {
+    e.preventDefault();
+
+    if (
+      !newAddressForm.receiverName ||
+      !newAddressForm.phoneNumber ||
+      !newAddressForm.fullAddress
+    ) {
+      toast.error("Vui lòng điền đầy đủ thông tin địa chỉ");
+      return;
+    }
+
+    setIsLoading(true);
+    try {
+      await addressAPI.createAddress({
+        receiverName: newAddressForm.receiverName,
+        phoneNumber: newAddressForm.phoneNumber,
+        fullAddress: newAddressForm.fullAddress,
+        addressType: newAddressForm.addressType,
+        isDefault: newAddressForm.isDefault,
+      });
+      
+      toast.success("Thêm địa chỉ thành công!");
+      setShowAddressForm(false);
+      setNewAddressForm({
+        receiverName: user?.name || "",
+        phoneNumber: "",
+        fullAddress: "",
+        addressType: "home",
+        isDefault: false,
+      });
+
+      // Refresh addresses list
+      const response = await addressAPI.getMyAddresses();
+      const addressList = response?.data || response || [];
+      setAddresses(Array.isArray(addressList) ? addressList : []);
+    } catch (error) {
+      toast.error(error?.message || "Không thể thêm địa chỉ");
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  const handleDeleteAddress = async (addressId) => {
+    if (!window.confirm("Bạn có chắc muốn xóa địa chỉ này?")) {
+      return;
+    }
+
+    setIsLoading(true);
+    try {
+      await addressAPI.deleteAddress(addressId);
+      toast.success("Xóa địa chỉ thành công!");
+
+      // Refresh addresses list
+      const response = await addressAPI.getMyAddresses();
+      const addressList = response?.data || response || [];
+      setAddresses(Array.isArray(addressList) ? addressList : []);
+    } catch (error) {
+      toast.error(error?.message || "Không thể xóa địa chỉ");
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
   const tabs = [
     { id: "info", label: "Thông tin cá nhân", icon: User },
     { id: "address", label: "Địa chỉ", icon: MapPin },
@@ -131,23 +236,6 @@ const ProfilePage = () => {
     { id: "orders", label: "Đơn hàng", icon: Package },
     { id: "settings", label: "Cài đặt", icon: SettingsIcon },
   ];
-
-  const addressList = useMemo(() => {
-    const seen = new Set();
-    return recentOrders
-      .map((order) => ({
-        id: order.id,
-        shipAddress: order.shipAddress,
-        orderDate: order.orderDate,
-      }))
-      .filter((order) => order.shipAddress)
-      .filter((order) => {
-        if (seen.has(order.shipAddress)) return false;
-        seen.add(order.shipAddress);
-        return true;
-      })
-      .slice(0, 5);
-  }, [recentOrders]);
 
   return (
     <div className="min-h-screen bg-gray-50 py-8">
@@ -239,36 +327,186 @@ const ProfilePage = () => {
 
               {activeTab === "address" && (
                 <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }}>
-                  <h2 className="mb-6 text-2xl font-bold text-gray-900">
-                    Địa chỉ của tôi
-                  </h2>
-                  {addressList.length > 0 ? (
-                    <div className="space-y-4">
-                      {addressList.map((address) => (
+                  <div className="mb-6 flex items-center justify-between">
+                    <h2 className="text-2xl font-bold text-gray-900">
+                      Địa chỉ của tôi
+                    </h2>
+                    {!showAddressForm && (
+                      <Button
+                        onClick={() => setShowAddressForm(true)}
+                        variant="primary"
+                        className="whitespace-nowrap"
+                      >
+                        + Thêm địa chỉ mới
+                      </Button>
+                    )}
+                  </div>
+
+                  {/* Danh sách địa chỉ */}
+                  {isLoadingAddresses ? (
+                    <div className="rounded-lg border border-gray-200 p-6 text-center text-gray-600">
+                      Đang tải danh sách địa chỉ...
+                    </div>
+                  ) : addresses.length > 0 ? (
+                    <div className="mb-8 space-y-3">
+                      {addresses.map((address) => (
                         <div
                           key={address.id}
-                          className="rounded-lg border border-gray-200 p-4"
+                          className="rounded-lg border border-gray-200 p-4 hover:border-coffee-300 hover:shadow-sm transition-all"
                         >
-                          <p className="font-medium text-gray-900">
-                            {address.shipAddress}
-                          </p>
-                          <p className="mt-2 text-sm text-gray-500">
-                            Đơn gần nhất: #{address.id} •{" "}
-                            {formatDate(address.orderDate)}
-                          </p>
+                          <div className="flex items-start justify-between">
+                            <div className="flex-1">
+                              <div className="mb-2 flex items-center gap-2">
+                                <p className="font-semibold text-gray-900">
+                                  {address.receiverName}
+                                </p>
+                                <span
+                                  className={`rounded-full px-2.5 py-0.5 text-xs font-medium ${
+                                    address.addressType === "home"
+                                      ? "bg-blue-100 text-blue-700"
+                                      : "bg-orange-100 text-orange-700"
+                                  }`}
+                                >
+                                  {address.addressType === "home"
+                                    ? "Nhà riêng"
+                                    : "Văn phòng"}
+                                </span>
+                                {address.isDefault && (
+                                  <span className="rounded-full bg-green-100 px-2.5 py-0.5 text-xs font-medium text-green-700">
+                                    Mặc định
+                                  </span>
+                                )}
+                              </div>
+                              <p className="text-sm text-gray-600">
+                                {address.phoneNumber}
+                              </p>
+                              <p className="mt-2 text-gray-700">
+                                {address.fullAddress}
+                              </p>
+                            </div>
+                            <button
+                              onClick={() => handleDeleteAddress(address.id)}
+                              disabled={isLoading}
+                              className="ml-4 flex-shrink-0 rounded-lg p-2 text-gray-400 hover:bg-red-50 hover:text-red-600 transition-colors disabled:opacity-50"
+                            >
+                              <Trash2 className="h-5 w-5" />
+                            </button>
+                          </div>
                         </div>
                       ))}
-                      <p className="text-sm text-amber-700">
-                        Frontend hiện chỉ có thể hiển thị địa chỉ giao hàng đã
-                        dùng ở các đơn trước. Dữ liệu địa chỉ riêng trong
-                        `/auth/me` hoặc `/users/me` hiện chưa có từ backend.
-                      </p>
                     </div>
                   ) : (
-                    <div className="rounded-lg border border-dashed border-gray-300 p-6 text-sm text-gray-600">
-                      Chưa có địa chỉ nào để hiển thị. Địa chỉ sẽ xuất hiện sau
-                      khi bạn tạo đơn hàng, hoặc khi backend bổ sung trường địa
-                      chỉ vào dữ liệu profile.
+                    <div className="mb-8 rounded-lg border border-dashed border-gray-300 p-6 text-center text-gray-600">
+                      Bạn chưa có địa chỉ nào. Hãy thêm địa chỉ mới để tiện cho việc mua hàng.
+                    </div>
+                  )}
+
+                  {/* Form thêm địa chỉ mới */}
+                  {showAddressForm && (
+                    <div className="rounded-lg border-2 border-coffee-200 bg-coffee-50/50 p-6">
+                      <div className="mb-6 flex items-center justify-between">
+                        <h3 className="text-lg font-semibold text-gray-900">
+                          Thêm địa chỉ mới
+                        </h3>
+                        <button
+                          onClick={() => setShowAddressForm(false)}
+                          className="text-gray-500 hover:text-gray-700"
+                        >
+                          ✕
+                        </button>
+                      </div>
+
+                      <form onSubmit={handleAddAddress} className="space-y-4">
+                        <Input
+                          label="Tên người nhận"
+                          name="receiverName"
+                          value={newAddressForm.receiverName}
+                          onChange={handleNewAddressChange}
+                          required
+                        />
+                        <Input
+                          label="Số điện thoại"
+                          name="phoneNumber"
+                          type="tel"
+                          value={newAddressForm.phoneNumber}
+                          onChange={handleNewAddressChange}
+                          required
+                        />
+                        <Input
+                          label="Địa chỉ chi tiết"
+                          name="fullAddress"
+                          value={newAddressForm.fullAddress}
+                          onChange={handleNewAddressChange}
+                          placeholder="Số nhà, tên đường, quận, thành phố..."
+                          required
+                        />
+
+                        <div>
+                          <label className="mb-2 block text-sm font-medium text-gray-700">
+                            Loại địa chỉ
+                          </label>
+                          <div className="flex gap-3">
+                            <label className="flex items-center gap-2">
+                              <input
+                                type="radio"
+                                name="addressType"
+                                value="home"
+                                checked={newAddressForm.addressType === "home"}
+                                onChange={handleNewAddressChange}
+                                className="h-4 w-4 text-coffee-600"
+                              />
+                              <span className="text-sm text-gray-700">
+                                Nhà riêng
+                              </span>
+                            </label>
+                            <label className="flex items-center gap-2">
+                              <input
+                                type="radio"
+                                name="addressType"
+                                value="office"
+                                checked={newAddressForm.addressType === "office"}
+                                onChange={handleNewAddressChange}
+                                className="h-4 w-4 text-coffee-600"
+                              />
+                              <span className="text-sm text-gray-700">
+                                Văn phòng
+                              </span>
+                            </label>
+                          </div>
+                        </div>
+
+                        <label className="flex items-center gap-2">
+                          <input
+                            type="checkbox"
+                            name="isDefault"
+                            checked={newAddressForm.isDefault}
+                            onChange={handleNewAddressChange}
+                            className="h-4 w-4 rounded border-gray-300 text-coffee-600"
+                          />
+                          <span className="text-sm text-gray-700">
+                            Đặt làm địa chỉ mặc định
+                          </span>
+                        </label>
+
+                        <div className="flex gap-3 pt-4">
+                          <Button
+                            type="submit"
+                            variant="primary"
+                            isLoading={isLoading}
+                            disabled={isLoading}
+                          >
+                            Lưu địa chỉ
+                          </Button>
+                          <Button
+                            type="button"
+                            variant="outline"
+                            onClick={() => setShowAddressForm(false)}
+                            disabled={isLoading}
+                          >
+                            Hủy
+                          </Button>
+                        </div>
+                      </form>
                     </div>
                   )}
                 </motion.div>
