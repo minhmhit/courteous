@@ -19,6 +19,7 @@ import payrollAPI from "./payrollAPI";
 import payrollPeriodAPI from "./payrollPeriodAPI";
 import departmentAPI from "./departmentAPI";
 import positionAPI from "./positionAPI";
+import addressAPI from "./addressAPI";
 
 export {
   authAPI,
@@ -42,6 +43,7 @@ export {
   payrollPeriodAPI,
   departmentAPI,
   positionAPI,
+  addressAPI,
 };
 
 export default {
@@ -66,4 +68,5 @@ export default {
   payrollPeriod: payrollPeriodAPI,
   department: departmentAPI,
   position: positionAPI,
+  address: addressAPI,
 };
