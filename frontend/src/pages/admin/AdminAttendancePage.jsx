@@ -1,9 +1,10 @@
-import { useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { AnimatePresence, motion } from "framer-motion";
 import {
   Calendar,
   Clock,
   Plus,
+  Upload,
   Search,
   Edit,
   X,
@@ -23,11 +24,13 @@ const AdminAttendancePage = () => {
   const [employees, setEmployees] = useState([]);
   const [isLoading, setIsLoading] = useState(true);
   const [monthFilter, setMonthFilter] = useState(
-    new Date().toISOString().slice(0, 7)
+    new Date().toISOString().slice(0, 7),
   );
   const [searchTerm, setSearchTerm] = useState("");
   const [showModal, setShowModal] = useState(false);
   const [editingItem, setEditingItem] = useState(null);
+  const [isImportingCsv, setIsImportingCsv] = useState(false);
+  const csvInputRef = useRef(null);
   const [formData, setFormData] = useState({
     employeeId: "",
     workDate: "",
@@ -46,8 +49,8 @@ const AdminAttendancePage = () => {
   const normalizePayload = (payload) => {
     const cleaned = Object.fromEntries(
       Object.entries(payload).filter(
-        ([, value]) => value !== "" && value !== undefined && value !== null
-      )
+        ([, value]) => value !== "" && value !== undefined && value !== null,
+      ),
     );
     return cleaned;
   };
@@ -76,33 +79,37 @@ const AdminAttendancePage = () => {
         page: 1,
         limit: 200,
       });
-      const list = response?.data || response?.employees || response?.items || [];
+      const list =
+        response?.data || response?.employees || response?.items || [];
       setEmployees(Array.isArray(list) ? list : []);
     } catch (error) {
       console.error("Error fetching employees:", error);
     }
   };
 
-  const getEmployeeInfo = (item) => {
-    const employeeId = item.employeeId || item.employee_id;
-    const employee = employees.find(
-      (emp) => (emp.id || emp.employeeId) === employeeId
-    );
-    return {
-      id: employeeId,
-      name:
-        item.employeeName ||
-        item.employee_name ||
-        item.name ||
-        employee?.user_name ||
-        employee?.name ||
-        employee?.fullName ||
-        employee?.employee_name ||
-        employee?.user?.name ||
-        "N/A",
-      email: employee?.user_email || employee?.email || employee?.user?.email,
-    };
-  };
+  const getEmployeeInfo = useCallback(
+    (item) => {
+      const employeeId = item.employeeId || item.employee_id;
+      const employee = employees.find(
+        (emp) => (emp.id || emp.employeeId) === employeeId,
+      );
+      return {
+        id: employeeId,
+        name:
+          item.employeeName ||
+          item.employee_name ||
+          item.name ||
+          employee?.user_name ||
+          employee?.name ||
+          employee?.fullName ||
+          employee?.employee_name ||
+          employee?.user?.name ||
+          "N/A",
+        email: employee?.user_email || employee?.email || employee?.user?.email,
+      };
+    },
+    [employees],
+  );
 
   const getEmployeeOptionLabel = (emp) => {
     const name =
@@ -115,11 +122,7 @@ const AdminAttendancePage = () => {
       emp.user?.fullName ||
       "";
     const email =
-      emp.email ||
-      emp.user_email ||
-      emp.userEmail ||
-      emp.user?.email ||
-      "";
+      emp.email || emp.user_email || emp.userEmail || emp.user?.email || "";
     if (name && email) return `${name} - ${email}`;
     if (name) return name;
     if (email) return email;
@@ -150,6 +153,292 @@ const AdminAttendancePage = () => {
     const date = new Date(value);
     if (Number.isNaN(date.getTime())) return "";
     return date.toISOString().slice(0, 10);
+  };
+
+  const parseCsvLine = (line) => {
+    const result = [];
+    let value = "";
+    let inQuotes = false;
+    for (let i = 0; i < line.length; i += 1) {
+      const char = line[i];
+      if (char === '"') {
+        if (inQuotes && line[i + 1] === '"') {
+          value += '"';
+          i += 1;
+        } else {
+          inQuotes = !inQuotes;
+        }
+      } else if (char === "," && !inQuotes) {
+        result.push(value.trim());
+        value = "";
+      } else {
+        value += char;
+      }
+    }
+    result.push(value.trim());
+    return result;
+  };
+
+  const normalizeCsvHeader = (header) =>
+    String(header || "")
+      .trim()
+      .toLowerCase()
+      .replace(/\s+/g, "_");
+
+  const parseCsvToRows = (csvText) => {
+    const lines = String(csvText || "")
+      .split(/\r?\n/)
+      .map((line) => line.trim())
+      .filter(Boolean);
+
+    if (lines.length < 2) return [];
+
+    const headers = parseCsvLine(lines[0]).map(normalizeCsvHeader);
+    return lines.slice(1).map((line) => {
+      const values = parseCsvLine(line);
+      const row = {};
+      headers.forEach((header, idx) => {
+        row[header] = values[idx] ?? "";
+      });
+      return row;
+    });
+  };
+
+  const toHHMM = (value) => {
+    if (!value) return "";
+    const str = String(value).trim();
+    if (/^\d{2}:\d{2}$/.test(str)) return str;
+    if (/^\d{2}:\d{2}:\d{2}$/.test(str)) return str.slice(0, 5);
+    if (str.includes("T")) {
+      const date = new Date(str);
+      if (!Number.isNaN(date.getTime())) {
+        return `${String(date.getHours()).padStart(2, "0")}:${String(
+          date.getMinutes(),
+        ).padStart(2, "0")}`;
+      }
+    }
+    return "";
+  };
+
+  const formatLocalDateTime = (date) => {
+    const yyyy = date.getFullYear();
+    const mm = String(date.getMonth() + 1).padStart(2, "0");
+    const dd = String(date.getDate()).padStart(2, "0");
+    const hh = String(date.getHours()).padStart(2, "0");
+    const mi = String(date.getMinutes()).padStart(2, "0");
+    const ss = String(date.getSeconds()).padStart(2, "0");
+    return `${yyyy}-${mm}-${dd}T${hh}:${mi}:${ss}`;
+  };
+
+  const toDateTimeString = (value, fallbackDate) => {
+    if (!value) return undefined;
+    const str = String(value).trim();
+
+    if (/^\d{2}:\d{2}$/.test(str)) {
+      if (!fallbackDate) return undefined;
+      return `${fallbackDate}T${str}:00`;
+    }
+
+    if (/^\d{2}:\d{2}:\d{2}$/.test(str)) {
+      if (!fallbackDate) return undefined;
+      return `${fallbackDate}T${str}`;
+    }
+
+    if (/^\d{4}-\d{2}-\d{2}[ T]\d{2}:\d{2}$/.test(str)) {
+      return `${str.replace(" ", "T")}:00`;
+    }
+
+    if (/^\d{4}-\d{2}-\d{2}[ T]\d{2}:\d{2}:\d{2}$/.test(str)) {
+      return str.replace(" ", "T");
+    }
+
+    const date = new Date(str);
+    if (Number.isNaN(date.getTime())) return undefined;
+    return formatLocalDateTime(date);
+  };
+
+  const toNullableNumber = (value) => {
+    if (value === undefined || value === null || value === "") return undefined;
+    const num = Number(value);
+    return Number.isFinite(num) ? num : undefined;
+  };
+
+  const toYYYYMMDD = (value) => {
+    if (!value) return "";
+    const raw = String(value).trim();
+    if (/^\d{4}-\d{2}-\d{2}$/.test(raw)) return raw;
+    if (/^\d{2}\/\d{2}\/\d{4}$/.test(raw)) {
+      const [dd, mm, yyyy] = raw.split("/");
+      return `${yyyy}-${mm}-${dd}`;
+    }
+    const date = new Date(raw);
+    if (Number.isNaN(date.getTime())) return "";
+    return date.toISOString().slice(0, 10);
+  };
+
+  const getRowValue = (row, keys) => {
+    for (const key of keys) {
+      if (row[key] !== undefined && row[key] !== null && row[key] !== "") {
+        return row[key];
+      }
+    }
+    return "";
+  };
+
+  const resolveEmployeeIdFromRow = (row) => {
+    const rawEmployeeId = getRowValue(row, [
+      "employee_id",
+      "employeeid",
+      "employee",
+    ]);
+    if (rawEmployeeId) return Number(rawEmployeeId);
+
+    const email = String(
+      getRowValue(row, ["email", "employee_email"]) || "",
+    ).toLowerCase();
+    if (email) {
+      const byEmail = employees.find((emp) => {
+        const empEmail =
+          emp.email || emp.user_email || emp.userEmail || emp.user?.email || "";
+        return String(empEmail).toLowerCase() === email;
+      });
+      if (byEmail)
+        return Number(byEmail.id || byEmail.userId || byEmail.employeeId);
+    }
+
+    const name = String(
+      getRowValue(row, ["name", "employee_name", "full_name"]) || "",
+    ).toLowerCase();
+    if (name) {
+      const byName = employees.find((emp) => {
+        const empName =
+          emp.name ||
+          emp.fullName ||
+          emp.employee_name ||
+          emp.user_name ||
+          emp.user?.name ||
+          "";
+        return String(empName).toLowerCase() === name;
+      });
+      if (byName)
+        return Number(byName.id || byName.userId || byName.employeeId);
+    }
+
+    return 0;
+  };
+
+  const buildIsoDateTime = (date, time) => {
+    if (!date || !time) return undefined;
+    return `${date}T${time}:00`;
+  };
+
+  const handleOpenCsvPicker = () => {
+    csvInputRef.current?.click();
+  };
+
+  const handleImportCsv = async (event) => {
+    const file = event.target.files?.[0];
+    event.target.value = "";
+
+    if (!file) return;
+    if (!file.name.toLowerCase().endsWith(".csv")) {
+      toast.error("Vui lòng chọn file CSV");
+      return;
+    }
+
+    setIsImportingCsv(true);
+    try {
+      const content = await file.text();
+      const rows = parseCsvToRows(content);
+      if (!rows.length) {
+        toast.error("File CSV không có dữ liệu hợp lệ");
+        return;
+      }
+
+      let successCount = 0;
+      const errors = [];
+
+      for (let i = 0; i < rows.length; i += 1) {
+        const row = rows[i];
+        const employeeId = resolveEmployeeIdFromRow(row);
+        const workDate = toYYYYMMDD(
+          getRowValue(row, ["work_date", "date", "ngay_cong"]),
+        );
+        const checkInRaw = getRowValue(row, [
+          "check_in",
+          "checkin",
+          "gio_vao",
+          "check_in_time",
+        ]);
+        const checkOutRaw = getRowValue(row, [
+          "check_out",
+          "checkout",
+          "gio_ra",
+          "check_out_time",
+        ]);
+        const checkIn = toDateTimeString(checkInRaw, workDate);
+        const checkOut = toDateTimeString(checkOutRaw, workDate);
+        const fallbackCheckInTime = toHHMM(
+          getRowValue(row, ["check_in", "checkin", "gio_vao"]),
+        );
+        const fallbackCheckOutTime = toHHMM(
+          getRowValue(row, ["check_out", "checkout", "gio_ra"]),
+        );
+        const workMinutes = toNullableNumber(
+          getRowValue(row, ["work_minutes", "workminute", "so_phut_lam"]),
+        );
+        const overtimeMinutes = toNullableNumber(
+          getRowValue(row, ["overtime_minutes", "ot_minutes", "so_phut_ot"]),
+        );
+        const status = String(
+          getRowValue(row, ["status", "trang_thai"]) || "PRESENT",
+        ).toUpperCase();
+        const note = String(getRowValue(row, ["note", "ghi_chu"]) || "");
+
+        if (!employeeId || !workDate) {
+          errors.push(`Dòng ${i + 2}: thiếu employee_id hoặc work_date`);
+          continue;
+        }
+
+        const payload = normalizePayload({
+          employeeId,
+          workDate,
+          checkIn: checkIn || buildIsoDateTime(workDate, fallbackCheckInTime),
+          checkOut:
+            checkOut || buildIsoDateTime(workDate, fallbackCheckOutTime),
+          workMinutes,
+          overtimeMinutes,
+          status,
+          note,
+        });
+
+        try {
+          await attendanceAPI.createManualAttendance(payload);
+          successCount += 1;
+        } catch (rowError) {
+          const errorMessage =
+            rowError?.response?.data?.message ||
+            rowError?.message ||
+            "Lỗi không xác định";
+          errors.push(`Dòng ${i + 2}: ${errorMessage}`);
+        }
+      }
+
+      if (successCount > 0) {
+        toast.success(`Đã nhập ${successCount} dòng chấm công`);
+        fetchAttendance();
+      }
+
+      if (errors.length > 0) {
+        toast.error(`Có ${errors.length} dòng lỗi khi import CSV`);
+        console.error("CSV import errors:", errors);
+      }
+    } catch (error) {
+      console.error("Error importing CSV:", error);
+      toast.error("Không thể đọc file CSV");
+    } finally {
+      setIsImportingCsv(false);
+    }
   };
 
   const getAttendanceDate = (item) => {
@@ -188,7 +477,7 @@ const AdminAttendancePage = () => {
         (info.email || "").toLowerCase().includes(term)
       );
     });
-  }, [attendance, searchTerm, employees]);
+  }, [attendance, searchTerm, getEmployeeInfo]);
 
   const handleOpenModal = (item = null) => {
     if (item) {
@@ -197,9 +486,11 @@ const AdminAttendancePage = () => {
       setFormData({
         employeeId: info.id || "",
         workDate: formatDateInput(getAttendanceDate(item)),
-        checkIn: formatTime(item.checkIn || item.check_in || item.check_in_time),
+        checkIn: formatTime(
+          item.checkIn || item.check_in || item.check_in_time,
+        ),
         checkOut: formatTime(
-          item.checkOut || item.check_out || item.check_out_time
+          item.checkOut || item.check_out || item.check_out_time,
         ),
         status: item.status || "PRESENT",
         note: item.note || "",
@@ -229,11 +520,6 @@ const AdminAttendancePage = () => {
       toast.error("Vui lòng chọn nhân viên và ngày điểm danh");
       return;
     }
-
-    const buildIsoDateTime = (date, time) => {
-      if (!date || !time) return undefined;
-      return `${date}T${time}:00`;
-    };
 
     const payload = normalizePayload({
       employeeId: Number(formData.employeeId),
@@ -269,10 +555,27 @@ const AdminAttendancePage = () => {
             Theo dõi check-in/check-out và chỉnh sửa thủ công
           </p>
         </div>
-        <Button onClick={() => handleOpenModal()} variant="primary">
-          <Plus className="mr-2 h-5 w-5" />
-          Tạo điểm danh
-        </Button>
+        <div className="flex items-center gap-3">
+          <input
+            ref={csvInputRef}
+            type="file"
+            accept=".csv,text/csv"
+            className="hidden"
+            onChange={handleImportCsv}
+          />
+          <Button
+            onClick={handleOpenCsvPicker}
+            variant="outline"
+            disabled={isImportingCsv}
+          >
+            <Upload className="mr-2 h-5 w-5" />
+            {isImportingCsv ? "Đang nhập CSV..." : "Nhập CSV chấm công"}
+          </Button>
+          <Button onClick={() => handleOpenModal()} variant="primary">
+            <Plus className="mr-2 h-5 w-5" />
+            Tạo điểm danh
+          </Button>
+        </div>
       </div>
 
       <div className="grid grid-cols-1 gap-4 lg:grid-cols-3">
@@ -291,9 +594,11 @@ const AdminAttendancePage = () => {
             <span>Đúng giờ</span>
           </div>
           <p className="mt-2 text-3xl font-semibold text-slate-900">
-            {attendance.filter((item) =>
-              ["PRESENT"].includes(String(item.status || "").toUpperCase())
-            ).length}
+            {
+              attendance.filter((item) =>
+                ["PRESENT"].includes(String(item.status || "").toUpperCase()),
+              ).length
+            }
           </p>
         </div>
         <div className="glass-panel-strong rounded-2xl p-4">
@@ -302,11 +607,18 @@ const AdminAttendancePage = () => {
             <span>Đi trễ / vắng</span>
           </div>
           <p className="mt-2 text-3xl font-semibold text-slate-900">
-            {attendance.filter((item) =>
-              ["ABSENT", "PAID_LEAVE", "UNPAID_LEAVE", "SICK_LEAVE", "MATERNITY_LEAVE", "HOLIDAY"].includes(
-                String(item.status || "").toUpperCase()
-              )
-            ).length}
+            {
+              attendance.filter((item) =>
+                [
+                  "ABSENT",
+                  "PAID_LEAVE",
+                  "UNPAID_LEAVE",
+                  "SICK_LEAVE",
+                  "MATERNITY_LEAVE",
+                  "HOLIDAY",
+                ].includes(String(item.status || "").toUpperCase()),
+              ).length
+            }
           </p>
         </div>
       </div>
@@ -393,7 +705,7 @@ const AdminAttendancePage = () => {
                         <td className="px-5 py-4">
                           <span
                             className={`rounded-full px-3 py-1 text-xs font-semibold ${getStatusBadge(
-                              status
+                              status,
                             )}`}
                           >
                             {status}
@@ -414,7 +726,10 @@ const AdminAttendancePage = () => {
                   })
                 ) : (
                   <tr>
-                    <td colSpan="6" className="px-6 py-12 text-center text-slate-500">
+                    <td
+                      colSpan="6"
+                      className="px-6 py-12 text-center text-slate-500"
+                    >
                       Không có dữ liệu điểm danh
                     </td>
                   </tr>
@@ -446,7 +761,9 @@ const AdminAttendancePage = () => {
                 <form onSubmit={handleSubmit}>
                   <div className="flex items-center justify-between border-b px-6 py-4">
                     <h3 className="text-2xl font-bold text-slate-900">
-                      {editingItem ? "Cập nhật điểm danh" : "Tạo điểm danh thủ công"}
+                      {editingItem
+                        ? "Cập nhật điểm danh"
+                        : "Tạo điểm danh thủ công"}
                     </h3>
                     <button
                       type="button"
@@ -465,7 +782,10 @@ const AdminAttendancePage = () => {
                       <select
                         value={formData.employeeId}
                         onChange={(e) =>
-                          setFormData({ ...formData, employeeId: e.target.value })
+                          setFormData({
+                            ...formData,
+                            employeeId: e.target.value,
+                          })
                         }
                         className="w-full rounded-2xl border border-slate-200 bg-white px-4 py-2 text-sm focus:border-coffee-400 focus:outline-none focus:ring-2 focus:ring-coffee-100"
                         required
@@ -480,7 +800,10 @@ const AdminAttendancePage = () => {
                             emp.userName ||
                             "";
                           return (
-                            <option key={`${value}_${emp.id || emp.employeeId || emp.userId || emp.userName || Math.random()}`} value={value}>
+                            <option
+                              key={`${value}_${emp.id || emp.employeeId || emp.userId || emp.userName || Math.random()}`}
+                              value={value}
+                            >
                               {getEmployeeOptionLabel(emp)}
                             </option>
                           );
@@ -515,7 +838,9 @@ const AdminAttendancePage = () => {
                           <option value="PAID_LEAVE">PAID_LEAVE</option>
                           <option value="UNPAID_LEAVE">UNPAID_LEAVE</option>
                           <option value="SICK_LEAVE">SICK_LEAVE</option>
-                          <option value="MATERNITY_LEAVE">MATERNITY_LEAVE</option>
+                          <option value="MATERNITY_LEAVE">
+                            MATERNITY_LEAVE
+                          </option>
                           <option value="HOLIDAY">HOLIDAY</option>
                         </select>
                       </div>
@@ -551,7 +876,11 @@ const AdminAttendancePage = () => {
                   </div>
 
                   <div className="flex items-center justify-end gap-3 border-t bg-slate-50 px-6 py-4">
-                    <Button type="button" variant="outline" onClick={handleCloseModal}>
+                    <Button
+                      type="button"
+                      variant="outline"
+                      onClick={handleCloseModal}
+                    >
                       Hủy
                     </Button>
                     <Button type="submit" variant="primary">
