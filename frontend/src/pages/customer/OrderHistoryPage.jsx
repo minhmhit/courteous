@@ -1,19 +1,61 @@
-import { useState, useEffect } from "react";
+﻿import { useState, useEffect } from "react";
 import { Link } from "react-router-dom";
 import { motion } from "framer-motion";
-import { Package, Clock, CheckCircle, XCircle, Eye } from "lucide-react";
+import { Package, CheckCircle, XCircle, Eye, Truck, Clock } from "lucide-react";
 import { orderAPI } from "../../services";
 import useToastStore from "../../stores/useToastStore";
 import SkeletonLoader from "../../components/ui/SkeletonLoader";
 import { formatCurrency } from "../../utils/formatDate";
 
-const isPaidOrder = (order) => {
-  const status = String(order?.status || order?.orderStatus || "").toUpperCase();
-  const paymentStatus = String(
-    order?.paymentStatus || order?.payment_status || "",
-  ).toUpperCase();
+const getStatusConfig = (status) => {
+  const normalizedStatus = String(status || "").toUpperCase();
+  const configs = {
+    PENDING: {
+      label: "Chờ thanh toán / xác nhận",
+      icon: Clock,
+      color: "text-yellow-600",
+      bg: "bg-yellow-50",
+    },
+    SHIPPING: {
+      label: "Đang giao hàng",
+      icon: Truck,
+      color: "text-blue-600",
+      bg: "bg-blue-50",
+    },
+    COMPLETED: {
+      label: "Hoàn tất",
+      icon: CheckCircle,
+      color: "text-green-600",
+      bg: "bg-green-50",
+    },
+    CANCELLED: {
+      label: "Đã hủy",
+      icon: XCircle,
+      color: "text-red-600",
+      bg: "bg-red-50",
+    },
+  };
 
-  return status === "COMPLETED" || paymentStatus === "SUCCESS";
+  return (
+    configs[normalizedStatus] || {
+      label: "Không xác định",
+      icon: Package,
+      color: "text-gray-600",
+      bg: "bg-gray-50",
+    }
+  );
+};
+
+const getImageSrc = (imageUrl) => {
+  if (!imageUrl) {
+    return "https://via.placeholder.com/160x160?text=Coffee";
+  }
+
+  if (imageUrl.startsWith("http")) {
+    return imageUrl;
+  }
+
+  return imageUrl.replace(/^\.\//, "/");
 };
 
 const OrderHistoryPage = () => {
@@ -27,7 +69,7 @@ const OrderHistoryPage = () => {
       try {
         const response = await orderAPI.getUserOrders();
         const ordersList = response.data || response.orders || [];
-        setOrders(ordersList.filter(isPaidOrder));
+        setOrders(ordersList);
       } catch (error) {
         console.error("Fetch orders error:", error);
         toast.error("Không thể tải danh sách đơn hàng");
@@ -39,38 +81,6 @@ const OrderHistoryPage = () => {
 
     fetchOrders();
   }, [toast]);
-
-  const getStatusConfig = (status) => {
-    const normalizedStatus = String(status || "").toUpperCase();
-    const configs = {
-      PENDING: {
-        label: "Chờ xác nhận",
-        icon: Clock,
-        color: "text-yellow-600",
-        bg: "bg-yellow-50",
-      },
-      COMPLETED: {
-        label: "Đã thanh toán",
-        icon: CheckCircle,
-        color: "text-green-600",
-        bg: "bg-green-50",
-      },
-      CANCELLED: {
-        label: "Đã hủy",
-        icon: XCircle,
-        color: "text-red-600",
-        bg: "bg-red-50",
-      },
-    };
-    return (
-      configs[normalizedStatus] || {
-        label: "Không xác định",
-        icon: Package,
-        color: "text-gray-600",
-        bg: "bg-gray-50",
-      }
-    );
-  };
 
   const formatDate = (dateString) => {
     return new Date(dateString).toLocaleDateString("vi-VN", {
@@ -103,7 +113,7 @@ const OrderHistoryPage = () => {
           <div>
             <h1 className="text-3xl font-bold text-gray-900">Lịch sử đơn hàng</h1>
             <p className="mt-2 text-sm text-gray-600">
-              Chỉ hiển thị các đơn đã thanh toán thành công.
+              Hiển thị toàn bộ đơn hàng của bạn theo trạng thái hiện tại.
             </p>
           </div>
           <Link
@@ -115,17 +125,17 @@ const OrderHistoryPage = () => {
         </div>
 
         {orders.length === 0 ? (
-          <div className="bg-white rounded-lg shadow-sm p-12 text-center">
-            <Package className="w-16 h-16 text-gray-400 mx-auto mb-4" />
-            <h2 className="text-xl font-semibold text-gray-900 mb-2">
-              Chưa có đơn hàng đã thanh toán
+          <div className="rounded-lg bg-white p-12 text-center shadow-sm">
+            <Package className="mx-auto mb-4 h-16 w-16 text-gray-400" />
+            <h2 className="mb-2 text-xl font-semibold text-gray-900">
+              Bạn chưa có đơn hàng nào
             </h2>
-            <p className="text-gray-600 mb-6">
-              Các đơn chưa thanh toán hoặc đã hủy sẽ không hiển thị tại đây
+            <p className="mb-6 text-gray-600">
+              Các đơn hàng của bạn sẽ hiển thị tại đây khi được tạo thành công.
             </p>
             <Link
               to="/products"
-              className="inline-block px-6 py-3 bg-coffee-600 text-white rounded-lg hover:bg-coffee-700 transition-colors"
+              className="inline-block rounded-lg bg-coffee-600 px-6 py-3 text-white transition-colors hover:bg-coffee-700"
             >
               Khám phá sản phẩm
             </Link>
@@ -135,16 +145,17 @@ const OrderHistoryPage = () => {
             {orders.map((order) => {
               const statusConfig = getStatusConfig(order.status);
               const StatusIcon = statusConfig.icon;
+              const items = order.items || [];
 
               return (
                 <motion.div
                   key={order.id}
                   initial={{ opacity: 0, y: 20 }}
                   animate={{ opacity: 1, y: 0 }}
-                  className="bg-white rounded-lg shadow-sm overflow-hidden"
+                  className="overflow-hidden rounded-lg bg-white shadow-sm"
                 >
-                  <div className="p-6 border-b border-gray-200">
-                    <div className="flex items-center justify-between mb-4">
+                  <div className="border-b border-gray-200 p-6">
+                    <div className="mb-4 flex items-center justify-between">
                       <div>
                         <p className="text-sm text-gray-600">
                           Mã đơn hàng:{" "}
@@ -152,51 +163,57 @@ const OrderHistoryPage = () => {
                             #{order.id}
                           </span>
                         </p>
-                        <p className="text-sm text-gray-600 mt-1">
+                        <p className="mt-1 text-sm text-gray-600">
                           {formatDate(order.orderDate || new Date())}
                         </p>
                       </div>
                       <div
-                        className={`flex items-center gap-2 px-4 py-2 rounded-full ${statusConfig.bg}`}
+                        className={`flex items-center gap-2 rounded-full px-4 py-2 ${statusConfig.bg}`}
                       >
-                        <StatusIcon className={`w-5 h-5 ${statusConfig.color}`} />
+                        <StatusIcon className={`h-5 w-5 ${statusConfig.color}`} />
                         <span className={`font-semibold ${statusConfig.color}`}>
                           {statusConfig.label}
                         </span>
                       </div>
                     </div>
 
-                    <div className="space-y-3">
-                      {(order.items || []).slice(0, 2).map((item, index) => (
-                        <div key={index} className="flex items-center gap-4">
-                          <img
-                            src={`../.${item.imageUrl}`}
-                            alt={item.name || item.product?.name}
-                            className="w-16 h-16 object-cover rounded-lg"
-                          />
-                          <div className="flex-1">
-                            <p className="font-medium text-gray-900">
-                              {item.productName || item.product?.name || "Sản phẩm"}
+                    {items.length > 0 ? (
+                      <div className="space-y-3">
+                        {items.slice(0, 2).map((item, index) => (
+                          <div key={index} className="flex items-center gap-4">
+                            <img
+                              src={getImageSrc(item.imageUrl)}
+                              alt={item.name || item.product?.name}
+                              className="h-16 w-16 rounded-lg object-cover"
+                            />
+                            <div className="flex-1">
+                              <p className="font-medium text-gray-900">
+                                {item.productName || item.product?.name || "Sản phẩm"}
+                              </p>
+                              <p className="text-sm text-gray-600">x{item.quantity}</p>
+                            </div>
+                            <p className="font-semibold text-gray-900">
+                              {formatCurrency(
+                                Number(item.price || item.unitPrice || 0) *
+                                  Number(item.quantity || 0),
+                              )}
                             </p>
-                            <p className="text-sm text-gray-600">x{item.quantity}</p>
                           </div>
-                          <p className="font-semibold text-gray-900">
-                            {formatCurrency(
-                              Number(item.price || item.unitPrice || 0) *
-                                Number(item.quantity || 0),
-                            )}
+                        ))}
+                        {items.length > 2 && (
+                          <p className="text-sm text-gray-600">
+                            +{items.length - 2} sản phẩm khác
                           </p>
-                        </div>
-                      ))}
-                      {(order.items?.length || 0) > 2 && (
-                        <p className="text-sm text-gray-600">
-                          +{order.items.length - 2} sản phẩm khác
-                        </p>
-                      )}
-                    </div>
+                        )}
+                      </div>
+                    ) : (
+                      <p className="text-sm text-gray-500">
+                        Mở chi tiết đơn hàng để xem đầy đủ sản phẩm trong đơn.
+                      </p>
+                    )}
                   </div>
 
-                  <div className="p-6 bg-gray-50 flex items-center justify-between">
+                  <div className="flex items-center justify-between bg-gray-50 p-6">
                     <div>
                       <p className="text-sm text-gray-600">Tổng tiền:</p>
                       <p className="text-2xl font-bold text-coffee-600">
@@ -205,9 +222,9 @@ const OrderHistoryPage = () => {
                     </div>
                     <Link
                       to={`/orders/${order.id}`}
-                      className="flex items-center gap-2 px-6 py-3 bg-coffee-600 text-white rounded-lg hover:bg-coffee-700 transition-colors"
+                      className="flex items-center gap-2 rounded-lg bg-coffee-600 px-6 py-3 text-white transition-colors hover:bg-coffee-700"
                     >
-                      <Eye className="w-5 h-5" />
+                      <Eye className="h-5 w-5" />
                       <span>Xem chi tiết</span>
                     </Link>
                   </div>

@@ -60,13 +60,14 @@ const getResultState = ({ verifyResult, payment, order }) => {
     payment?.status || verifyResult?.paymentStatus || "",
   ).toUpperCase();
   const orderStatus = String(order?.status || verifyResult?.orderStatus || "").toUpperCase();
-
-  if (paymentStatus === "SUCCESS" || orderStatus === "COMPLETED") {
-    return "success";
-  }
+  const verifySuccess = Boolean(verifyResult?.success);
 
   if (paymentStatus === "FAILED" || orderStatus === "CANCELLED") {
     return "failed";
+  }
+
+  if (paymentStatus === "SUCCESS" || orderStatus === "COMPLETED" || verifySuccess) {
+    return "success";
   }
 
   return "pending";
@@ -103,35 +104,77 @@ const VnpayReturnPage = () => {
         setResult(verifyResult);
 
         if (verifyResult?.orderId) {
-          const [orderResponse, paymentResponse, receiptResponse] = await Promise.all([
-            orderAPI.getOrderById(verifyResult.orderId).catch(() => null),
-            paymentAPI.getOrderPayment(verifyResult.orderId).catch(() => null),
-            receiptAPI.getReceiptsByOrderId(verifyResult.orderId).catch(() => null),
-          ]);
+          const fetchOrderContext = async () => {
+            const [orderResponse, paymentResponse, receiptResponse] = await Promise.all([
+              orderAPI.getOrderById(verifyResult.orderId).catch(() => null),
+              paymentAPI.getOrderPayment(verifyResult.orderId).catch(() => null),
+              receiptAPI.getReceiptsByOrderId(verifyResult.orderId).catch(() => null),
+            ]);
 
-          const orderData = unwrapResponseData(orderResponse);
-          const paymentData = unwrapResponseData(paymentResponse);
-          const receiptData = unwrapResponseData(receiptResponse);
-          const receiptList = Array.isArray(receiptData)
-            ? receiptData
-            : Array.isArray(receiptData?.receipts)
-              ? receiptData.receipts
-              : receiptData
-                ? [receiptData]
-                : [];
+            const orderData = unwrapResponseData(orderResponse);
+            const paymentData = unwrapResponseData(paymentResponse);
+            const receiptData = unwrapResponseData(receiptResponse);
+            const receiptList = Array.isArray(receiptData)
+              ? receiptData
+              : Array.isArray(receiptData?.receipts)
+                ? receiptData.receipts
+                : receiptData
+                  ? [receiptData]
+                  : [];
 
-          setOrder(orderData || null);
-          setPayment(paymentData || null);
-          setReceipt(receiptList[0] || null);
+            return {
+              orderData: orderData || null,
+              paymentData: paymentData || null,
+              receiptData: receiptList[0] || null,
+            };
+          };
+
+          const applyOrderContext = ({ orderData, paymentData, receiptData }) => {
+            setOrder(orderData);
+            setPayment(paymentData);
+            setReceipt(receiptData);
+          };
+
+          const initialContext = await fetchOrderContext();
+          applyOrderContext(initialContext);
 
           const resolvedState = getResultState({
             verifyResult,
-            payment: paymentData,
-            order: orderData,
+            payment: initialContext.paymentData,
+            order: initialContext.orderData,
           });
 
           if (resolvedState === "success") {
             fetchCart();
+          }
+
+          if (
+            verifyResult?.success &&
+            String(initialContext.paymentData?.status || "").toUpperCase() !== "SUCCESS" &&
+            String(initialContext.orderData?.status || "").toUpperCase() !== "COMPLETED"
+          ) {
+            for (let attempt = 0; attempt < 4; attempt += 1) {
+              await new Promise((resolve) => window.setTimeout(resolve, 1500));
+              const nextContext = await fetchOrderContext();
+              applyOrderContext(nextContext);
+
+              const nextState = getResultState({
+                verifyResult,
+                payment: nextContext.paymentData,
+                order: nextContext.orderData,
+              });
+
+              if (nextState === "success") {
+                fetchCart();
+              }
+
+              if (
+                String(nextContext.paymentData?.status || "").toUpperCase() === "SUCCESS" ||
+                String(nextContext.orderData?.status || "").toUpperCase() === "COMPLETED"
+              ) {
+                break;
+              }
+            }
           }
         }
       } catch (error) {
@@ -211,7 +254,10 @@ const VnpayReturnPage = () => {
   const detailRows = [
     {
       label: "Trạng thái thanh toán",
-      value: formatStatusLabel(payment?.status || result.paymentStatus, result.message),
+      value: formatStatusLabel(
+        payment?.status || result.paymentStatus || (result.success ? "SUCCESS" : undefined),
+        result.message,
+      ),
     },
     {
       label: "Trạng thái đơn hàng",
@@ -254,7 +300,10 @@ const VnpayReturnPage = () => {
 
   const heroMessage =
     resultState === "success"
-      ? result.message || "Giao dịch đã được xác nhận và đơn hàng đã hoàn tất."
+      ? String(payment?.status || "").toUpperCase() === "SUCCESS" ||
+        String(order?.status || "").toUpperCase() === "COMPLETED"
+        ? result.message || "Giao dịch đã được xác nhận và đơn hàng đã hoàn tất."
+        : "Thanh toán VNPay đã thành công. Hệ thống đang đồng bộ trạng thái đơn hàng."
       : resultState === "failed"
         ? result.message || "Giao dịch chưa thành công hoặc đã bị hủy."
         : "VNPay đã trả kết quả, nhưng hệ thống vẫn đang chờ IPN để chốt trạng thái cuối cùng.";
@@ -449,7 +498,7 @@ const VnpayReturnPage = () => {
               </Link>
             </div>
 
-            {!isSuccess && (
+            {resultState !== "success" && (
               <p className="mt-4 text-sm text-amber-700">
                 Nếu giao dịch đã trừ tiền nhưng trạng thái chưa cập nhật, khách
                 hàng nên liên hệ hỗ trợ. Chính sách tự hủy đơn quá hạn vẫn cần
