@@ -290,7 +290,7 @@ const AdminWarehousePage = () => {
           return date >= start && date <= end;
         });
         const totalAmount = dayImports.reduce(
-          (sum, item) => sum + Number(item.total_amount || item.totalAmount || 0),
+          (sum, item) => sum + Number(item.total_amount  || 0),
           0
         );
         if (dayImports.length > 0) {
@@ -331,7 +331,8 @@ const AdminWarehousePage = () => {
   const importReportSummary = importReportRows.reduce(
     (acc, row) => ({
       totalImports: acc.totalImports + row.totalImports,
-      totalAmount: acc.totalAmount + row.totalAmount,
+      totalAmount: 
+        acc.totalAmount + row.totalAmount
     }),
     { totalImports: 0, totalAmount: 0 }
   );
