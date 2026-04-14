@@ -1,4 +1,4 @@
-﻿import { useEffect, useState } from "react";
+import { useEffect, useState } from "react";
 import { useParams, useNavigate, Link } from "react-router-dom";
 import {
   Package,
@@ -7,83 +7,122 @@ import {
   XCircle,
   Truck,
   User,
+  CreditCard,
 } from "lucide-react";
-import { orderAPI } from "../../services";
+import { orderAPI, paymentAPI } from "../../services";
 import useToastStore from "../../stores/useToastStore";
 import SkeletonLoader from "../../components/ui/SkeletonLoader";
 import Button from "../../components/ui/Button";
 import { formatCurrency } from "../../utils/formatDate";
 
-const STATUS_CONFIGS = {
-  PENDING: {
-    label: "Chờ thanh toán / xác nhận",
+/**
+ * Đọc danh sách orderId đã được VNPay confirm success từ sessionStorage.
+ * Được lưu bởi VnpayReturnPage khi verifyResult.success = true.
+ */
+const getVnpayPaidOrderIds = () => {
+  try {
+    const raw = JSON.parse(sessionStorage.getItem("vnpay_paid_orders") || "[]");
+    // Normalize tất cả về number để tránh type mismatch (string vs number)
+    return Array.isArray(raw) ? raw.map(Number) : [];
+  } catch {
+    return [];
+  }
+};
+
+/**
+ * Kết hợp order.status + payment.status + sessionStorage để xác định hiển thị.
+ */
+const getDisplayConfig = (orderId, orderStatus, paymentStatus, vnpayPaidIds) => {
+  const oStatus = String(orderStatus || "").toUpperCase();
+  const pStatus = String(paymentStatus || "").toUpperCase();
+  const orderIdNum = Number(orderId);
+
+  if (pStatus === "SUCCESS" || oStatus === "COMPLETED") {
+    return {
+      label: "Thanh toán thành công",
+      icon: CheckCircle,
+      color: "text-green-600",
+      bg: "bg-green-50",
+    };
+  }
+
+  if (pStatus === "FAILED" || oStatus === "CANCELLED") {
+    return {
+      label: "Đã hủy đơn",
+      icon: XCircle,
+      color: "text-red-600",
+      bg: "bg-red-50",
+    };
+  }
+
+  if (oStatus === "SHIPPING") {
+    return {
+      label: "Đang giao hàng",
+      icon: Truck,
+      color: "text-blue-600",
+      bg: "bg-blue-50",
+    };
+  }
+
+  // PENDING + sessionStorage confirm VNPay thành công (IPN chưa về — sandbox localhost)
+  if (oStatus === "PENDING" && vnpayPaidIds.includes(orderId)) {
+    return {
+      label: "Thanh toán thành công",
+      icon: CheckCircle,
+      color: "text-green-600",
+      bg: "bg-green-50",
+    };
+  }
+
+  return {
+    label: "Chờ thanh toán",
     icon: Clock,
     color: "text-yellow-600",
     bg: "bg-yellow-50",
-  },
-  SHIPPING: {
-    label: "Đang giao hàng",
-    icon: Truck,
-    color: "text-blue-600",
-    bg: "bg-blue-50",
-  },
-  COMPLETED: {
-    label: "Hoàn tất",
-    icon: CheckCircle,
-    color: "text-green-600",
-    bg: "bg-green-50",
-  },
-  CANCELLED: {
-    label: "Đã hủy",
-    icon: XCircle,
-    color: "text-red-600",
-    bg: "bg-red-50",
-  },
+  };
 };
 
-const getStatusConfig = (status) => {
-  const normalizedStatus = String(status || "").toUpperCase();
-  return (
-    STATUS_CONFIGS[normalizedStatus] || {
-      label: "Không xác định",
-      icon: Package,
-      color: "text-gray-600",
-      bg: "bg-gray-50",
-    }
-  );
-};
+const getTimeline = (orderId, orderStatus, paymentStatus, vnpayPaidIds) => {
+  const oStatus = String(orderStatus || "").toUpperCase();
+  const pStatus = String(paymentStatus || "").toUpperCase();
+  const orderIdNum = Number(orderId);
 
-const getTimeline = (status) => {
-  const normalizedStatus = String(status || "").toUpperCase();
-  const allSteps = [
-    { key: "PENDING", label: "Chờ xử lý" },
-    { key: "SHIPPING", label: "Đang giao hàng" },
-    { key: "COMPLETED", label: "Hoàn tất" },
-  ];
+  const isSuccess =
+    pStatus === "SUCCESS" ||
+    oStatus === "COMPLETED" ||
+    (oStatus === "PENDING" && vnpayPaidIds.includes(orderIdNum));
 
-  if (normalizedStatus === "CANCELLED") {
+  const isCancelled = pStatus === "FAILED" || oStatus === "CANCELLED";
+
+  if (isCancelled) {
     return [
       { key: "PENDING", label: "Chờ xử lý", completed: true },
-      { key: "CANCELLED", label: "Đã hủy", completed: true },
+      { key: "CANCELLED", label: "Đã hủy đơn", completed: true },
     ];
   }
 
-  const currentIndex = allSteps.findIndex((step) => step.key === normalizedStatus);
+  const allSteps = [
+    { key: "PENDING", label: "Chờ xử lý" },
+    { key: "PAID", label: "Thanh toán thành công" },
+    { key: "SHIPPING", label: "Đang giao hàng" },
+  ];
+
+  let currentStep = "PENDING";
+  if (isSuccess) currentStep = "PAID";
+  if (oStatus === "SHIPPING") currentStep = "SHIPPING";
+
+  const stepOrder = ["PENDING", "PAID", "SHIPPING"];
+  const currentIndex = stepOrder.indexOf(currentStep);
+
   return allSteps.map((step, index) => ({
     ...step,
-    completed: currentIndex >= 0 ? index <= currentIndex : false,
+    completed: index <= currentIndex,
   }));
 };
 
 const getImageSrc = (imageUrl) => {
-  if (!imageUrl) {
-    return "https://via.placeholder.com/160x160?text=Coffee";
-  }
-
-  if (imageUrl.startsWith("http")) {
-    return imageUrl;
-  }
-
+  if (!imageUrl) return "https://via.placeholder.com/160x160?text=Coffee";
+  if (imageUrl.startsWith("http")) return imageUrl;
   return imageUrl.replace(/^\.\//, "/");
 };
 
@@ -93,16 +132,39 @@ const OrderDetailPage = () => {
   const toast = useToastStore();
 
   const [order, setOrder] = useState(null);
+  const [payment, setPayment] = useState(null);
+  const [vnpayPaidIds, setVnpayPaidIds] = useState([]);
   const [isLoading, setIsLoading] = useState(true);
   const [isCancelling, setIsCancelling] = useState(false);
   const [isConfirming, setIsConfirming] = useState(false);
 
+  const fetchPayment = async (orderId) => {
+    try {
+      const res = await paymentAPI.getOrderPayment(orderId);
+      // Axios interceptor đã unwrap response.data một lần
+      // Backend: { data: paymentObj } → axios trả: { data: paymentObj }
+      const raw = res;
+      const paymentData = raw?.data ?? raw;
+      if (paymentData && typeof paymentData === "object" && "status" in paymentData) {
+        setPayment(paymentData);
+      } else {
+        setPayment(null);
+      }
+    } catch {
+      setPayment(null);
+    }
+  };
+
   useEffect(() => {
+    setVnpayPaidIds(getVnpayPaidOrderIds());
+
     const fetchOrderDetail = async () => {
       setIsLoading(true);
       try {
         const response = await orderAPI.getOrderById(id);
-        setOrder(response.data || response);
+        const orderData = response.data || response;
+        setOrder(orderData);
+        await fetchPayment(id);
       } catch (error) {
         console.error("Fetch order detail error:", error);
         toast.error("Không thể tải chi tiết đơn hàng");
@@ -118,6 +180,7 @@ const OrderDetailPage = () => {
   const refreshOrder = async () => {
     const response = await orderAPI.getOrderById(id);
     setOrder(response.data || response);
+    await fetchPayment(id);
   };
 
   const handleCancelOrder = async () => {
@@ -172,10 +235,30 @@ const OrderDetailPage = () => {
 
   if (!order) return null;
 
-  const statusConfig = getStatusConfig(order.status);
-  const StatusIcon = statusConfig.icon;
-  const timeline = getTimeline(order.status);
-  const normalizedStatus = String(order.status || "").toUpperCase();
+  const orderId = order.id ?? parseInt(id);
+  const paymentStatus = payment?.status ?? null;
+
+  const displayConfig = getDisplayConfig(orderId, order.status, paymentStatus, vnpayPaidIds);
+  const DisplayIcon = displayConfig.icon;
+  const timeline = getTimeline(orderId, order.status, paymentStatus, vnpayPaidIds);
+
+  const oStatus = String(order.status || "").toUpperCase();
+  const pStatus = String(paymentStatus || "").toUpperCase();
+
+  const isSuccess =
+    pStatus === "SUCCESS" ||
+    oStatus === "COMPLETED" ||
+    (oStatus === "PENDING" && vnpayPaidIds.includes(orderId));
+
+  const isCancelled = pStatus === "FAILED" || oStatus === "CANCELLED";
+  const isShipping = oStatus === "SHIPPING";
+  // Chỉ cho hủy khi PENDING và chưa được confirm trả tiền
+  const isPending = oStatus === "PENDING" && !isSuccess;
+
+  const isVnpay =
+    payment?.paymentMethod?.code === "VNPAY" ||
+    payment?.ewalletDetails?.provider === "VNPAY" ||
+    vnpayPaidIds.includes(orderId);
 
   return (
     <div className="min-h-screen bg-gray-50 py-8">
@@ -188,27 +271,34 @@ const OrderDetailPage = () => {
             >
               ← Quay lại danh sách
             </Link>
-            <h1 className="text-3xl font-bold text-gray-900">Chi tiết đơn hàng #{order.id}</h1>
+            <h1 className="text-3xl font-bold text-gray-900">Chi tiết đơn hàng #{orderId}</h1>
             <p className="mt-2 text-sm text-gray-500">
               {formatDate(order.orderDate || order.createdAt || new Date())}
             </p>
           </div>
-          <div className={`flex items-center gap-2 rounded-full px-6 py-3 ${statusConfig.bg}`}>
-            <StatusIcon className={`h-6 w-6 ${statusConfig.color}`} />
-            <span className={`text-lg font-semibold ${statusConfig.color}`}>
-              {statusConfig.label}
+          <div className={`flex items-center gap-2 rounded-full px-6 py-3 ${displayConfig.bg}`}>
+            <DisplayIcon className={`h-6 w-6 ${displayConfig.color}`} />
+            <span className={`text-lg font-semibold ${displayConfig.color}`}>
+              {displayConfig.label}
             </span>
           </div>
         </div>
 
+        {/* Tiến trình đơn hàng */}
         <div className="mb-6 rounded-lg bg-white p-6 shadow-sm">
           <h2 className="mb-4 text-xl font-bold text-gray-900">Tiến trình đơn hàng</h2>
-          <div className="grid gap-3 md:grid-cols-3">
+          <div
+            className={`grid gap-3 ${
+              timeline.length === 2 ? "md:grid-cols-2" : "md:grid-cols-3"
+            }`}
+          >
             {timeline.map((step) => (
               <div
                 key={step.key}
                 className={`rounded-lg border p-4 ${
-                  step.completed ? "border-coffee-300 bg-coffee-50" : "border-gray-200 bg-gray-50"
+                  step.completed
+                    ? "border-coffee-300 bg-coffee-50"
+                    : "border-gray-200 bg-gray-50"
                 }`}
               >
                 <p className="text-sm font-semibold text-gray-900">{step.label}</p>
@@ -246,7 +336,7 @@ const OrderDetailPage = () => {
                     <div className="text-right">
                       <p className="font-bold text-coffee-600">
                         {formatCurrency(
-                          Number(item.unitPrice || item.price || 0) * Number(item.quantity || 0),
+                          Number(item.unitPrice || item.price || 0) * Number(item.quantity || 0)
                         )}
                       </p>
                     </div>
@@ -268,6 +358,16 @@ const OrderDetailPage = () => {
                   <span>Phí vận chuyển:</span>
                   <span className="text-green-600">Miễn phí</span>
                 </div>
+                {/* Phương thức thanh toán */}
+                {(payment?.paymentMethod?.name || isVnpay) && (
+                  <div className="flex items-center justify-between text-gray-600">
+                    <span>Thanh toán:</span>
+                    <span className="flex items-center gap-1 font-medium">
+                      {isVnpay && <CreditCard className="h-4 w-4 text-blue-600" />}
+                      {payment?.paymentMethod?.name || "VNPay"}
+                    </span>
+                  </div>
+                )}
                 <div className="border-t border-gray-200 pt-3">
                   <div className="flex justify-between text-lg font-bold">
                     <span>Tổng cộng:</span>
@@ -279,7 +379,7 @@ const OrderDetailPage = () => {
               </div>
 
               <div className="mt-6 space-y-3">
-                {normalizedStatus === "PENDING" && (
+                {isPending && (
                   <Button
                     variant="danger"
                     className="w-full"
@@ -290,7 +390,7 @@ const OrderDetailPage = () => {
                   </Button>
                 )}
 
-                {normalizedStatus === "SHIPPING" && (
+                {isShipping && (
                   <Button
                     variant="primary"
                     className="w-full"
@@ -301,14 +401,14 @@ const OrderDetailPage = () => {
                   </Button>
                 )}
 
-                {normalizedStatus === "COMPLETED" && (
+                {isSuccess && (
                   <div className="rounded-lg border border-green-200 bg-green-50 p-4 text-center">
                     <CheckCircle className="mx-auto mb-2 h-6 w-6 text-green-600" />
-                    <p className="font-medium text-green-700">Đơn hàng đã hoàn thành</p>
+                    <p className="font-medium text-green-700">Thanh toán thành công</p>
                   </div>
                 )}
 
-                {normalizedStatus === "CANCELLED" && (
+                {isCancelled && (
                   <div className="rounded-lg border border-red-200 bg-red-50 p-4 text-center">
                     <XCircle className="mx-auto mb-2 h-6 w-6 text-red-600" />
                     <p className="font-medium text-red-700">Đơn hàng đã bị hủy</p>

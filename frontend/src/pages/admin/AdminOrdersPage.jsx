@@ -5,6 +5,7 @@ import { orderAPI, paymentAPI } from "../../services";
 import useToastStore from "../../stores/useToastStore";
 import Button from "../../components/ui/Button";
 import Input from "../../components/ui/Input";
+import Pagination from "../../components/ui/Pagination";
 import { exportToCsv } from "../../utils/exportCSV";
 import { formatDate, formatCurrency } from "../../utils/formatDate";
 
@@ -38,6 +39,10 @@ const AdminOrdersPage = () => {
     minTotal: "",
     maxTotal: "",
   });
+  // Pagination
+  const [currentPage, setCurrentPage] = useState(1);
+  const itemsPerPage = 8;
+  
   const [selectedOrder, setSelectedOrder] = useState(null);
   const [showDetailModal, setShowDetailModal] = useState(false);
 
@@ -166,7 +171,10 @@ const AdminOrdersPage = () => {
           {statusOptions.map((option) => (
             <button
               key={option.value}
-              onClick={() => setStatusFilter(option.value)}
+              onClick={() => {
+                setStatusFilter(option.value);
+                setCurrentPage(1);
+              }}
               className={`whitespace-nowrap rounded-lg px-4 py-2 font-medium transition-colors ${statusFilter === option.value ? "bg-coffee-600 text-white" : "bg-gray-100 text-gray-700 hover:bg-gray-200"}`}
             >
               {option.label} ({option.count})
@@ -181,7 +189,10 @@ const AdminOrdersPage = () => {
             <Input
               placeholder="Tìm theo mã đơn, tên, SĐT, email, địa chỉ..."
               value={searchTerm}
-              onChange={(e) => setSearchTerm(e.target.value)}
+              onChange={(e) => {
+                setSearchTerm(e.target.value);
+                setCurrentPage(1);
+              }}
               icon={<Search className="h-5 w-5" />}
             />
           </div>
@@ -226,8 +237,8 @@ const AdminOrdersPage = () => {
                 </tr>
               </thead>
               <tbody className="divide-y divide-gray-200 bg-white">
-                {filteredOrders.length > 0 ? (
-                  filteredOrders.map((order) => {
+                {filteredOrders.slice((currentPage - 1) * itemsPerPage, currentPage * itemsPerPage).length > 0 ? (
+                  filteredOrders.slice((currentPage - 1) * itemsPerPage, currentPage * itemsPerPage).map((order) => {
                     const statusInfo = getStatusInfo(order.status);
                     const StatusIcon = statusInfo.icon;
                     return (
@@ -269,6 +280,15 @@ const AdminOrdersPage = () => {
               </tbody>
             </table>
           </div>
+        )}
+        
+        {/* Pagination Logic at bottom */}
+        {!isLoading && Math.ceil(filteredOrders.length / itemsPerPage) > 1 && (
+          <Pagination
+            currentPage={Math.min(currentPage, Math.ceil(filteredOrders.length / itemsPerPage))}
+            totalPages={Math.ceil(filteredOrders.length / itemsPerPage)}
+            onPageChange={setCurrentPage}
+          />
         )}
       </div>
 

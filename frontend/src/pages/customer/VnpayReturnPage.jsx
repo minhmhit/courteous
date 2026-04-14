@@ -1,4 +1,4 @@
-﻿import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { Link, useLocation } from "react-router-dom";
 import {
   AlertCircle,
@@ -102,6 +102,25 @@ const VnpayReturnPage = () => {
         const response = await paymentAPI.verifyVnpayReturn(query);
         const verifyResult = unwrapResponseData(response);
         setResult(verifyResult);
+
+        // Lưu vào sessionStorage để OrderHistoryPage hiển thị đúng
+        // khi IPN chưa về (sandbox localhost không nhận IPN)
+        if (verifyResult?.success && verifyResult?.orderId) {
+          try {
+            const stored = JSON.parse(sessionStorage.getItem("vnpay_paid_orders") || "[]");
+            if (!stored.includes(verifyResult.orderId)) {
+              stored.push(verifyResult.orderId);
+              sessionStorage.setItem("vnpay_paid_orders", JSON.stringify(stored));
+            }
+          } catch (_) { /* ignore storage errors */ }
+        } else if (!verifyResult?.success && verifyResult?.orderId) {
+          // Hủy/thất bại VNPay → xóa orderId nếu đã lưu nhầm trước đó
+          try {
+            const stored = JSON.parse(sessionStorage.getItem("vnpay_paid_orders") || "[]");
+            const filtered = stored.filter((id) => id !== verifyResult.orderId);
+            sessionStorage.setItem("vnpay_paid_orders", JSON.stringify(filtered));
+          } catch (_) { /* ignore storage errors */ }
+        }
 
         if (verifyResult?.orderId) {
           const fetchOrderContext = async () => {
