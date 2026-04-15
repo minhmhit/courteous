@@ -1,4 +1,4 @@
-﻿import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { useSearchParams } from "react-router-dom";
 import { motion } from "framer-motion";
 import { Filter, X, ChevronDown } from "lucide-react";
@@ -137,6 +137,14 @@ const ProductsPage = () => {
       setCurrentPage(totalPages);
     }
   }, [currentPage, totalPages]);
+
+  // Cuộn lên đầu trang khi đổi trang
+  useEffect(() => {
+    window.scrollTo({
+      top: 0,
+      behavior: "smooth"
+    });
+  }, [currentPage]);
 
   const paginatedProducts = useMemo(() => {
     const startIndex = (currentPage - 1) * ITEMS_PER_PAGE;

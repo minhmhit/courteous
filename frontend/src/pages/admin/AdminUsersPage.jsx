@@ -4,6 +4,7 @@ import { Search, UserCheck, UserX, Shield, Mail, Phone } from "lucide-react";
 import { userAPI } from "../../services";
 import useToastStore from "../../stores/useToastStore";
 import Input from "../../components/ui/Input";
+import Pagination from "../../components/ui/Pagination";
 
 const AdminUsersPage = () => {
   const toast = useToastStore();
@@ -18,6 +19,11 @@ const AdminUsersPage = () => {
     createdTo: "",
     sort: "newest",
   });
+  
+  // Pagination
+  const [currentPage, setCurrentPage] = useState(1);
+  const itemsPerPage = 8;
+
 
   useEffect(() => {
     fetchUsers();
@@ -155,7 +161,10 @@ const AdminUsersPage = () => {
             <Input
               placeholder="Tìm kiếm theo tên, email hoặc số điện thoại..."
               value={searchTerm}
-              onChange={(e) => setSearchTerm(e.target.value)}
+              onChange={(e) => {
+                setSearchTerm(e.target.value);
+                setCurrentPage(1);
+              }}
               icon={<Search className="h-5 w-5" />}
             />
           </div>
@@ -165,7 +174,7 @@ const AdminUsersPage = () => {
         </div>
         {showAdvanced && (
           <div className="mt-4 grid grid-cols-1 gap-3 md:grid-cols-2 xl:grid-cols-5">
-            <select value={filters.role} onChange={(e) => setFilters((prev) => ({ ...prev, role: e.target.value }))} className="rounded-lg border border-gray-300 px-3 py-2">
+            <select value={filters.role} onChange={(e) => { setFilters((prev) => ({ ...prev, role: e.target.value })); setCurrentPage(1); }} className="rounded-lg border border-gray-300 px-3 py-2">
               <option value="all">Tất cả vai trò</option>
               <option value="user">Khách hàng</option>
               <option value="admin">Admin</option>
@@ -173,14 +182,14 @@ const AdminUsersPage = () => {
               <option value="hrm">HRM</option>
               <option value="warehouse">Kho</option>
             </select>
-            <select value={filters.status} onChange={(e) => setFilters((prev) => ({ ...prev, status: e.target.value }))} className="rounded-lg border border-gray-300 px-3 py-2">
+            <select value={filters.status} onChange={(e) => { setFilters((prev) => ({ ...prev, status: e.target.value })); setCurrentPage(1); }} className="rounded-lg border border-gray-300 px-3 py-2">
               <option value="all">Tất cả trạng thái</option>
               <option value="active">Đang hoạt động</option>
               <option value="inactive">Bị khóa</option>
             </select>
-            <input type="date" value={filters.createdFrom} onChange={(e) => setFilters((prev) => ({ ...prev, createdFrom: e.target.value }))} className="rounded-lg border border-gray-300 px-3 py-2" />
-            <input type="date" value={filters.createdTo} onChange={(e) => setFilters((prev) => ({ ...prev, createdTo: e.target.value }))} className="rounded-lg border border-gray-300 px-3 py-2" />
-            <select value={filters.sort} onChange={(e) => setFilters((prev) => ({ ...prev, sort: e.target.value }))} className="rounded-lg border border-gray-300 px-3 py-2">
+            <input type="date" value={filters.createdFrom} onChange={(e) => { setFilters((prev) => ({ ...prev, createdFrom: e.target.value })); setCurrentPage(1); }} className="rounded-lg border border-gray-300 px-3 py-2" />
+            <input type="date" value={filters.createdTo} onChange={(e) => { setFilters((prev) => ({ ...prev, createdTo: e.target.value })); setCurrentPage(1); }} className="rounded-lg border border-gray-300 px-3 py-2" />
+            <select value={filters.sort} onChange={(e) => { setFilters((prev) => ({ ...prev, sort: e.target.value })); setCurrentPage(1); }} className="rounded-lg border border-gray-300 px-3 py-2">
               <option value="newest">Mới nhất</option>
               <option value="oldest">Cũ nhất</option>
               <option value="name-asc">Tên A-Z</option>
@@ -209,8 +218,8 @@ const AdminUsersPage = () => {
                 </tr>
               </thead>
               <tbody className="divide-y divide-gray-200 bg-white">
-                {sortedUsers.length > 0 ? (
-                  sortedUsers.map((user) => {
+                {sortedUsers.slice((currentPage - 1) * itemsPerPage, currentPage * itemsPerPage).length > 0 ? (
+                  sortedUsers.slice((currentPage - 1) * itemsPerPage, currentPage * itemsPerPage).map((user) => {
                     const isActive = user.isActive === 1 || user.isActive === true;
                     const roleId = (user.roleCode || user.roleName || "").toLowerCase();
                     return (
@@ -254,6 +263,15 @@ const AdminUsersPage = () => {
               </tbody>
             </table>
           </div>
+        )}
+        
+        {/* Pagination Logic at bottom */}
+        {!isLoading && Math.ceil(sortedUsers.length / itemsPerPage) > 1 && (
+          <Pagination
+            currentPage={Math.min(currentPage, Math.ceil(sortedUsers.length / itemsPerPage))}
+            totalPages={Math.ceil(sortedUsers.length / itemsPerPage)}
+            onPageChange={setCurrentPage}
+          />
         )}
       </div>
     </div>

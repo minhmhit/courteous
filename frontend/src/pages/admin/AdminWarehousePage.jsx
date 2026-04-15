@@ -22,6 +22,7 @@ import {
 import useToastStore from "../../stores/useToastStore";
 import Button from "../../components/ui/Button";
 import Input from "../../components/ui/Input";
+import Pagination from "../../components/ui/Pagination";
 import { formatDate, formatCurrency } from "../../utils/formatDate";
 import { exportToCsv } from "../../utils/exportCSV";
 
@@ -52,6 +53,10 @@ const AdminWarehousePage = () => {
     importItems: [{ productId: "", quantity: "", price: "" }],
   });
   const [adjustQuantity, setAdjustQuantity] = useState("");
+  
+  // Pagination details
+  const [currentPage, setCurrentPage] = useState(1);
+  const itemsPerPage = 8;
 
   const fetchAllData = async () => {
     setIsLoading(true);
@@ -357,7 +362,7 @@ const AdminWarehousePage = () => {
       <div className="bg-white rounded-lg shadow-sm p-4">
         <div className="flex gap-2">
           <button
-            onClick={() => setActiveTab("inventory")}
+            onClick={() => { setActiveTab("inventory"); setCurrentPage(1); }}
             className={`px-6 py-3 rounded-lg font-medium transition-colors ${
               activeTab === "inventory"
                 ? "bg-coffee-600 text-white"
@@ -368,7 +373,7 @@ const AdminWarehousePage = () => {
             Tồn Kho
           </button>
           <button
-            onClick={() => setActiveTab("imports")}
+            onClick={() => { setActiveTab("imports"); setCurrentPage(1); }}
             className={`px-6 py-3 rounded-lg font-medium transition-colors ${
               activeTab === "imports"
                 ? "bg-coffee-600 text-white"
@@ -379,7 +384,7 @@ const AdminWarehousePage = () => {
             Phiếu Nhập
           </button>
           <button
-            onClick={() => setActiveTab("low-stock")}
+            onClick={() => { setActiveTab("low-stock"); setCurrentPage(1); }}
             className={`px-6 py-3 rounded-lg font-medium transition-colors ${
               activeTab === "low-stock"
                 ? "bg-coffee-600 text-white"
@@ -399,7 +404,7 @@ const AdminWarehousePage = () => {
             activeTab === "imports" ? "phiếu nhập" : "sản phẩm"
           }...`}
           value={searchTerm}
-          onChange={(e) => setSearchTerm(e.target.value)}
+          onChange={(e) => { setSearchTerm(e.target.value); setCurrentPage(1); }}
           icon={<Search className="w-5 h-5" />}
         />
       </div>
@@ -432,8 +437,8 @@ const AdminWarehousePage = () => {
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-gray-200">
-                  {Array.isArray(filteredInventory) && filteredInventory.length > 0 ? (
-                    filteredInventory.map((item) => (
+                  {Array.isArray(filteredInventory) && filteredInventory.slice((currentPage - 1) * itemsPerPage, currentPage * itemsPerPage).length > 0 ? (
+                    filteredInventory.slice((currentPage - 1) * itemsPerPage, currentPage * itemsPerPage).map((item) => (
                       <tr key={item.id} className="hover:bg-gray-50">
                         <td className="px-6 py-4">
                           <span className="font-medium text-gray-900">
@@ -484,6 +489,14 @@ const AdminWarehousePage = () => {
                   )}
                 </tbody>
               </table>
+            
+              {!isLoading && Math.ceil(filteredInventory.length / itemsPerPage) > 1 && (
+                <Pagination
+                  currentPage={Math.min(currentPage, Math.ceil(filteredInventory.length / itemsPerPage))}
+                  totalPages={Math.ceil(filteredInventory.length / itemsPerPage)}
+                  onPageChange={setCurrentPage}
+                />
+              )}
             </div>
           )}
 
@@ -577,8 +590,8 @@ const AdminWarehousePage = () => {
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-gray-200">
-                  {Array.isArray(filteredImports) && filteredImports.length > 0 ? (
-                    filteredImports.map((item) => (
+                  {Array.isArray(filteredImports) && filteredImports.slice((currentPage - 1) * itemsPerPage, currentPage * itemsPerPage).length > 0 ? (
+                    filteredImports.slice((currentPage - 1) * itemsPerPage, currentPage * itemsPerPage).map((item) => (
                       <tr key={item.id} className="hover:bg-gray-50">
                         <td className="px-6 py-4">
                           <span className="font-mono font-medium text-gray-900">
@@ -648,6 +661,14 @@ const AdminWarehousePage = () => {
                 </tbody>
               </table>
             </div>
+            
+            {!isLoading && Math.ceil(filteredImports.length / itemsPerPage) > 1 && (
+              <Pagination
+                currentPage={Math.min(currentPage, Math.ceil(filteredImports.length / itemsPerPage))}
+                totalPages={Math.ceil(filteredImports.length / itemsPerPage)}
+                onPageChange={setCurrentPage}
+              />
+            )}
             </div>
           )}
 

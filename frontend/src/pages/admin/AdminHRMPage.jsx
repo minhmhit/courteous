@@ -18,6 +18,7 @@ import { departmentAPI, employeeAPI, positionAPI } from "../../services";
 import useToastStore from "../../stores/useToastStore";
 import Button from "../../components/ui/Button";
 import Input from "../../components/ui/Input";
+import Pagination from "../../components/ui/Pagination";
 import { formatCurrency } from "../../utils/formatDate";
 
 const AdminHRMPage = () => {
@@ -30,6 +31,11 @@ const AdminHRMPage = () => {
   const [roleFilter, setRoleFilter] = useState("all");
   const [showModal, setShowModal] = useState(false);
   const [editingEmployee, setEditingEmployee] = useState(null);
+  
+  // Pagination details
+  const [currentPage, setCurrentPage] = useState(1);
+  const itemsPerPage = 8;
+
   const [formData, setFormData] = useState({
     email: "",
     password: "",
@@ -462,7 +468,10 @@ const AdminHRMPage = () => {
           {roleOptions.map((option) => (
             <button
               key={option.value}
-              onClick={() => setRoleFilter(option.value)}
+              onClick={() => {
+                setRoleFilter(option.value);
+                setCurrentPage(1);
+              }}
               className={`px-4 py-2 rounded-lg font-medium transition-colors ${roleFilter === option.value
                   ? "bg-coffee-600 text-white shadow-[0_12px_30px_rgba(85,50,27,0.25)]"
                   : "bg-white/55 text-gray-700 hover:bg-white/70 border border-white/40"
@@ -476,7 +485,10 @@ const AdminHRMPage = () => {
         <Input
           placeholder="Tìm kiếm nhân viên..."
           value={searchTerm}
-          onChange={(e) => setSearchTerm(e.target.value)}
+          onChange={(e) => {
+            setSearchTerm(e.target.value);
+            setCurrentPage(1);
+          }}
           icon={<Search className="w-5 h-5" />}
         />
       </div>
@@ -512,8 +524,8 @@ const AdminHRMPage = () => {
               </tr>
             </thead>
             <tbody className="divide-y divide-white/60">
-              {filteredEmployees.length > 0 ? (
-                filteredEmployees.map((employee) => {
+              {filteredEmployees.slice((currentPage - 1) * itemsPerPage, currentPage * itemsPerPage).length > 0 ? (
+                filteredEmployees.slice((currentPage - 1) * itemsPerPage, currentPage * itemsPerPage).map((employee) => {
                   // console.log(employee);
                   const displayName =
                     employee.userName
@@ -606,6 +618,14 @@ const AdminHRMPage = () => {
               )}
             </tbody>
           </table>
+        )}
+        
+        {!isLoading && Math.ceil(filteredEmployees.length / itemsPerPage) > 1 && (
+          <Pagination
+            currentPage={Math.min(currentPage, Math.ceil(filteredEmployees.length / itemsPerPage))}
+            totalPages={Math.ceil(filteredEmployees.length / itemsPerPage)}
+            onPageChange={setCurrentPage}
+          />
         )}
       </div>
 

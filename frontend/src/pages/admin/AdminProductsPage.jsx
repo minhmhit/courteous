@@ -16,6 +16,7 @@ import { productAPI, categoryAPI, supplierAPI } from "../../services";
 import useToastStore from "../../stores/useToastStore";
 import Button from "../../components/ui/Button";
 import Input from "../../components/ui/Input";
+import Pagination from "../../components/ui/Pagination";
 import { exportToCsv } from "../../utils/exportCSV";
 
 const AdminProductsPage = () => {
@@ -39,6 +40,9 @@ const AdminProductsPage = () => {
   const [selectedImageFile, setSelectedImageFile] = useState(null);
   const [uploadingImage, setUploadingImage] = useState(false);
   const [imagePreview, setImagePreview] = useState("");
+  // Pagination details
+  const [currentPage, setCurrentPage] = useState(1);
+  const itemsPerPage = 8;
   const [formData, setFormData] = useState({
     name: "",
     description: "",
@@ -87,6 +91,7 @@ const AdminProductsPage = () => {
   };
 
   const handleSearch = async () => {
+    setCurrentPage(1);
     if (searchTerm.trim()) {
       setIsLoading(true);
       try {
@@ -104,6 +109,7 @@ const AdminProductsPage = () => {
   };
 
   const resetFilters = () => {
+    setCurrentPage(1);
     setFilters({
       categoryId: "all",
       supplierId: "all",
@@ -334,7 +340,15 @@ const AdminProductsPage = () => {
       }
       return 0;
     });
-    // console.log(filteredProducts)
+
+  const totalPages = Math.ceil(filteredProducts.length / itemsPerPage);
+  // Ensure currentPage is valid if data shrinks
+  const validCurrentPage = Math.min(currentPage, Math.max(1, totalPages));
+  const currentItems = filteredProducts.slice(
+    (validCurrentPage - 1) * itemsPerPage,
+    validCurrentPage * itemsPerPage
+  );
+
   return (
     <div className="space-y-6">
       {/* Header */}
@@ -362,7 +376,10 @@ const AdminProductsPage = () => {
             <Input
               placeholder="Tìm kiếm sản phẩm, nhà cung cấp..."
               value={searchTerm}
-              onChange={(e) => setSearchTerm(e.target.value)}
+              onChange={(e) => {
+                setSearchTerm(e.target.value);
+                setCurrentPage(1);
+              }}
               onKeyPress={(e) => e.key === "Enter" && handleSearch()}
               icon={<Search className="w-5 h-5" />}
             />
@@ -398,9 +415,10 @@ const AdminProductsPage = () => {
               </label>
               <select
                 value={filters.categoryId}
-                onChange={(e) =>
-                  setFilters((prev) => ({ ...prev, categoryId: e.target.value }))
-                }
+                onChange={(e) => {
+                  setFilters((prev) => ({ ...prev, categoryId: e.target.value }));
+                  setCurrentPage(1);
+                }}
                 className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-coffee-500"
               >
                 <option value="all">Tất cả danh mục</option>
@@ -480,9 +498,10 @@ const AdminProductsPage = () => {
               </label>
               <select
                 value={filters.sort}
-                onChange={(e) =>
-                  setFilters((prev) => ({ ...prev, sort: e.target.value }))
-                }
+                onChange={(e) => {
+                  setFilters((prev) => ({ ...prev, sort: e.target.value }));
+                  setCurrentPage(1);
+                }}
                 className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-coffee-500"
               >
                 <option value="name-asc">Tên (A→Z)</option>
@@ -530,8 +549,8 @@ const AdminProductsPage = () => {
                 </tr>
               </thead>
               <tbody className="bg-white divide-y divide-gray-200">
-                {filteredProducts.length > 0 ? (
-                  filteredProducts.map((product) => (
+                {currentItems.length > 0 ? (
+                  currentItems.map((product) => (
                     <tr key={product.id} className="hover:bg-gray-50">
                       <td className="px-6 py-4">
                         <div className="flex items-center gap-3">
@@ -614,6 +633,15 @@ const AdminProductsPage = () => {
               </tbody>
             </table>
           </div>
+        )}
+        
+        {/* Pagination Logic at bottom */}
+        {!isLoading && totalPages > 1 && (
+          <Pagination
+            currentPage={validCurrentPage}
+            totalPages={totalPages}
+            onPageChange={setCurrentPage}
+          />
         )}
       </div>
 
