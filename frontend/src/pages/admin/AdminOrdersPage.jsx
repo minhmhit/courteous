@@ -219,7 +219,6 @@ const AdminOrdersPage = () => {
                   <th className="px-6 py-4 text-left text-xs font-medium uppercase tracking-wider text-gray-500">Mã Đơn</th>
                   <th className="px-6 py-4 text-left text-xs font-medium uppercase tracking-wider text-gray-500">Khách Hàng</th>
                   <th className="px-6 py-4 text-left text-xs font-medium uppercase tracking-wider text-gray-500">Thời Gian</th>
-                  <th className="px-6 py-4 text-left text-xs font-medium uppercase tracking-wider text-gray-500">Tổng Tiền</th>
                   <th className="px-6 py-4 text-left text-xs font-medium uppercase tracking-wider text-gray-500">Trạng Thái</th>
                   <th className="px-6 py-4 text-left text-xs font-medium uppercase tracking-wider text-gray-500">Thanh Toán</th>
                   <th className="px-6 py-4 text-right text-xs font-medium uppercase tracking-wider text-gray-500">Thao Tác</th>
@@ -235,7 +234,6 @@ const AdminOrdersPage = () => {
                         <td className="whitespace-nowrap px-6 py-4"><span className="font-mono font-medium text-gray-900">#{order.id}</span></td>
                         <td className="px-6 py-4"><div><div className="font-medium text-gray-900">{order.customerName}</div><div className="text-sm text-gray-500">{order.phoneNumber}</div></div></td>
                         <td className="whitespace-nowrap px-6 py-4 text-sm text-gray-600">{formatDate(order.orderDate)}</td>
-                        <td className="whitespace-nowrap px-6 py-4"><span className="font-semibold text-gray-900">{formatCurrency(order.totalAmount)}</span></td>
                         <td className="whitespace-nowrap px-6 py-4">
                           <span className={`inline-flex items-center gap-1 rounded-full px-3 py-1 text-xs font-medium ${statusInfo.color}`}>
                             <StatusIcon className="h-3 w-3" />
@@ -261,7 +259,7 @@ const AdminOrdersPage = () => {
                   })
                 ) : (
                   <tr>
-                    <td colSpan="7" className="px-6 py-12 text-center text-gray-500">
+                    <td colSpan="6" className="px-6 py-12 text-center text-gray-500">
                       {searchTerm ? "Không tìm thấy đơn hàng nào" : "Chưa có đơn hàng nào"}
                     </td>
                   </tr>
