@@ -5,11 +5,15 @@ import { orderAPI } from "../../services";
 import useToastStore from "../../stores/useToastStore";
 import SkeletonLoader from "../../components/ui/SkeletonLoader";
 import { formatCurrency } from "../../utils/formatDate";
+import { getCodShippingPhase } from "../../utils/codShipping";
+import {
+  clearPendingPaymentTimeout,
+  getPendingPaymentPhase,
+  markPendingPaymentCancelRequested,
+  markPendingPaymentCancelled,
+  shouldAutoCancelPendingPayment,
+} from "../../utils/pendingPaymentTimeout";
 
-/**
- * Đọc danh sách orderId đã được VNPay confirm success từ sessionStorage.
- * Được lưu bởi VnpayReturnPage khi verifyResult.success = true.
- */
 const getVnpayPaidOrderIds = () => {
   try {
     const raw = JSON.parse(sessionStorage.getItem("vnpay_paid_orders") || "[]");
@@ -19,32 +23,39 @@ const getVnpayPaidOrderIds = () => {
   }
 };
 
-/**
- * Xác định trạng thái logic của đơn hàng
- */
-const getLogicalStatus = (orderStatus, orderId, vnpayPaidIds) => {
-  const oStatus = String(orderStatus || "").toUpperCase();
+const getLogicalStatus = (orderStatus, orderId, vnpayPaidIds, now) => {
+  const normalizedStatus = String(orderStatus || "").toUpperCase();
   const orderIdNum = Number(orderId);
+  const codShippingPhase = getCodShippingPhase(orderId, orderStatus, now);
+  const pendingPaymentPhase = getPendingPaymentPhase(orderId, orderStatus, vnpayPaidIds, now);
 
-  // VNPay confirm success (local) hoặc IPN success
-  if (oStatus === "COMPLETED" || (oStatus === "PENDING" && vnpayPaidIds.includes(orderIdNum))) {
+  if (
+    normalizedStatus === "COMPLETED" ||
+    (normalizedStatus === "PENDING" && vnpayPaidIds.includes(orderIdNum))
+  ) {
     return "COMPLETED";
   }
-  if (oStatus === "CANCELLED") return "CANCELLED";
-  if (oStatus === "SHIPPING") return "SHIPPING";
+
+  if (normalizedStatus === "CANCELLED") return "CANCELLED";
+  if (pendingPaymentPhase === "CANCELLED") return "CANCELLED";
+  if (codShippingPhase === "SHIPPING") return "SHIPPING";
+  if (normalizedStatus === "SHIPPING") return "SHIPPING";
+
   return "PENDING";
 };
 
-/**
- * Trả về text trạng thái
- */
-const getStatusLabelText = (logicalStatus) => {
+const getStatusLabelText = (logicalStatus, codShippingPhase) => {
   switch (logicalStatus) {
-    case "COMPLETED": return "HOÀN THÀNH";
-    case "CANCELLED": return "ĐÃ HỦY";
-    case "SHIPPING": return "ĐANG GIAO HÀNG";
-    case "PENDING": return "CHỜ THANH TOÁN";
-    default: return logicalStatus;
+    case "COMPLETED":
+      return "HOÀN THÀNH";
+    case "CANCELLED":
+      return "ĐÃ HỦY";
+    case "SHIPPING":
+      return "ĐANG GIAO HÀNG";
+    case "PENDING":
+      return codShippingPhase === "PENDING" ? "CHỜ VẬN CHUYỂN" : "CHỜ THANH TOÁN";
+    default:
+      return logicalStatus;
   }
 };
 
@@ -69,9 +80,17 @@ const OrderHistoryPage = () => {
   const [vnpayPaidIds, setVnpayPaidIds] = useState([]);
   const [isLoading, setIsLoading] = useState(true);
   const [activeTab, setActiveTab] = useState("ALL");
+  const [now, setNow] = useState(Date.now());
 
   useEffect(() => {
-    // Đọc sessionStorage ngay khi mount
+    const intervalId = window.setInterval(() => {
+      setNow(Date.now());
+    }, 1000);
+
+    return () => window.clearInterval(intervalId);
+  }, []);
+
+  useEffect(() => {
     setVnpayPaidIds(getVnpayPaidOrderIds());
 
     const fetchOrders = async () => {
@@ -80,20 +99,21 @@ const OrderHistoryPage = () => {
         const response = await orderAPI.getUserOrders();
         const ordersList = response.data || response.orders || [];
 
-        // Fetch chi tiết cho từng đơn hàng để lấy thông tin sản phẩm (order.items)
         if (ordersList.length > 0) {
           const detailResults = await Promise.allSettled(
-            ordersList.map((order) => orderAPI.getOrderById(order.id))
+            ordersList.map((order) => orderAPI.getOrderById(order.id)),
           );
 
           const detailedOrders = ordersList.map((order, index) => {
-            const res = detailResults[index];
-            if (res.status === "fulfilled" && res.value) {
-              const detailData = res.value.data || res.value;
+            const result = detailResults[index];
+            if (result.status === "fulfilled" && result.value) {
+              const detailData = result.value.data || result.value;
               return { ...order, items: detailData.items || [] };
             }
+
             return order;
           });
+
           setOrders(detailedOrders);
         } else {
           setOrders([]);
@@ -110,22 +130,62 @@ const OrderHistoryPage = () => {
     fetchOrders();
   }, [toast]);
 
-  // Lọc đơn hàng theo tab
-  const filteredOrders = useMemo(() => {
-    return orders.filter(order => {
-       const logical = getLogicalStatus(order.status, order.id, vnpayPaidIds);
-       if (activeTab === "ALL") return true;
-       return logical === activeTab;
+  useEffect(() => {
+    const expiredPendingOrders = orders.filter((order) =>
+      shouldAutoCancelPendingPayment(order.id, order.status, vnpayPaidIds, now),
+    );
+
+    if (expiredPendingOrders.length === 0) return;
+
+    expiredPendingOrders.forEach((order) => {
+      markPendingPaymentCancelRequested(order.id);
+
+      orderAPI
+        .cancelOrder(order.id)
+        .then(() => {
+          markPendingPaymentCancelled(order.id);
+          clearPendingPaymentTimeout(order.id);
+          setOrders((prev) =>
+            prev.map((item) =>
+              item.id === order.id ? { ...item, status: "CANCELLED" } : item,
+            ),
+          );
+        })
+        .catch((error) => {
+          console.error("Auto cancel pending payment order error:", error);
+        });
     });
-  }, [orders, activeTab, vnpayPaidIds]);
+  }, [orders, vnpayPaidIds, now]);
+
+  useEffect(() => {
+    orders.forEach((order) => {
+      const normalizedStatus = String(order.status || "").toUpperCase();
+      if (
+        normalizedStatus === "CANCELLED" ||
+        normalizedStatus === "COMPLETED" ||
+        normalizedStatus === "SHIPPING" ||
+        vnpayPaidIds.includes(Number(order.id))
+      ) {
+        clearPendingPaymentTimeout(order.id);
+      }
+    });
+  }, [orders, vnpayPaidIds]);
+
+  const filteredOrders = useMemo(() => {
+    return orders.filter((order) => {
+      const logicalStatus = getLogicalStatus(order.status, order.id, vnpayPaidIds, now);
+      if (activeTab === "ALL") return true;
+      return logicalStatus === activeTab;
+    });
+  }, [orders, activeTab, vnpayPaidIds, now]);
 
   if (isLoading) {
     return (
       <div className="py-6 sm:py-8 lg:py-12">
-        <div className="container lg:max-w-5xl mx-auto px-4">
+        <div className="container mx-auto px-4 lg:max-w-5xl">
           <div className="space-y-6">
-            {[...Array(3)].map((_, i) => (
-              <SkeletonLoader key={i} className="h-48 rounded-3xl" />
+            {[...Array(3)].map((_, index) => (
+              <SkeletonLoader key={index} className="h-48 rounded-3xl" />
             ))}
           </div>
         </div>
@@ -135,109 +195,129 @@ const OrderHistoryPage = () => {
 
   return (
     <div className="py-4 sm:py-8 lg:py-12">
-      <div className="container lg:max-w-5xl mx-auto px-2 sm:px-4">
-        
-        {/* Breadcrumb / Title (Optional) */}
-        <div className="hidden sm:flex mb-6 items-center justify-between">
-          <h1 className="text-3xl font-bold bg-gradient-to-r from-coffee-600 to-amber-700 bg-clip-text text-transparent">Đơn hàng của tôi</h1>
-          <Link to="/profile" className="text-coffee-600 hover:text-coffee-800 text-sm font-medium transition-colors">
-             ← Trở lại hồ sơ
+      <div className="container mx-auto px-2 sm:px-4 lg:max-w-5xl">
+        <div className="mb-6 hidden items-center justify-between sm:flex">
+          <h1 className="bg-gradient-to-r from-coffee-600 to-amber-700 bg-clip-text text-3xl font-bold text-transparent">
+            Đơn hàng của tôi
+          </h1>
+          <Link
+            to="/profile"
+            className="text-sm font-medium text-coffee-600 transition-colors hover:text-coffee-800"
+          >
+            ← Trở lại hồ sơ
           </Link>
         </div>
 
-        {/* Tabs - Glassmorphism */}
-        <div className="sticky top-[70px] sm:top-4 z-10 mb-6 flex w-full overflow-x-auto gap-2 p-2 
-                        bg-white/40 border border-white/40 backdrop-blur-xl rounded-2xl shadow-[0_8px_32px_rgba(64,33,12,0.05)] hide-scrollbar">
-          {TABS.map(tab => (
+        <div className="sticky top-[70px] z-10 mb-6 flex w-full gap-2 overflow-x-auto rounded-2xl border border-white/40 bg-white/40 p-2 shadow-[0_8px_32px_rgba(64,33,12,0.05)] backdrop-blur-xl sm:top-4 hide-scrollbar">
+          {TABS.map((tab) => (
             <button
               key={tab.id}
               onClick={() => setActiveTab(tab.id)}
-              className={`flex-1 min-w-[120px] py-3 text-center text-sm md:text-base font-semibold transition-all duration-300 rounded-xl whitespace-nowrap
-                ${activeTab === tab.id 
-                  ? "bg-coffee-600 text-white shadow-md shadow-coffee-600/20 transform scale-[1.02]" 
-                  : "text-gray-700 hover:bg-white/60 hover:text-coffee-700"}`}
+              className={`min-w-[120px] flex-1 whitespace-nowrap rounded-xl py-3 text-center text-sm font-semibold transition-all duration-300 md:text-base ${
+                activeTab === tab.id
+                  ? "scale-[1.02] bg-coffee-600 text-white shadow-md shadow-coffee-600/20"
+                  : "text-gray-700 hover:bg-white/60 hover:text-coffee-700"
+              }`}
             >
               {tab.label}
             </button>
           ))}
         </div>
 
-        {/* Order List */}
         {filteredOrders.length === 0 ? (
-          <div className="p-16 text-center bg-white/40 border border-white/50 backdrop-blur-xl rounded-[32px] shadow-[0_14px_40px_rgba(64,33,12,0.05)] flex flex-col items-center justify-center min-h-[400px]">
-            <div className="w-24 h-24 mb-6 rounded-3xl bg-white/60 border border-white flex items-center justify-center shadow-inner">
-               <PackageOpen className="w-12 h-12 text-coffee-300 block mx-auto" />
+          <div className="flex min-h-[400px] flex-col items-center justify-center rounded-[32px] border border-white/50 bg-white/40 p-16 text-center shadow-[0_14px_40px_rgba(64,33,12,0.05)] backdrop-blur-xl">
+            <div className="mb-6 flex h-24 w-24 items-center justify-center rounded-3xl border border-white bg-white/60 shadow-inner">
+              <PackageOpen className="mx-auto block h-12 w-12 text-coffee-300" />
             </div>
-            <h2 className="text-gray-700 font-semibold mb-2 text-xl">Chưa có đơn hàng</h2>
-            <p className="text-gray-500 mb-8 max-w-sm">Hiện tại bạn chưa có đơn hàng nào trong phân loại này, hãy mua sắm thêm nhé!</p>
-            <button 
-               onClick={() => navigate('/products')}
-               className="px-8 py-3 bg-coffee-600 text-white font-medium rounded-xl shadow-lg shadow-coffee-600/30 hover:bg-coffee-700 hover:-translate-y-0.5 transition-all"
+            <h2 className="mb-2 text-xl font-semibold text-gray-700">Chưa có đơn hàng</h2>
+            <p className="mb-8 max-w-sm text-gray-500">
+              Hiện tại bạn chưa có đơn hàng nào trong phân loại này, hãy mua sắm thêm nhé.
+            </p>
+            <button
+              onClick={() => navigate("/products")}
+              className="rounded-xl bg-coffee-600 px-8 py-3 font-medium text-white shadow-lg shadow-coffee-600/30 transition-all hover:-translate-y-0.5 hover:bg-coffee-700"
             >
-               Khám phá menu
+              Khám phá menu
             </button>
           </div>
         ) : (
           <div className="space-y-6">
             {filteredOrders.map((order) => {
-              const logicalStatus = getLogicalStatus(order.status, order.id, vnpayPaidIds);
+              const logicalStatus = getLogicalStatus(order.status, order.id, vnpayPaidIds, now);
+              const codShippingPhase = getCodShippingPhase(order.id, order.status, now);
               const items = order.items || [];
               const isVnpayConfirmed = vnpayPaidIds.includes(Number(order.id));
 
               return (
-                <div key={order.id} className="bg-white/40 border border-white/50 backdrop-blur-xl shadow-[0_8px_32px_rgba(64,33,12,0.04)] rounded-2xl sm:rounded-[32px] overflow-hidden transition-all duration-300 hover:shadow-[0_12px_40px_rgba(64,33,12,0.08)]">
-                  
-                  {/* Shop header & status */}
-                  <div className="flex justify-between items-center px-4 py-4 sm:px-8 border-b border-white/50 bg-white/30 backdrop-blur-md">
+                <div
+                  key={order.id}
+                  className="overflow-hidden rounded-2xl border border-white/50 bg-white/40 shadow-[0_8px_32px_rgba(64,33,12,0.04)] transition-all duration-300 hover:shadow-[0_12px_40px_rgba(64,33,12,0.08)] sm:rounded-[32px] backdrop-blur-xl"
+                >
+                  <div className="flex items-center justify-between border-b border-white/50 bg-white/30 px-4 py-4 backdrop-blur-md sm:px-8">
                     <div className="flex items-center gap-3">
-                       <div className="p-2 bg-coffee-100 rounded-lg hidden sm:block text-coffee-600">
-                          <Store className="w-4 h-4 sm:w-5 sm:h-5 " />
-                       </div>
-                       <span className="font-bold text-gray-800 text-sm sm:text-lg tracking-tight text-shadow-sm">Courteous Coffee</span>
-                       <Link to={`/products`} className="bg-coffee-600/10 text-coffee-700 border border-coffee-200 text-[10px] sm:text-xs px-2 py-1 rounded-lg flex items-center gap-0.5 ml-1 sm:ml-2 hover:bg-coffee-600 hover:text-white transition-colors font-medium">Xem Menu <ChevronRight className="w-3 h-3" /></Link>
-                       {/* VNPay badge if applicable */}
-                       {isVnpayConfirmed && (
-                         <span className="text-[10px] sm:text-xs bg-blue-50/80 text-blue-600 border border-blue-200/50 px-2 flex items-center h-[26px] rounded-lg ml-1 font-medium shadow-sm backdrop-blur-sm">VNPay</span>
-                       )}
+                      <div className="hidden rounded-lg bg-coffee-100 p-2 text-coffee-600 sm:block">
+                        <Store className="h-4 w-4 sm:h-5 sm:w-5" />
+                      </div>
+                      <span className="text-sm font-bold tracking-tight text-gray-800 sm:text-lg">
+                        Courteous Coffee
+                      </span>
+                      <Link
+                        to="/products"
+                        className="ml-1 flex items-center gap-0.5 rounded-lg border border-coffee-200 bg-coffee-600/10 px-2 py-1 text-[10px] font-medium text-coffee-700 transition-colors hover:bg-coffee-600 hover:text-white sm:ml-2 sm:text-xs"
+                      >
+                        Xem Menu <ChevronRight className="h-3 w-3" />
+                      </Link>
+                      {isVnpayConfirmed && (
+                        <span className="ml-1 flex h-[26px] items-center rounded-lg border border-blue-200/50 bg-blue-50/80 px-2 text-[10px] font-medium text-blue-600 shadow-sm backdrop-blur-sm sm:text-xs">
+                          VNPay
+                        </span>
+                      )}
                     </div>
-                    <div className="text-coffee-600 text-xs sm:text-sm font-bold flex gap-2 items-center">
+
+                    <div className="flex items-center gap-2 text-xs font-bold text-coffee-600 sm:text-sm">
                       {(logicalStatus === "COMPLETED" || logicalStatus === "SHIPPING") && (
                         <>
-                          <Truck className="w-4 h-4 text-emerald-600 mr-0.5 hidden sm:inline" />
-                          <span className="text-emerald-600 border-r border-coffee-200/50 pr-3 mr-1 hidden sm:inline">
-                            {logicalStatus === "COMPLETED" ? "Giao Thành Công" : "Đơn Nhận Nhanh"}
+                          <Truck className="mr-0.5 hidden h-4 w-4 text-emerald-600 sm:inline" />
+                          <span className="mr-1 hidden border-r border-coffee-200/50 pr-3 text-emerald-600 sm:inline">
+                            {logicalStatus === "COMPLETED" ? "Giao thành công" : "Đơn nhận nhanh"}
                           </span>
                         </>
                       )}
-                      <span className="uppercase tracking-wider">{getStatusLabelText(logicalStatus)}</span>
+                      <span className="uppercase tracking-wider">
+                        {getStatusLabelText(logicalStatus, codShippingPhase)}
+                      </span>
                     </div>
                   </div>
 
-                  {/* Items */}
                   <div className="bg-white/20">
                     <Link to={`/orders/${order.id}`} className="block">
                       {items.map((item, index) => (
-                        <div key={index} className="flex px-4 py-4 sm:px-8 border-b border-white/40 hover:bg-white/40 transition-colors">
-                          <div className="w-20 h-20 sm:w-24 sm:h-24 flex-shrink-0 border-2 border-white/60 rounded-2xl overflow-hidden shadow-sm bg-white/50">
-                             <img
-                               src={getImageSrc(item.imageUrl)}
-                               alt={item.productName || item.product?.name}
-                               className="w-full h-full object-cover mix-blend-multiply"
-                             />
+                        <div
+                          key={index}
+                          className="flex border-b border-white/40 px-4 py-4 transition-colors hover:bg-white/40 sm:px-8"
+                        >
+                          <div className="h-20 w-20 flex-shrink-0 overflow-hidden rounded-2xl border-2 border-white/60 bg-white/50 shadow-sm sm:h-24 sm:w-24">
+                            <img
+                              src={getImageSrc(item.imageUrl)}
+                              alt={item.productName || item.product?.name}
+                              className="h-full w-full object-cover mix-blend-multiply"
+                            />
                           </div>
-                          <div className="ml-4 flex-1 flex flex-col justify-center">
+                          <div className="ml-4 flex flex-1 flex-col justify-center">
                             <div>
-                              <div className="text-gray-900 font-semibold text-sm sm:text-lg line-clamp-2 leading-snug">
+                              <div className="line-clamp-2 text-sm font-semibold leading-snug text-gray-900 sm:text-lg">
                                 {item.productName || item.product?.name || "Sản phẩm"}
                               </div>
-                              <div className="text-gray-500 font-medium text-xs sm:text-sm mt-1 sm:mt-1.5 opacity-90">
+                              <div className="mt-1 text-xs font-medium text-gray-500 opacity-90 sm:mt-1.5 sm:text-sm">
                                 Ly Tiêu Chuẩn N/A
                               </div>
                             </div>
                           </div>
                           <div className="ml-4 flex flex-col items-end justify-center">
-                             <div className="bg-coffee-50 border border-coffee-100 text-coffee-800 text-xs px-2 py-0.5 rounded-full font-medium mb-2">SL: x{item.quantity}</div>
-                            <div className="text-coffee-600 font-bold text-sm sm:text-xl">
+                            <div className="mb-2 rounded-full border border-coffee-100 bg-coffee-50 px-2 py-0.5 text-xs font-medium text-coffee-800">
+                              SL: x{item.quantity}
+                            </div>
+                            <div className="text-sm font-bold text-coffee-600 sm:text-xl">
                               {formatCurrency(Number(item.price || item.unitPrice || 0))}
                             </div>
                           </div>
@@ -246,47 +326,52 @@ const OrderHistoryPage = () => {
                     </Link>
                   </div>
 
-                  {/* Footer Action area */}
-                  <div className="px-5 py-5 sm:px-8 sm:py-6 bg-white/40 backdrop-blur-xl shadow-inner-top border-t border-white/60">
-                    <div className="flex justify-end items-center mb-5 sm:mb-6">
-                      <span className="text-gray-600 text-sm sm:text-base mr-3 flex items-center gap-1.5 font-medium">
-                          <ShieldCheck className="w-5 h-5 text-coffee-600" />
-                          Thành tiền:
+                  <div className="border-t border-white/60 bg-white/40 px-5 py-5 shadow-inner-top backdrop-blur-xl sm:px-8 sm:py-6">
+                    <div className="mb-5 flex items-center justify-end sm:mb-6">
+                      <span className="mr-3 flex items-center gap-1.5 text-sm font-medium text-gray-600 sm:text-base">
+                        <ShieldCheck className="h-5 w-5 text-coffee-600" />
+                        Thành tiền:
                       </span>
-                      <span className="text-coffee-700 text-2xl sm:text-3xl font-black drop-shadow-sm">
+                      <span className="text-2xl font-black text-coffee-700 drop-shadow-sm sm:text-3xl">
                         {formatCurrency(order.totalAmount || 0)}
                       </span>
                     </div>
-                    
-                    <div className="flex justify-between items-center sm:justify-end gap-2 sm:gap-4 mt-2">
-                      <div className="text-xs sm:text-sm text-gray-500 hidden sm:block font-medium px-4 py-2 bg-white/50 border border-white/60 rounded-xl">
-                         {logicalStatus === 'COMPLETED' ? "Giao hàng thành công" : 
-                          logicalStatus === 'CANCELLED' ? "Đã bị hủy do thay đổi / lỗi mạng" : 
-                          "Vui lòng thanh toán hoặc chờ bộ phận xử lý"}
+
+                    <div className="mt-2 flex items-center justify-between gap-2 sm:justify-end sm:gap-4">
+                      <div className="hidden rounded-xl border border-white/60 bg-white/50 px-4 py-2 text-xs font-medium text-gray-500 sm:block sm:text-sm">
+                        {logicalStatus === "COMPLETED"
+                          ? "Giao hàng thành công"
+                          : logicalStatus === "CANCELLED"
+                            ? "Đơn đã bị hủy do thay đổi hoặc lỗi mạng"
+                            : codShippingPhase === "PENDING"
+                              ? "Đơn COD đang chờ chuyển sang vận chuyển"
+                              : codShippingPhase === "SHIPPING"
+                                ? "Đơn COD đang được hiển thị ở trạng thái vận chuyển"
+                                : "Vui lòng thanh toán hoặc chờ bộ phận xử lý"}
                       </div>
                       <div className="flex flex-wrap gap-2 sm:gap-3">
-                          {logicalStatus === "PENDING" && (
-                            <button
-                              onClick={() => navigate(`/orders/${order.id}`)} 
-                              className="px-4 sm:px-6 py-2.5 sm:py-3 bg-gradient-to-r from-coffee-600 to-amber-700 text-white rounded-xl text-sm font-semibold hover:shadow-lg hover:shadow-coffee-600/30 hover:-translate-y-0.5 transition-all border border-transparent"
-                            >
-                              Thanh toán / Hủy
-                            </button>
-                          )}
-                          {(logicalStatus === "COMPLETED" || logicalStatus === "CANCELLED") && (
-                            <button 
-                              onClick={() => navigate(`/products`)}
-                              className="px-4 sm:px-6 py-2.5 sm:py-3 bg-gradient-to-r from-coffee-600 to-amber-700 text-white rounded-xl text-sm font-semibold hover:shadow-lg hover:shadow-coffee-600/30 hover:-translate-y-0.5 transition-all border border-transparent"
-                            >
-                              Mua lại
-                            </button>
-                          )}
-                          <button 
-                             onClick={() => navigate(`/orders/${order.id}`)}
-                             className="px-4 sm:px-6 py-2.5 sm:py-3 bg-white/60 text-gray-800 border border-white shadow-sm rounded-xl text-sm font-semibold hover:bg-white transition-all hover:shadow-md backdrop-blur-sm"
+                        {logicalStatus === "PENDING" && (
+                          <button
+                            onClick={() => navigate(`/orders/${order.id}`)}
+                            className="rounded-xl border border-transparent bg-gradient-to-r from-coffee-600 to-amber-700 px-4 py-2.5 text-sm font-semibold text-white transition-all hover:-translate-y-0.5 hover:shadow-lg hover:shadow-coffee-600/30 sm:px-6 sm:py-3"
                           >
-                            Xem chi tiết 
+                            {codShippingPhase === "PENDING" ? "Xem / Hủy" : "Thanh toán / Hủy"}
                           </button>
+                        )}
+                        {(logicalStatus === "COMPLETED" || logicalStatus === "CANCELLED") && (
+                          <button
+                            onClick={() => navigate("/products")}
+                            className="rounded-xl border border-transparent bg-gradient-to-r from-coffee-600 to-amber-700 px-4 py-2.5 text-sm font-semibold text-white transition-all hover:-translate-y-0.5 hover:shadow-lg hover:shadow-coffee-600/30 sm:px-6 sm:py-3"
+                          >
+                            Mua lại
+                          </button>
+                        )}
+                        <button
+                          onClick={() => navigate(`/orders/${order.id}`)}
+                          className="rounded-xl border border-white bg-white/60 px-4 py-2.5 text-sm font-semibold text-gray-800 shadow-sm transition-all hover:bg-white hover:shadow-md sm:px-6 sm:py-3 backdrop-blur-sm"
+                        >
+                          Xem chi tiết
+                        </button>
                       </div>
                     </div>
                   </div>
