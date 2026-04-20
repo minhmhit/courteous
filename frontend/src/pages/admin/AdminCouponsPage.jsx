@@ -147,43 +147,47 @@ export default function AdminCouponsPage() {
 
   return (
     <div className="space-y-6">
-      <div className="flex items-center justify-between">
-        <div>
-          <h1 className="text-3xl font-bold text-slate-900">Quản lý mã giảm giá</h1>
-          <p className="mt-1 text-slate-600">Theo dõi hiệu lực, phần trăm giảm và trạng thái kích hoạt.</p>
+      <div className="glass-card flex flex-col gap-4 lg:flex-row lg:items-center justify-between p-4 rounded-3xl shadow-sm border border-white/20 bg-white/40">
+        <div className="flex items-center gap-3">
+          <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-orange-100 text-orange-600">
+            <Tag className="h-5 w-5" />
+          </div>
+          <div>
+            <h1 className="text-xl font-bold text-slate-900">Mã giảm giá</h1>
+          </div>
         </div>
-        <Button onClick={openCreate} variant="primary">
-          <Plus className="mr-2 h-4 w-4" /> Tạo mã mới
-        </Button>
-      </div>
-
-      <div className="rounded-3xl border border-white/20 bg-white/10 p-4 shadow-sm">
-        <div className="grid grid-cols-1 gap-3 xl:grid-cols-[1fr_repeat(4,220px)]">
-          <Input
-            placeholder="Tìm theo mã coupon..."
-            value={searchTerm}
-            onChange={(e) => setSearchTerm(e.target.value)}
-            icon={<Search className="h-4 w-4" />}
-          />
-          <select value={filters.status} onChange={(e) => setFilters((prev) => ({ ...prev, status: e.target.value }))} className="glass-input w-full">
-            <option value="all">Tất cả trạng thái</option>
+        
+        <div className="flex flex-wrap items-center gap-2">
+          <div className="w-full sm:w-48">
+            <Input
+              placeholder="Tìm mã coupon..."
+              value={searchTerm}
+              onChange={(e) => setSearchTerm(e.target.value)}
+              icon={<Search className="h-4 w-4" />}
+            />
+          </div>
+          <select value={filters.status} onChange={(e) => setFilters((prev) => ({ ...prev, status: e.target.value }))} className="glass-input text-sm">
+            <option value="all">Tất cả</option>
             <option value="active">Đang hoạt động</option>
-            <option value="scheduled">Chưa trong thời gian</option>
-            <option value="inactive">Tắt kích hoạt</option>
+            <option value="scheduled">Chưa tới hạn</option>
+            <option value="inactive">Đã tắt</option>
           </select>
-          <input type="date" value={filters.validFrom} onChange={(e) => setFilters((prev) => ({ ...prev, validFrom: e.target.value }))} className="glass-input w-full" />
-          <input type="date" value={filters.validUntil} onChange={(e) => setFilters((prev) => ({ ...prev, validUntil: e.target.value }))} className="glass-input w-full" />
-          <select value={filters.sort} onChange={(e) => setFilters((prev) => ({ ...prev, sort: e.target.value }))} className="glass-input w-full">
-            <option value="newest">Hiệu lực mới nhất</option>
-            <option value="code-asc">Mã A-Z</option>
-            <option value="code-desc">Mã Z-A</option>
-            <option value="highest-discount">% giảm cao nhất</option>
+          <input type="date" value={filters.validFrom} onChange={(e) => setFilters((prev) => ({ ...prev, validFrom: e.target.value }))} className="glass-input text-sm w-[130px]" />
+          <input type="date" value={filters.validUntil} onChange={(e) => setFilters((prev) => ({ ...prev, validUntil: e.target.value }))} className="glass-input text-sm w-[130px]" />
+          <select value={filters.sort} onChange={(e) => setFilters((prev) => ({ ...prev, sort: e.target.value }))} className="glass-input text-sm">
+            <option value="newest">Mới nhất</option>
+            <option value="code-asc">A-Z</option>
+            <option value="code-desc">Z-A</option>
+            <option value="highest-discount">% Cao nhất</option>
           </select>
+          <Button onClick={openCreate} variant="primary" className="whitespace-nowrap">
+            <Plus className="mr-2 h-4 w-4" /> Tạo mã
+          </Button>
         </div>
       </div>
 
-      <div className="admin-table-shell">
-        <div className="overflow-x-auto">
+      <div className="admin-table-shell flex-1">
+        <div className="w-full">
           <table className="w-full text-left">
             <thead className="bg-white/10 text-slate-500">
               <tr>
