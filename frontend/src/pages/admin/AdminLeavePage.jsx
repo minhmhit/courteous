@@ -4,6 +4,7 @@ import useAuthStore from "../../stores/useAuthStore";
 import useToastStore from "../../stores/useToastStore";
 import Button from "../../components/ui/Button";
 import Input from "../../components/ui/Input";
+import Pagination from "../../components/ui/Pagination";
 import {
   employeeAPI,
   leaveAPI,
@@ -127,6 +128,10 @@ const AdminLeavePage = () => {
     reason: "",
     attachmentUrl: "",
   });
+  
+  // Pagination
+  const [currentPage, setCurrentPage] = useState(1);
+  const itemsPerPage = 6;
 
   const leaveTypeMap = useMemo(() => {
     const map = new Map();
@@ -561,8 +566,8 @@ const AdminLeavePage = () => {
           </div>
 
           <div className="space-y-4">
-            {listData.length > 0 ? (
-              listData.map((req) => {
+            {listData.slice((currentPage - 1) * itemsPerPage, currentPage * itemsPerPage).length > 0 ? (
+              listData.slice((currentPage - 1) * itemsPerPage, currentPage * itemsPerPage).map((req) => {
                 const meta = getRequestMeta(req);
                 const rowId =
                   req.id ||
@@ -653,6 +658,16 @@ const AdminLeavePage = () => {
               </div>
             )}
           </div>
+          
+          {Math.ceil(listData.length / itemsPerPage) > 1 && (
+            <div className="mt-4 border-t border-gray-100 pt-4">
+              <Pagination
+                currentPage={currentPage}
+                totalPages={Math.ceil(listData.length / itemsPerPage)}
+                onPageChange={setCurrentPage}
+              />
+            </div>
+          )}
         </div>
       </div>
     </div>

@@ -16,8 +16,6 @@ import provinceAPI from "../../services/provinceAPI";
 import Button from "../../components/ui/Button";
 import Input from "../../components/ui/Input";
 import { formatCurrency } from "../../utils/formatDate";
-import { markCodOrderPendingShipping } from "../../utils/codShipping";
-import { markOrderPendingPaymentTimeout } from "../../utils/pendingPaymentTimeout";
 
 const PAYMENT_METHOD_CONFIG = {
   COD: {
@@ -387,19 +385,10 @@ const CheckoutPage = () => {
           throw new Error("Không nhận được đường dẫn thanh toán VNPay");
         }
 
-        markOrderPendingPaymentTimeout(
-          createdOrderId,
-          createdOrder?.createdAt || createdOrder?.orderDate || Date.now(),
-        );
         toast.success("Đơn hàng đã được tạo. Đang chuyển sang VNPay...");
         window.location.assign(paymentData.paymentUrl);
         return;
       }
-
-      markCodOrderPendingShipping(
-        createdOrderId,
-        createdOrder?.createdAt || createdOrder?.orderDate || Date.now(),
-      );
 
       setOrderId(createdOrderId);
       setOrderSuccess(true);

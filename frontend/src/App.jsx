@@ -27,7 +27,6 @@ const AdminProductsPage = lazy(() => import("./pages/admin/AdminProductsPage"));
 const AdminOrdersPage = lazy(() => import("./pages/admin/AdminOrdersPage"));
 const AdminUsersPage = lazy(() => import("./pages/admin/AdminUsersPage"));
 const AdminCategoriesPage = lazy(() => import("./pages/admin/AdminCategoriesPage"));
-const AdminSettingsPage = lazy(() => import("./pages/admin/AdminSettingsPage"));
 const AdminWarehousePage = lazy(() => import("./pages/admin/AdminWarehousePage"));
 const AdminHRMPage = lazy(() => import("./pages/admin/AdminHRMPage"));
 const AdminAnalyticsPage = lazy(() => import("./pages/admin/AdminAnalyticsPage"));
@@ -286,7 +285,7 @@ function App() {
                 path="settings"
                 element={
                   <ProtectedRoute allowedRoles={[1]}>
-                    <AdminSettingsPage />
+                    <Navigate to="/admin/dashboard" replace />
                   </ProtectedRoute>
                 }
               />

@@ -14,14 +14,6 @@ import useToastStore from "../../stores/useToastStore";
 import SkeletonLoader from "../../components/ui/SkeletonLoader";
 import Button from "../../components/ui/Button";
 import { formatCurrency } from "../../utils/formatDate";
-import { getCodShippingPhase } from "../../utils/codShipping";
-import {
-  clearPendingPaymentTimeout,
-  getPendingPaymentPhase,
-  markPendingPaymentCancelRequested,
-  markPendingPaymentCancelled,
-  shouldAutoCancelPendingPayment,
-} from "../../utils/pendingPaymentTimeout";
 
 const getVnpayPaidOrderIds = () => {
   try {
@@ -32,11 +24,9 @@ const getVnpayPaidOrderIds = () => {
   }
 };
 
-const getDisplayConfig = (orderId, orderStatus, paymentStatus, vnpayPaidIds, now) => {
+const getDisplayConfig = (orderId, orderStatus, paymentStatus, vnpayPaidIds) => {
   const normalizedOrderStatus = String(orderStatus || "").toUpperCase();
   const normalizedPaymentStatus = String(paymentStatus || "").toUpperCase();
-  const codShippingPhase = getCodShippingPhase(orderId, orderStatus, now);
-  const pendingPaymentPhase = getPendingPaymentPhase(orderId, orderStatus, vnpayPaidIds, now);
 
   if (normalizedPaymentStatus === "SUCCESS" || normalizedOrderStatus === "COMPLETED") {
     return {
@@ -56,25 +46,7 @@ const getDisplayConfig = (orderId, orderStatus, paymentStatus, vnpayPaidIds, now
     };
   }
 
-  if (pendingPaymentPhase === "CANCELLED") {
-    return {
-      label: "Đã hủy đơn",
-      icon: XCircle,
-      color: "text-red-600",
-      bg: "bg-red-50",
-    };
-  }
-
-  if (codShippingPhase === "PENDING") {
-    return {
-      label: "Chờ vận chuyển",
-      icon: Clock,
-      color: "text-yellow-600",
-      bg: "bg-yellow-50",
-    };
-  }
-
-  if (codShippingPhase === "SHIPPING" || normalizedOrderStatus === "SHIPPING") {
+  if (normalizedOrderStatus === "SHIPPING") {
     return {
       label: "Đang giao hàng",
       icon: Truck,
@@ -83,10 +55,7 @@ const getDisplayConfig = (orderId, orderStatus, paymentStatus, vnpayPaidIds, now
     };
   }
 
-  if (
-    normalizedOrderStatus === "PENDING" &&
-    vnpayPaidIds.includes(Number(orderId))
-  ) {
+  if (normalizedOrderStatus === "PENDING" && vnpayPaidIds.includes(Number(orderId))) {
     return {
       label: "Thanh toán thành công",
       icon: CheckCircle,
@@ -103,12 +72,10 @@ const getDisplayConfig = (orderId, orderStatus, paymentStatus, vnpayPaidIds, now
   };
 };
 
-const getTimeline = (orderId, orderStatus, paymentStatus, vnpayPaidIds, now) => {
+const getTimeline = (orderId, orderStatus, paymentStatus, vnpayPaidIds) => {
   const normalizedOrderStatus = String(orderStatus || "").toUpperCase();
   const normalizedPaymentStatus = String(paymentStatus || "").toUpperCase();
   const orderIdNum = Number(orderId);
-  const codShippingPhase = getCodShippingPhase(orderId, orderStatus, now);
-  const pendingPaymentPhase = getPendingPaymentPhase(orderId, orderStatus, vnpayPaidIds, now);
 
   const isSuccess =
     normalizedPaymentStatus === "SUCCESS" ||
@@ -116,29 +83,12 @@ const getTimeline = (orderId, orderStatus, paymentStatus, vnpayPaidIds, now) => 
     (normalizedOrderStatus === "PENDING" && vnpayPaidIds.includes(orderIdNum));
 
   const isCancelled =
-    normalizedPaymentStatus === "FAILED" ||
-    normalizedOrderStatus === "CANCELLED" ||
-    pendingPaymentPhase === "CANCELLED";
+    normalizedPaymentStatus === "FAILED" || normalizedOrderStatus === "CANCELLED";
 
   if (isCancelled) {
     return [
       { key: "PENDING", label: "Chờ xử lý", completed: true },
       { key: "CANCELLED", label: "Đã hủy đơn", completed: true },
-    ];
-  }
-
-  if (codShippingPhase) {
-    return [
-      {
-        key: "PENDING",
-        label: "Chờ vận chuyển",
-        completed: true,
-      },
-      {
-        key: "SHIPPING",
-        label: "Đang giao hàng",
-        completed: codShippingPhase === "SHIPPING",
-      },
     ];
   }
 
@@ -178,15 +128,6 @@ const OrderDetailPage = () => {
   const [isLoading, setIsLoading] = useState(true);
   const [isCancelling, setIsCancelling] = useState(false);
   const [isConfirming, setIsConfirming] = useState(false);
-  const [now, setNow] = useState(Date.now());
-
-  useEffect(() => {
-    const intervalId = window.setInterval(() => {
-      setNow(Date.now());
-    }, 1000);
-
-    return () => window.clearInterval(intervalId);
-  }, []);
 
   const fetchPayment = async (orderId) => {
     try {
@@ -231,46 +172,12 @@ const OrderDetailPage = () => {
     await fetchPayment(id);
   };
 
-  useEffect(() => {
-    if (!order) return;
-    if (!shouldAutoCancelPendingPayment(order.id, order.status, vnpayPaidIds, now)) return;
-
-    markPendingPaymentCancelRequested(order.id);
-
-    orderAPI
-      .cancelOrder(order.id)
-      .then(async () => {
-        markPendingPaymentCancelled(order.id);
-        clearPendingPaymentTimeout(order.id);
-        await refreshOrder();
-      })
-      .catch((error) => {
-        console.error("Auto cancel pending payment order error:", error);
-      });
-  }, [order, vnpayPaidIds, now]);
-
-  useEffect(() => {
-    if (!order) return;
-
-    const normalizedOrderStatus = String(order.status || "").toUpperCase();
-    const isResolved =
-      normalizedOrderStatus === "CANCELLED" ||
-      normalizedOrderStatus === "COMPLETED" ||
-      normalizedOrderStatus === "SHIPPING" ||
-      vnpayPaidIds.includes(Number(order.id));
-
-    if (isResolved) {
-      clearPendingPaymentTimeout(order.id);
-    }
-  }, [order, vnpayPaidIds]);
-
   const handleCancelOrder = async () => {
     if (!window.confirm("Bạn có chắc muốn hủy đơn hàng này?")) return;
 
     setIsCancelling(true);
     try {
       await orderAPI.cancelOrder(id);
-      clearPendingPaymentTimeout(id);
       toast.success("Đã hủy đơn hàng thành công");
       await refreshOrder();
     } catch {
@@ -319,17 +226,9 @@ const OrderDetailPage = () => {
 
   const orderId = order.id ?? parseInt(id, 10);
   const paymentStatus = payment?.status ?? null;
-  const codShippingPhase = getCodShippingPhase(orderId, order.status, now);
-  const pendingPaymentPhase = getPendingPaymentPhase(orderId, order.status, vnpayPaidIds, now);
-  const displayConfig = getDisplayConfig(
-    orderId,
-    order.status,
-    paymentStatus,
-    vnpayPaidIds,
-    now,
-  );
+  const displayConfig = getDisplayConfig(orderId, order.status, paymentStatus, vnpayPaidIds);
   const DisplayIcon = displayConfig.icon;
-  const timeline = getTimeline(orderId, order.status, paymentStatus, vnpayPaidIds, now);
+  const timeline = getTimeline(orderId, order.status, paymentStatus, vnpayPaidIds);
 
   const normalizedOrderStatus = String(order.status || "").toUpperCase();
   const normalizedPaymentStatus = String(paymentStatus || "").toUpperCase();
@@ -340,17 +239,9 @@ const OrderDetailPage = () => {
     (normalizedOrderStatus === "PENDING" && vnpayPaidIds.includes(orderId));
 
   const isCancelled =
-    normalizedPaymentStatus === "FAILED" ||
-    normalizedOrderStatus === "CANCELLED" ||
-    pendingPaymentPhase === "CANCELLED";
+    normalizedPaymentStatus === "FAILED" || normalizedOrderStatus === "CANCELLED";
   const isShipping = normalizedOrderStatus === "SHIPPING";
-  const isCodShippingDisplay =
-    codShippingPhase === "SHIPPING" && normalizedOrderStatus !== "SHIPPING";
-  const isPending =
-    normalizedOrderStatus === "PENDING" &&
-    !isSuccess &&
-    codShippingPhase !== "SHIPPING" &&
-    pendingPaymentPhase !== "CANCELLED";
+  const isPending = normalizedOrderStatus === "PENDING" && !isSuccess;
 
   const isVnpay =
     payment?.paymentMethod?.code === "VNPAY" ||
@@ -494,15 +385,6 @@ const OrderDetailPage = () => {
                   >
                     Đã nhận hàng
                   </Button>
-                )}
-
-                {isCodShippingDisplay && (
-                  <div className="rounded-lg border border-blue-200 bg-blue-50 p-4 text-center">
-                    <Truck className="mx-auto mb-2 h-6 w-6 text-blue-600" />
-                    <p className="font-medium text-blue-700">
-                      Đơn COD đã được chuyển sang mục đang vận chuyển trên giao diện.
-                    </p>
-                  </div>
                 )}
 
                 {isSuccess && (

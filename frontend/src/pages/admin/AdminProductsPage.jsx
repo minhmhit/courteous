@@ -42,7 +42,7 @@ const AdminProductsPage = () => {
   const [imagePreview, setImagePreview] = useState("");
   // Pagination details
   const [currentPage, setCurrentPage] = useState(1);
-  const itemsPerPage = 8;
+  const itemsPerPage = 6;
   const [formData, setFormData] = useState({
     name: "",
     description: "",

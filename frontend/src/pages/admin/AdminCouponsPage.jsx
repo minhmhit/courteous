@@ -4,6 +4,7 @@ import { couponAPI } from "../../services";
 import Button from "../../components/ui/Button";
 import Modal from "../../components/ui/Modal";
 import Input from "../../components/ui/Input";
+import Pagination from "../../components/ui/Pagination";
 import useToastStore from "../../stores/useToastStore";
 import { formatDate, formatDateISO } from "../../utils/formatDate";
 
@@ -31,6 +32,10 @@ export default function AdminCouponsPage() {
   });
   const [form, setForm] = useState(emptyForm);
   const [submitting, setSubmitting] = useState(false);
+  
+  // Pagination
+  const [currentPage, setCurrentPage] = useState(1);
+  const itemsPerPage = 6;
 
   const loadCoupons = async () => {
     setLoading(true);
@@ -192,7 +197,7 @@ export default function AdminCouponsPage() {
             <tbody className="divide-y divide-white/20">
               {loading && <tr><td colSpan={5} className="p-6 text-center text-slate-500">Đang tải...</td></tr>}
               {!loading && filteredCoupons.length === 0 && <tr><td colSpan={5} className="p-6 text-center text-slate-500">Không có mã giảm giá phù hợp</td></tr>}
-              {filteredCoupons.map((coupon) => {
+              {filteredCoupons.slice((currentPage - 1) * itemsPerPage, currentPage * itemsPerPage).map((coupon) => {
                 const now = new Date();
                 const validFrom = coupon.validFrom ? new Date(coupon.validFrom) : null;
                 const validUntil = coupon.validUntil ? new Date(coupon.validUntil) : null;
@@ -228,6 +233,16 @@ export default function AdminCouponsPage() {
             </tbody>
           </table>
         </div>
+        
+        {!loading && Math.ceil(filteredCoupons.length / itemsPerPage) > 1 && (
+          <div className="p-4 border-t border-white/20">
+            <Pagination
+              currentPage={currentPage}
+              totalPages={Math.ceil(filteredCoupons.length / itemsPerPage)}
+              onPageChange={setCurrentPage}
+            />
+          </div>
+        )}
       </div>
 
       <Modal isOpen={showModal} onClose={() => setShowModal(false)} title={editing ? "Sửa mã" : "Tạo mã mới"}>

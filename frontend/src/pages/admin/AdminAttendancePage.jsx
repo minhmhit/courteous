@@ -16,6 +16,7 @@ import { attendanceAPI, employeeAPI } from "../../services";
 import useToastStore from "../../stores/useToastStore";
 import Button from "../../components/ui/Button";
 import Input from "../../components/ui/Input";
+import Pagination from "../../components/ui/Pagination";
 import { formatDate } from "../../utils/formatDate";
 
 const AdminAttendancePage = () => {
@@ -39,6 +40,10 @@ const AdminAttendancePage = () => {
     status: "PRESENT",
     note: "",
   });
+  
+  // Pagination
+  const [currentPage, setCurrentPage] = useState(1);
+  const itemsPerPage = 6;
 
   useEffect(() => {
     fetchAttendance();
@@ -665,8 +670,8 @@ const AdminAttendancePage = () => {
                 </tr>
               </thead>
               <tbody className="divide-y divide-white/40 text-sm">
-                {filteredAttendance.length > 0 ? (
-                  filteredAttendance.map((item) => {
+                {filteredAttendance.slice((currentPage - 1) * itemsPerPage, currentPage * itemsPerPage).length > 0 ? (
+                  filteredAttendance.slice((currentPage - 1) * itemsPerPage, currentPage * itemsPerPage).map((item) => {
                     const info = getEmployeeInfo(item);
                     const dateValue = getAttendanceDate(item);
                     const status = item.status || "—";
@@ -736,6 +741,16 @@ const AdminAttendancePage = () => {
                 )}
               </tbody>
             </table>
+          </div>
+        )}
+        
+        {!isLoading && Math.ceil(filteredAttendance.length / itemsPerPage) > 1 && (
+          <div className="p-4 border-t border-white/20">
+            <Pagination
+              currentPage={currentPage}
+              totalPages={Math.ceil(filteredAttendance.length / itemsPerPage)}
+              onPageChange={setCurrentPage}
+            />
           </div>
         )}
       </div>

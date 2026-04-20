@@ -5,7 +5,6 @@ import {
   Package,
   ShoppingCart,
   Users,
-  Settings,
   LogOut,
   LayoutGrid,
   Warehouse,
@@ -29,7 +28,6 @@ const MENU_GROUPS = [
   { id: "people", label: "Người dùng", icon: Users },
   { id: "hr", label: "Nhân sự", icon: UserCog },
   { id: "self", label: "Cá nhân", icon: User },
-  { id: "system", label: "Hệ thống", icon: Settings },
 ];
 
 const AdminLayout = () => {
@@ -185,18 +183,9 @@ const AdminLayout = () => {
       allowedRoles: [1, 3, 4, 5],
       group: "self",
     },
-    {
-      icon: Settings,
-      label: "Cài đặt",
-      path: "/admin/settings",
-      allowedRoles: [1],
-      group: "system",
-    },
   ];
 
-  const menuItems = allMenuItems.filter((item) =>
-    item.allowedRoles.includes(userRole)
-  );
+  const menuItems = allMenuItems.filter((item) => item.allowedRoles.includes(userRole));
 
   const groupsWithItems = useMemo(() => {
     return MENU_GROUPS
@@ -209,7 +198,7 @@ const AdminLayout = () => {
 
   const activeGroupId = useMemo(() => {
     const match = groupsWithItems.find((group) =>
-      group.items.some((item) => location.pathname === item.path)
+      group.items.some((item) => location.pathname === item.path),
     );
     return match?.id || groupsWithItems[0]?.id || "";
   }, [groupsWithItems, location.pathname]);
@@ -242,7 +231,9 @@ const AdminLayout = () => {
           <div className="mb-4 rounded-[28px] bg-white/28 p-4">
             <h1 className="text-2xl font-bold text-coffee-950">Admin Panel</h1>
             <p className="mt-1 text-sm text-stone-700">{user?.name || user?.username}</p>
-            <span className={`mt-3 inline-flex rounded-full px-3 py-1 text-xs font-semibold ${roleInfo.color}`}>
+            <span
+              className={`mt-3 inline-flex rounded-full px-3 py-1 text-xs font-semibold ${roleInfo.color}`}
+            >
               {roleInfo.name}
             </span>
           </div>
@@ -254,9 +245,7 @@ const AdminLayout = () => {
                 <div key={group.id} className="rounded-2xl bg-white/18 p-2">
                   <button
                     type="button"
-                    onClick={() =>
-                      setOpenGroup((prev) => (prev === group.id ? "" : group.id))
-                    }
+                    onClick={() => setOpenGroup((prev) => (prev === group.id ? "" : group.id))}
                     className="flex w-full items-center justify-between gap-3 rounded-2xl px-3 py-2 text-sm font-semibold text-stone-800 hover:bg-white/26"
                   >
                     <span className="flex items-center gap-3">
@@ -264,8 +253,7 @@ const AdminLayout = () => {
                       {group.label}
                     </span>
                     <ChevronDown
-                      className={`h-4 w-4 transition-transform ${isOpen ? "rotate-180" : ""
-                        }`}
+                      className={`h-4 w-4 transition-transform ${isOpen ? "rotate-180" : ""}`}
                     />
                   </button>
 
@@ -277,10 +265,11 @@ const AdminLayout = () => {
                           <Link
                             key={item.path}
                             to={item.path}
-                            className={`flex items-center gap-3 rounded-2xl px-3 py-2 text-sm font-medium transition-all ${isActive
+                            className={`flex items-center gap-3 rounded-2xl px-3 py-2 text-sm font-medium transition-all ${
+                              isActive
                                 ? "bg-white/78 text-coffee-900 shadow-[0_14px_34px_rgba(44,24,14,0.28)]"
                                 : "text-stone-700 hover:bg-white/26 hover:text-coffee-900"
-                              }`}
+                            }`}
                           >
                             <item.icon className="h-4 w-4" />
                             <span>{item.label}</span>
