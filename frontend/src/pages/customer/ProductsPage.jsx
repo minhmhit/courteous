@@ -7,7 +7,7 @@ import SkeletonLoader from "../../components/ui/SkeletonLoader";
 import { productAPI, categoryAPI } from "../../services";
 import useToastStore from "../../stores/useToastStore";
 
-const ITEMS_PER_PAGE = 9;
+const ITEMS_PER_PAGE = 6;
 
 const ProductsPage = () => {
   const [searchParams, setSearchParams] = useSearchParams();
@@ -327,7 +327,7 @@ const ProductsPage = () => {
           <div className="flex-1">
             {isLoading ? (
               <div className="grid grid-cols-1 gap-6 sm:grid-cols-2 xl:grid-cols-3">
-                {[...Array(9)].map((_, i) => (
+                {[...Array(6)].map((_, i) => (
                   <SkeletonLoader key={i} className="h-96" />
                 ))}
               </div>

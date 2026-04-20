@@ -1,18 +1,10 @@
-import { useState, useEffect, useMemo } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import { Store, ChevronRight, Truck, PackageOpen, ShieldCheck } from "lucide-react";
 import { orderAPI } from "../../services";
 import useToastStore from "../../stores/useToastStore";
 import SkeletonLoader from "../../components/ui/SkeletonLoader";
 import { formatCurrency } from "../../utils/formatDate";
-import { getCodShippingPhase } from "../../utils/codShipping";
-import {
-  clearPendingPaymentTimeout,
-  getPendingPaymentPhase,
-  markPendingPaymentCancelRequested,
-  markPendingPaymentCancelled,
-  shouldAutoCancelPendingPayment,
-} from "../../utils/pendingPaymentTimeout";
 
 const getVnpayPaidOrderIds = () => {
   try {
@@ -23,11 +15,9 @@ const getVnpayPaidOrderIds = () => {
   }
 };
 
-const getLogicalStatus = (orderStatus, orderId, vnpayPaidIds, now) => {
+const getLogicalStatus = (orderStatus, orderId, vnpayPaidIds) => {
   const normalizedStatus = String(orderStatus || "").toUpperCase();
   const orderIdNum = Number(orderId);
-  const codShippingPhase = getCodShippingPhase(orderId, orderStatus, now);
-  const pendingPaymentPhase = getPendingPaymentPhase(orderId, orderStatus, vnpayPaidIds, now);
 
   if (
     normalizedStatus === "COMPLETED" ||
@@ -37,14 +27,12 @@ const getLogicalStatus = (orderStatus, orderId, vnpayPaidIds, now) => {
   }
 
   if (normalizedStatus === "CANCELLED") return "CANCELLED";
-  if (pendingPaymentPhase === "CANCELLED") return "CANCELLED";
-  if (codShippingPhase === "SHIPPING") return "SHIPPING";
   if (normalizedStatus === "SHIPPING") return "SHIPPING";
 
   return "PENDING";
 };
 
-const getStatusLabelText = (logicalStatus, codShippingPhase) => {
+const getStatusLabelText = (logicalStatus) => {
   switch (logicalStatus) {
     case "COMPLETED":
       return "HOÀN THÀNH";
@@ -53,7 +41,7 @@ const getStatusLabelText = (logicalStatus, codShippingPhase) => {
     case "SHIPPING":
       return "ĐANG GIAO HÀNG";
     case "PENDING":
-      return codShippingPhase === "PENDING" ? "CHỜ VẬN CHUYỂN" : "CHỜ THANH TOÁN";
+      return "CHỜ THANH TOÁN";
     default:
       return logicalStatus;
   }
@@ -80,15 +68,6 @@ const OrderHistoryPage = () => {
   const [vnpayPaidIds, setVnpayPaidIds] = useState([]);
   const [isLoading, setIsLoading] = useState(true);
   const [activeTab, setActiveTab] = useState("ALL");
-  const [now, setNow] = useState(Date.now());
-
-  useEffect(() => {
-    const intervalId = window.setInterval(() => {
-      setNow(Date.now());
-    }, 1000);
-
-    return () => window.clearInterval(intervalId);
-  }, []);
 
   useEffect(() => {
     setVnpayPaidIds(getVnpayPaidOrderIds());
@@ -130,54 +109,13 @@ const OrderHistoryPage = () => {
     fetchOrders();
   }, [toast]);
 
-  useEffect(() => {
-    const expiredPendingOrders = orders.filter((order) =>
-      shouldAutoCancelPendingPayment(order.id, order.status, vnpayPaidIds, now),
-    );
-
-    if (expiredPendingOrders.length === 0) return;
-
-    expiredPendingOrders.forEach((order) => {
-      markPendingPaymentCancelRequested(order.id);
-
-      orderAPI
-        .cancelOrder(order.id)
-        .then(() => {
-          markPendingPaymentCancelled(order.id);
-          clearPendingPaymentTimeout(order.id);
-          setOrders((prev) =>
-            prev.map((item) =>
-              item.id === order.id ? { ...item, status: "CANCELLED" } : item,
-            ),
-          );
-        })
-        .catch((error) => {
-          console.error("Auto cancel pending payment order error:", error);
-        });
-    });
-  }, [orders, vnpayPaidIds, now]);
-
-  useEffect(() => {
-    orders.forEach((order) => {
-      const normalizedStatus = String(order.status || "").toUpperCase();
-      if (
-        normalizedStatus === "CANCELLED" ||
-        normalizedStatus === "COMPLETED" ||
-        normalizedStatus === "SHIPPING" ||
-        vnpayPaidIds.includes(Number(order.id))
-      ) {
-        clearPendingPaymentTimeout(order.id);
-      }
-    });
-  }, [orders, vnpayPaidIds]);
-
   const filteredOrders = useMemo(() => {
     return orders.filter((order) => {
-      const logicalStatus = getLogicalStatus(order.status, order.id, vnpayPaidIds, now);
+      const logicalStatus = getLogicalStatus(order.status, order.id, vnpayPaidIds);
       if (activeTab === "ALL") return true;
       return logicalStatus === activeTab;
     });
-  }, [orders, activeTab, vnpayPaidIds, now]);
+  }, [orders, activeTab, vnpayPaidIds]);
 
   if (isLoading) {
     return (
@@ -243,8 +181,7 @@ const OrderHistoryPage = () => {
         ) : (
           <div className="space-y-6">
             {filteredOrders.map((order) => {
-              const logicalStatus = getLogicalStatus(order.status, order.id, vnpayPaidIds, now);
-              const codShippingPhase = getCodShippingPhase(order.id, order.status, now);
+              const logicalStatus = getLogicalStatus(order.status, order.id, vnpayPaidIds);
               const items = order.items || [];
               const isVnpayConfirmed = vnpayPaidIds.includes(Number(order.id));
 
@@ -284,7 +221,7 @@ const OrderHistoryPage = () => {
                         </>
                       )}
                       <span className="uppercase tracking-wider">
-                        {getStatusLabelText(logicalStatus, codShippingPhase)}
+                        {getStatusLabelText(logicalStatus)}
                       </span>
                     </div>
                   </div>
@@ -343,11 +280,7 @@ const OrderHistoryPage = () => {
                           ? "Giao hàng thành công"
                           : logicalStatus === "CANCELLED"
                             ? "Đơn đã bị hủy do thay đổi hoặc lỗi mạng"
-                            : codShippingPhase === "PENDING"
-                              ? "Đơn COD đang chờ chuyển sang vận chuyển"
-                              : codShippingPhase === "SHIPPING"
-                                ? "Đơn COD đang được hiển thị ở trạng thái vận chuyển"
-                                : "Vui lòng thanh toán hoặc chờ bộ phận xử lý"}
+                            : "Vui lòng thanh toán hoặc chờ bộ phận xử lý"}
                       </div>
                       <div className="flex flex-wrap gap-2 sm:gap-3">
                         {logicalStatus === "PENDING" && (
@@ -355,7 +288,7 @@ const OrderHistoryPage = () => {
                             onClick={() => navigate(`/orders/${order.id}`)}
                             className="rounded-xl border border-transparent bg-gradient-to-r from-coffee-600 to-amber-700 px-4 py-2.5 text-sm font-semibold text-white transition-all hover:-translate-y-0.5 hover:shadow-lg hover:shadow-coffee-600/30 sm:px-6 sm:py-3"
                           >
-                            {codShippingPhase === "PENDING" ? "Xem / Hủy" : "Thanh toán / Hủy"}
+                            Thanh toán / Hủy
                           </button>
                         )}
                         {(logicalStatus === "COMPLETED" || logicalStatus === "CANCELLED") && (
