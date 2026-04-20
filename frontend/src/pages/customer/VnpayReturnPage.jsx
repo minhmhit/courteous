@@ -15,6 +15,10 @@ import { orderAPI, paymentAPI, receiptAPI } from "../../services";
 import useCartStore from "../../stores/useCartStore";
 import Button from "../../components/ui/Button";
 import { formatCurrency, formatDate } from "../../utils/formatDate";
+import {
+  clearPendingPaymentTimeout,
+  markOrderPendingPaymentTimeout,
+} from "../../utils/pendingPaymentTimeout";
 
 const STATUS_STYLES = {
   success: {
@@ -113,6 +117,7 @@ const VnpayReturnPage = () => {
               sessionStorage.setItem("vnpay_paid_orders", JSON.stringify(stored));
             }
           } catch (_) { /* ignore storage errors */ }
+          clearPendingPaymentTimeout(verifyResult.orderId);
         } else if (!verifyResult?.success && verifyResult?.orderId) {
           // Hủy/thất bại VNPay → xóa orderId nếu đã lưu nhầm trước đó
           try {
@@ -120,6 +125,7 @@ const VnpayReturnPage = () => {
             const filtered = stored.filter((id) => id !== verifyResult.orderId);
             sessionStorage.setItem("vnpay_paid_orders", JSON.stringify(filtered));
           } catch (_) { /* ignore storage errors */ }
+          markOrderPendingPaymentTimeout(verifyResult.orderId, Date.now());
         }
 
         if (verifyResult?.orderId) {
