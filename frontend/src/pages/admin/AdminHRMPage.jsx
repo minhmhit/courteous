@@ -34,7 +34,7 @@ const AdminHRMPage = () => {
   
   // Pagination details
   const [currentPage, setCurrentPage] = useState(1);
-  const itemsPerPage = 8;
+  const itemsPerPage = 6;
 
   const [formData, setFormData] = useState({
     email: "",

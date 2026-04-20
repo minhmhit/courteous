@@ -17,6 +17,7 @@ import { supplierAPI } from "../../services";
 import useToastStore from "../../stores/useToastStore";
 import Button from "../../components/ui/Button";
 import Input from "../../components/ui/Input";
+import Pagination from "../../components/ui/Pagination";
 
 const AdminSuppliersPage = () => {
   const toast = useToastStore();
@@ -36,6 +37,10 @@ const AdminSuppliersPage = () => {
     contactInfo: "",
     address: "",
   });
+  
+  // Pagination
+  const [currentPage, setCurrentPage] = useState(1);
+  const itemsPerPage = 6;
 
   useEffect(() => {
     fetchSuppliers();
@@ -331,8 +336,8 @@ const AdminSuppliersPage = () => {
               </tr>
             </thead>
             <tbody className="divide-y divide-gray-200">
-              {filteredSuppliers.length > 0 ? (
-                filteredSuppliers.map((supplier) => (
+              {filteredSuppliers.slice((currentPage - 1) * itemsPerPage, currentPage * itemsPerPage).length > 0 ? (
+                filteredSuppliers.slice((currentPage - 1) * itemsPerPage, currentPage * itemsPerPage).map((supplier) => (
                   <tr key={supplier.id} className="hover:bg-gray-50">
                     <td className="px-6 py-4">
                       <div className="flex items-center gap-3">
@@ -394,6 +399,17 @@ const AdminSuppliersPage = () => {
               )}
             </tbody>
           </table>
+        )}
+        
+        {/* Pagination Logic at bottom */}
+        {!isLoading && Math.ceil(filteredSuppliers.length / itemsPerPage) > 1 && (
+          <div className="p-4 border-t border-gray-200">
+            <Pagination
+              currentPage={currentPage}
+              totalPages={Math.ceil(filteredSuppliers.length / itemsPerPage)}
+              onPageChange={setCurrentPage}
+            />
+          </div>
         )}
       </div>
 

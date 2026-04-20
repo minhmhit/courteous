@@ -22,6 +22,7 @@ import {
   calculatePayrollByAttendance,
   PAYROLL_CONSTANTS,
 } from "../../utils/payrollCalculator";
+import Pagination from "../../components/ui/Pagination";
 
 const AdminPayrollPage = () => {
   const { user } = useAuthStore();
@@ -43,6 +44,8 @@ const AdminPayrollPage = () => {
   const [periods, setPeriods] = useState([]);
   const [reloadToggle, setReloadToggle] = useState(false);
   const [attendanceByEmployee, setAttendanceByEmployee] = useState({});
+  const [currentPage, setCurrentPage] = useState(1);
+  const itemsPerPage = 6;
 
   useEffect(() => {
     if (!isHR) return;
@@ -886,7 +889,7 @@ const AdminPayrollPage = () => {
                   </td>
                 </tr>
               ) : displayRows.length > 0 ? (
-                displayRows.map((row) => (
+                displayRows.slice((currentPage - 1) * itemsPerPage, currentPage * itemsPerPage).map((row) => (
                   <tr key={row.id}>
                     <td className="px-4 py-3 text-gray-900">
                       {row.name || row.periodLabel || "--"}
@@ -999,6 +1002,15 @@ const AdminPayrollPage = () => {
             </tbody>
           </table>
         </div>
+        {!isLoading && Math.ceil(displayRows.length / itemsPerPage) > 1 && (
+          <div className="p-4 border-t border-gray-200">
+            <Pagination
+              currentPage={currentPage}
+              totalPages={Math.ceil(displayRows.length / itemsPerPage)}
+              onPageChange={setCurrentPage}
+            />
+          </div>
+        )}
       </div>
     </div>
   );

@@ -5,6 +5,7 @@ import { categoryAPI } from "../../services";
 import useToastStore from "../../stores/useToastStore";
 import Button from "../../components/ui/Button";
 import Input from "../../components/ui/Input";
+import Pagination from "../../components/ui/Pagination";
 
 const AdminCategoriesPage = () => {
   const toast = useToastStore();
@@ -15,6 +16,10 @@ const AdminCategoriesPage = () => {
   const [showModal, setShowModal] = useState(false);
   const [editingCategory, setEditingCategory] = useState(null);
   const [formData, setFormData] = useState({ name: "", description: "" });
+  
+  // Pagination
+  const [currentPage, setCurrentPage] = useState(1);
+  const itemsPerPage = 6;
 
   useEffect(() => {
     fetchCategories();
@@ -140,8 +145,8 @@ const AdminCategoriesPage = () => {
           </div>
         ) : (
           <div className="grid grid-cols-1 gap-6 p-6 md:grid-cols-2 lg:grid-cols-3">
-            {filteredCategories.length > 0 ? (
-              filteredCategories.map((category) => (
+            {filteredCategories.slice((currentPage - 1) * itemsPerPage, currentPage * itemsPerPage).length > 0 ? (
+              filteredCategories.slice((currentPage - 1) * itemsPerPage, currentPage * itemsPerPage).map((category) => (
                 <motion.div
                   key={category.id}
                   initial={{ opacity: 0, y: 20 }}
@@ -173,6 +178,14 @@ const AdminCategoriesPage = () => {
               </div>
             )}
           </div>
+        )}
+        
+        {!isLoading && Math.ceil(filteredCategories.length / itemsPerPage) > 1 && (
+          <Pagination
+            currentPage={currentPage}
+            totalPages={Math.ceil(filteredCategories.length / itemsPerPage)}
+            onPageChange={setCurrentPage}
+          />
         )}
       </div>
 
