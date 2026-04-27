@@ -42,7 +42,8 @@ const AdminLayout = () => {
     if (storedUser) {
       try {
         const parsedUser = JSON.parse(storedUser);
-        userRole = parsedUser?.roleId || parsedUser?.role_id || parsedUser?.role;
+        userRole =
+          parsedUser?.roleId || parsedUser?.role_id || parsedUser?.role;
       } catch (e) {
         console.error("Failed to parse stored user:", e);
       }
@@ -50,7 +51,10 @@ const AdminLayout = () => {
   }
 
   useEffect(() => {
-    if (window.location.pathname === "/admin" || window.location.pathname === "/admin/") {
+    if (
+      window.location.pathname === "/admin" ||
+      window.location.pathname === "/admin/"
+    ) {
       if (userRole === 3) {
         navigate("/admin/warehouse-dashboard", { replace: true });
       } else if (userRole === 4) {
@@ -183,17 +187,24 @@ const AdminLayout = () => {
       allowedRoles: [1, 3, 4, 5],
       group: "self",
     },
+    {
+      icon: CalendarCheck,
+      label: "Chấm công của tôi",
+      path: "/admin/my-attendance",
+      allowedRoles: [1, 3, 4, 5],
+      group: "self",
+    },
   ];
 
-  const menuItems = allMenuItems.filter((item) => item.allowedRoles.includes(userRole));
+  const menuItems = allMenuItems.filter((item) =>
+    item.allowedRoles.includes(userRole),
+  );
 
   const groupsWithItems = useMemo(() => {
-    return MENU_GROUPS
-      .map((group) => ({
-        ...group,
-        items: menuItems.filter((item) => item.group === group.id),
-      }))
-      .filter((group) => group.items.length > 0);
+    return MENU_GROUPS.map((group) => ({
+      ...group,
+      items: menuItems.filter((item) => item.group === group.id),
+    })).filter((group) => group.items.length > 0);
   }, [menuItems]);
 
   const activeGroupId = useMemo(() => {
@@ -219,7 +230,12 @@ const AdminLayout = () => {
       4: { name: "Sales", color: "bg-violet-100/80 text-violet-700" },
       5: { name: "HRM", color: "bg-amber-100/80 text-amber-700" },
     };
-    return roles[roleId] || { name: "Unknown", color: "bg-slate-100/80 text-slate-700" };
+    return (
+      roles[roleId] || {
+        name: "Unknown",
+        color: "bg-slate-100/80 text-slate-700",
+      }
+    );
   };
 
   const roleInfo = getRoleName(userRole);
@@ -230,7 +246,9 @@ const AdminLayout = () => {
         <aside className="glass-panel-strong flex w-full flex-col rounded-[32px] border-white/35 bg-[linear-gradient(180deg,rgba(129,83,57,0.2),rgba(102,66,45,0.12))] p-4 lg:w-72 lg:p-5">
           <div className="mb-4 rounded-[28px] bg-white/28 p-4">
             <h1 className="text-2xl font-bold text-coffee-950">Admin Panel</h1>
-            <p className="mt-1 text-sm text-stone-700">{user?.name || user?.username}</p>
+            <p className="mt-1 text-sm text-stone-700">
+              {user?.name || user?.username}
+            </p>
             <span
               className={`mt-3 inline-flex rounded-full px-3 py-1 text-xs font-semibold ${roleInfo.color}`}
             >
@@ -245,7 +263,11 @@ const AdminLayout = () => {
                 <div key={group.id} className="rounded-2xl bg-white/18 p-2">
                   <button
                     type="button"
-                    onClick={() => setOpenGroup((prev) => (prev === group.id ? "" : group.id))}
+                    onClick={() =>
+                      setOpenGroup((prev) =>
+                        prev === group.id ? "" : group.id,
+                      )
+                    }
                     className="flex w-full items-center justify-between gap-3 rounded-2xl px-3 py-2 text-sm font-semibold text-stone-800 hover:bg-white/26"
                   >
                     <span className="flex items-center gap-3">

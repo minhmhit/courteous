@@ -9,12 +9,16 @@ import ScrollToTop from "./components/ScrollToTop";
 
 const HomePage = lazy(() => import("./pages/customer/HomePage"));
 const ProductsPage = lazy(() => import("./pages/customer/ProductsPage"));
-const ProductDetailPage = lazy(() => import("./pages/customer/ProductDetailPage"));
+const ProductDetailPage = lazy(
+  () => import("./pages/customer/ProductDetailPage"),
+);
 const CartPage = lazy(() => import("./pages/customer/CartPage"));
 const CheckoutPage = lazy(() => import("./pages/customer/CheckoutPage"));
 const VnpayReturnPage = lazy(() => import("./pages/customer/VnpayReturnPage"));
 const ProfilePage = lazy(() => import("./pages/customer/ProfilePage"));
-const OrderHistoryPage = lazy(() => import("./pages/customer/OrderHistoryPage"));
+const OrderHistoryPage = lazy(
+  () => import("./pages/customer/OrderHistoryPage"),
+);
 const OrderDetailPage = lazy(() => import("./pages/customer/OrderDetailPage"));
 const PolicyPage = lazy(() => import("./pages/customer/PolicyPage"));
 const AboutPage = lazy(() => import("./pages/customer/AboutPage"));
@@ -26,21 +30,36 @@ const DashboardPage = lazy(() => import("./pages/admin/DashboardPage"));
 const AdminProductsPage = lazy(() => import("./pages/admin/AdminProductsPage"));
 const AdminOrdersPage = lazy(() => import("./pages/admin/AdminOrdersPage"));
 const AdminUsersPage = lazy(() => import("./pages/admin/AdminUsersPage"));
-const AdminCategoriesPage = lazy(() => import("./pages/admin/AdminCategoriesPage"));
-const AdminWarehousePage = lazy(() => import("./pages/admin/AdminWarehousePage"));
+const AdminCategoriesPage = lazy(
+  () => import("./pages/admin/AdminCategoriesPage"),
+);
+const AdminWarehousePage = lazy(
+  () => import("./pages/admin/AdminWarehousePage"),
+);
 const AdminHRMPage = lazy(() => import("./pages/admin/AdminHRMPage"));
-const AdminAnalyticsPage = lazy(() => import("./pages/admin/AdminAnalyticsPage"));
-const WarehouseDashboardPage = lazy(() => import("./pages/admin/WarehouseDashboardPage"));
-const SalesDashboardPage = lazy(() => import("./pages/admin/SalesDashboardPage"));
+const AdminAnalyticsPage = lazy(
+  () => import("./pages/admin/AdminAnalyticsPage"),
+);
+const WarehouseDashboardPage = lazy(
+  () => import("./pages/admin/WarehouseDashboardPage"),
+);
+const SalesDashboardPage = lazy(
+  () => import("./pages/admin/SalesDashboardPage"),
+);
 const HRMDashboardPage = lazy(() => import("./pages/admin/HRMDashboardPage"));
 const AdminCouponsPage = lazy(() => import("./pages/admin/AdminCouponsPage"));
-const AdminSuppliersPage = lazy(() => import("./pages/admin/AdminSuppliersPage"));
-const AdminAttendancePage = lazy(() =>
-  import("./pages/admin/AdminAttendancePage")
+const AdminSuppliersPage = lazy(
+  () => import("./pages/admin/AdminSuppliersPage"),
+);
+const AdminAttendancePage = lazy(
+  () => import("./pages/admin/AdminAttendancePage"),
 );
 const AdminProfilePage = lazy(() => import("./pages/admin/AdminProfilePage"));
 const AdminLeavePage = lazy(() => import("./pages/admin/AdminLeavePage"));
 const AdminPayrollPage = lazy(() => import("./pages/admin/AdminPayrollPage"));
+const AdminMyAttendancePage = lazy(
+  () => import("./pages/admin/AdminMyAttendancePage"),
+);
 
 const queryClient = new QueryClient({
   defaultOptions: {
@@ -57,7 +76,9 @@ const RouteFallback = () => (
       <div className="h-10 w-10 animate-spin rounded-full border-2 border-coffee-300 border-t-coffee-700" />
       <div>
         <p className="font-semibold text-slate-900">Đang tải giao diện</p>
-        <p className="text-sm text-slate-500">Tách tải route để giảm bundle khởi tạo.</p>
+        <p className="text-sm text-slate-500">
+          Tách tải route để giảm bundle khởi tạo.
+        </p>
       </div>
     </div>
   </div>
@@ -109,7 +130,10 @@ function App() {
                   </ProtectedRoute>
                 }
               />
-              <Route path="/payment/vnpay/return" element={<VnpayReturnPage />} />
+              <Route
+                path="/payment/vnpay/return"
+                element={<VnpayReturnPage />}
+              />
               <Route
                 path="/profile"
                 element={
@@ -144,7 +168,10 @@ function App() {
                 </ProtectedRoute>
               }
             >
-              <Route index element={<Navigate to="/admin/dashboard" replace />} />
+              <Route
+                index
+                element={<Navigate to="/admin/dashboard" replace />}
+              />
               <Route
                 path="warehouse-dashboard"
                 element={
@@ -278,6 +305,14 @@ function App() {
                 element={
                   <ProtectedRoute allowedRoles={[1, 3, 4, 5]}>
                     <AdminPayrollPage />
+                  </ProtectedRoute>
+                }
+              />
+              <Route
+                path="my-attendance"
+                element={
+                  <ProtectedRoute allowedRoles={[1, 3, 4, 5]}>
+                    <AdminMyAttendancePage />
                   </ProtectedRoute>
                 }
               />

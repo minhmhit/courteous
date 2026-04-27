@@ -807,16 +807,10 @@ const AdminAttendancePage = () => {
                       >
                         <option value="">-- Chọn nhân viên --</option>
                         {employees.map((emp) => {
-                          // console.log(emp)
-                          const value =
-                            emp.userId ||
-                            emp.id ||
-                            emp.employeeId ||
-                            emp.userName ||
-                            "";
+                          const value = emp.id ||"";
                           return (
                             <option
-                              key={`${value}_${emp.id || emp.employeeId || emp.userId || emp.userName || Math.random()}`}
+                              key={`${value}_${emp.id || ""}`}
                               value={value}
                             >
                               {getEmployeeOptionLabel(emp)}
