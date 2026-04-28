@@ -40,7 +40,7 @@ const AdminAttendancePage = () => {
     status: "PRESENT",
     note: "",
   });
-  
+
   // Pagination
   const [currentPage, setCurrentPage] = useState(1);
   const itemsPerPage = 6;
@@ -86,7 +86,16 @@ const AdminAttendancePage = () => {
       });
       const list =
         response?.data || response?.employees || response?.items || [];
-      setEmployees(Array.isArray(list) ? list : []);
+      const normalizedList = Array.isArray(list) ? list : [];
+      const seen = new Set();
+      const uniqueEmployees = normalizedList.filter((emp, index) => {
+        const identity =
+          emp?.id  || `fallback_${index}`;
+        if (seen.has(identity)) return false;
+        seen.add(identity);
+        return true;
+      });
+      setEmployees(uniqueEmployees);
     } catch (error) {
       console.error("Error fetching employees:", error);
     }
@@ -670,65 +679,73 @@ const AdminAttendancePage = () => {
                 </tr>
               </thead>
               <tbody className="divide-y divide-white/40 text-sm">
-                {filteredAttendance.slice((currentPage - 1) * itemsPerPage, currentPage * itemsPerPage).length > 0 ? (
-                  filteredAttendance.slice((currentPage - 1) * itemsPerPage, currentPage * itemsPerPage).map((item) => {
-                    const info = getEmployeeInfo(item);
-                    const dateValue = getAttendanceDate(item);
-                    const status = item.status || "—";
-                    return (
-                      <tr key={item.id} className="hover:bg-white/35">
-                        <td className="px-5 py-4">
-                          <div className="flex items-center gap-3">
-                            <div className="flex h-10 w-10 items-center justify-center rounded-2xl bg-coffee-100 text-coffee-700">
-                              <User className="h-5 w-5" />
+                {filteredAttendance.slice(
+                  (currentPage - 1) * itemsPerPage,
+                  currentPage * itemsPerPage,
+                ).length > 0 ? (
+                  filteredAttendance
+                    .slice(
+                      (currentPage - 1) * itemsPerPage,
+                      currentPage * itemsPerPage,
+                    )
+                    .map((item) => {
+                      const info = getEmployeeInfo(item);
+                      const dateValue = getAttendanceDate(item);
+                      const status = item.status || "—";
+                      return (
+                        <tr key={item.id} className="hover:bg-white/35">
+                          <td className="px-5 py-4">
+                            <div className="flex items-center gap-3">
+                              <div className="flex h-10 w-10 items-center justify-center rounded-2xl bg-coffee-100 text-coffee-700">
+                                <User className="h-5 w-5" />
+                              </div>
+                              <div>
+                                <p className="font-semibold text-slate-900">
+                                  {info.name}
+                                </p>
+                                <p className="text-xs text-slate-500">
+                                  #{info.id || "—"}
+                                </p>
+                              </div>
                             </div>
-                            <div>
-                              <p className="font-semibold text-slate-900">
-                                {info.name}
-                              </p>
-                              <p className="text-xs text-slate-500">
-                                #{info.id || "—"}
-                              </p>
-                            </div>
-                          </div>
-                        </td>
-                        <td className="px-5 py-4 text-slate-700">
-                          {dateValue ? formatDate(dateValue) : "--"}
-                        </td>
-                        <td className="px-5 py-4 text-slate-700">
-                          <span className="inline-flex items-center gap-2 rounded-full bg-slate-100 px-3 py-1 text-xs font-medium text-slate-600">
-                            <Clock className="h-3 w-3" />
-                            {formatTime(item.checkIn || item.check_in)}
-                          </span>
-                        </td>
-                        <td className="px-5 py-4 text-slate-700">
-                          <span className="inline-flex items-center gap-2 rounded-full bg-slate-100 px-3 py-1 text-xs font-medium text-slate-600">
-                            <Clock className="h-3 w-3" />
-                            {formatTime(item.checkOut || item.check_out)}
-                          </span>
-                        </td>
-                        <td className="px-5 py-4">
-                          <span
-                            className={`rounded-full px-3 py-1 text-xs font-semibold ${getStatusBadge(
-                              status,
-                            )}`}
-                          >
-                            {status}
-                          </span>
-                        </td>
-                        <td className="px-5 py-4 text-right">
-                          <Button
-                            onClick={() => handleOpenModal(item)}
-                            variant="outline"
-                            size="sm"
-                          >
-                            <Edit className="mr-2 h-4 w-4" />
-                            Sửa
-                          </Button>
-                        </td>
-                      </tr>
-                    );
-                  })
+                          </td>
+                          <td className="px-5 py-4 text-slate-700">
+                            {dateValue ? formatDate(dateValue) : "--"}
+                          </td>
+                          <td className="px-5 py-4 text-slate-700">
+                            <span className="inline-flex items-center gap-2 rounded-full bg-slate-100 px-3 py-1 text-xs font-medium text-slate-600">
+                              <Clock className="h-3 w-3" />
+                              {formatTime(item.checkIn || item.check_in)}
+                            </span>
+                          </td>
+                          <td className="px-5 py-4 text-slate-700">
+                            <span className="inline-flex items-center gap-2 rounded-full bg-slate-100 px-3 py-1 text-xs font-medium text-slate-600">
+                              <Clock className="h-3 w-3" />
+                              {formatTime(item.checkOut || item.check_out)}
+                            </span>
+                          </td>
+                          <td className="px-5 py-4">
+                            <span
+                              className={`rounded-full px-3 py-1 text-xs font-semibold ${getStatusBadge(
+                                status,
+                              )}`}
+                            >
+                              {status}
+                            </span>
+                          </td>
+                          <td className="px-5 py-4 text-right">
+                            <Button
+                              onClick={() => handleOpenModal(item)}
+                              variant="outline"
+                              size="sm"
+                            >
+                              <Edit className="mr-2 h-4 w-4" />
+                              Sửa
+                            </Button>
+                          </td>
+                        </tr>
+                      );
+                    })
                 ) : (
                   <tr>
                     <td
@@ -743,16 +760,17 @@ const AdminAttendancePage = () => {
             </table>
           </div>
         )}
-        
-        {!isLoading && Math.ceil(filteredAttendance.length / itemsPerPage) > 1 && (
-          <div className="p-4 border-t border-white/20">
-            <Pagination
-              currentPage={currentPage}
-              totalPages={Math.ceil(filteredAttendance.length / itemsPerPage)}
-              onPageChange={setCurrentPage}
-            />
-          </div>
-        )}
+
+        {!isLoading &&
+          Math.ceil(filteredAttendance.length / itemsPerPage) > 1 && (
+            <div className="p-4 border-t border-white/20">
+              <Pagination
+                currentPage={currentPage}
+                totalPages={Math.ceil(filteredAttendance.length / itemsPerPage)}
+                onPageChange={setCurrentPage}
+              />
+            </div>
+          )}
       </div>
 
       <AnimatePresence>
@@ -806,19 +824,16 @@ const AdminAttendancePage = () => {
                         required
                       >
                         <option value="">-- Chọn nhân viên --</option>
-                        {employees.map((emp) => {
-                          // console.log(emp)
+                        {employees.map((emp, index) => {
                           const value =
-                            emp.userId ||
                             emp.id ||
                             emp.employeeId ||
-                            emp.userName ||
+                            emp.employee_id ||
+                            emp.userId ||
                             "";
+                          const optionKey = `${value}_${emp.userId || emp.user_id || index}`;
                           return (
-                            <option
-                              key={`${value}_${emp.id || emp.employeeId || emp.userId || emp.userName || Math.random()}`}
-                              value={value}
-                            >
+                            <option key={optionKey} value={value}>
                               {getEmployeeOptionLabel(emp)}
                             </option>
                           );
