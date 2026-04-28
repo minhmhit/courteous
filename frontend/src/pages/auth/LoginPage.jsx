@@ -5,6 +5,8 @@ import useAuthStore from "../../stores/useAuthStore";
 import useToastStore from "../../stores/useToastStore";
 import Input from "../../components/ui/Input";
 import Button from "../../components/ui/Button";
+import { employeeAPI } from "../../services";
+import { getEnterpriseLandingPath } from "../../utils/employeeAccess";
 
 const LoginPage = () => {
   const navigate = useNavigate();
@@ -49,18 +51,22 @@ const LoginPage = () => {
       //    - Role 4 (Sales) -> /admin/sales-dashboard
       //    - Role 5 (HRM) -> /admin/hrm-dashboard
       //    - Role 2 (Customer) -> / (homepage)
-      if (from) {
+      let employeeProfile = null;
+      if ([2, 4, 5].includes(Number(roleId))) {
+        try {
+          const profileRes = await employeeAPI.getMyProfile();
+          employeeProfile = profileRes?.data || profileRes || null;
+        } catch {
+          employeeProfile = null;
+        }
+      }
+
+      const landingPath = getEnterpriseLandingPath(roleId, employeeProfile);
+
+      if (from && !(from.startsWith("/admin") && landingPath === "/employee/dashboard")) {
         navigate(from, { replace: true });
-      } else if (roleId === 1) {
-        navigate("/admin/dashboard", { replace: true });
-      } else if (roleId === 3) {
-        navigate("/admin/warehouse-dashboard", { replace: true });
-      } else if (roleId === 4) {
-        navigate("/admin/sales-dashboard", { replace: true });
-      } else if (roleId === 5) {
-        navigate("/admin/hrm-dashboard", { replace: true });
       } else {
-        navigate("/", { replace: true });
+        navigate(landingPath, { replace: true });
       }
     } catch (error) {
       toast.error(error.message || "Đăng nhập thất bại");

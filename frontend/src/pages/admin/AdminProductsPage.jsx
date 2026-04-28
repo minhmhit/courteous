@@ -271,7 +271,7 @@ const AdminProductsPage = () => {
       "Mã SP": product.id,
       "Tên Sản Phẩm": product.name,
       "Danh Mục": product.categoryName,
-      
+      "Giá Nhập": product.costPrice || product.cost_price || 0,
       "Giá": product.price,
       "Tồn Kho": product.stockQuantity || 0,
       "Nhà Cung Cấp": product.supplierName || "",
@@ -558,7 +558,9 @@ const AdminProductsPage = () => {
                   <th className="px-6 py-4 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                     Nhà Cung Cấp
                   </th>
-                 
+                  <th className="px-6 py-4 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                    Giá Nhập
+                  </th>
                   <th className="px-6 py-4 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                     Giá Bán
                   </th>
@@ -607,7 +609,15 @@ const AdminProductsPage = () => {
                           )}
                         </span>
                       </td>
-                     
+                      <td className="px-6 py-4">
+                        <span className="font-medium text-gray-700">
+                          {Number(product.costPrice || product.cost_price || 0) > 0
+                            ? formatPrice(
+                                Number(product.costPrice || product.cost_price || 0),
+                              )
+                            : "Chưa có"}
+                        </span>
+                      </td>
                       <td className="px-6 py-4">
                         <span className="font-semibold text-coffee-600">
                           {formatPrice(product.price)}
@@ -647,7 +657,7 @@ const AdminProductsPage = () => {
                 ) : (
                   <tr>
                     <td
-                      colSpan="7"
+                      colSpan="8"
                       className="px-6 py-12 text-center text-gray-500"
                     >
                       {searchTerm
@@ -740,7 +750,21 @@ const AdminProductsPage = () => {
                     </div>
 
                     <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                     
+                      <div>
+                        <label className="block text-sm font-medium text-gray-700 mb-2">
+                          Giá Nhập gần nhất
+                        </label>
+                        <input
+                          type="text"
+                          value={
+                            formData.costPrice
+                              ? formatPrice(Number(formData.costPrice))
+                              : "Chưa có phiếu nhập"
+                          }
+                          readOnly
+                          className="w-full px-4 py-2 border border-gray-200 rounded-lg bg-gray-50 text-gray-600"
+                        />
+                      </div>
 
                       <div>
                         <label className="block text-sm font-medium text-gray-700 mb-2">Giá Bán (VNĐ) *</label>
@@ -928,3 +952,5 @@ const AdminProductsPage = () => {
 };
 
 export default AdminProductsPage;
+
+

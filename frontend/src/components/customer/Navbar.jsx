@@ -1,5 +1,5 @@
-﻿import { useState, useEffect } from "react";
-import { Link, useNavigate } from "react-router-dom";
+﻿import { useState, useEffect, useRef } from "react";
+import { Link, useLocation, useNavigate } from "react-router-dom";
 import { motion, AnimatePresence } from "framer-motion";
 import {
   ShoppingCart,
@@ -27,8 +27,10 @@ const Navbar = () => {
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
   const [isUserMenuOpen, setIsUserMenuOpen] = useState(false);
   const [searchQuery, setSearchQuery] = useState("");
+  const userMenuRef = useRef(null);
 
   const navigate = useNavigate();
+  const location = useLocation();
   const { user, logout } = useAuthStore();
   const { totalItems, fetchCart, clearCart } = useCartStore();
 
@@ -52,6 +54,24 @@ const Navbar = () => {
     window.addEventListener("scroll", handleScroll);
     return () => window.removeEventListener("scroll", handleScroll);
   }, []);
+
+  useEffect(() => {
+    const handlePointerDown = (event) => {
+      if (userMenuRef.current && !userMenuRef.current.contains(event.target)) {
+        setIsUserMenuOpen(false);
+      }
+    };
+
+    document.addEventListener("mousedown", handlePointerDown);
+
+    return () => {
+      document.removeEventListener("mousedown", handlePointerDown);
+    };
+  }, []);
+
+  useEffect(() => {
+    setIsUserMenuOpen(false);
+  }, [location.pathname]);
 
   const handleSearch = (e) => {
     e.preventDefault();
@@ -144,7 +164,7 @@ const Navbar = () => {
             </Link>
 
             {user ? (
-              <div className="relative">
+              <div ref={userMenuRef} className="relative">
                 <button
                   onClick={() => setIsUserMenuOpen(!isUserMenuOpen)}
                   className="glass-card flex items-center gap-3 rounded-2xl px-3 py-2 text-left"
@@ -194,7 +214,7 @@ const Navbar = () => {
                           <span>Quản trị</span>
                         </Link>
                       )}
-                      <div className="my-2 border-t border-white/25" />
+                      <div className="mb-1 mt-0.5 border-t border-white/25" />
                       <button
                         onClick={handleLogout}
                         className="flex w-full items-center gap-3 rounded-2xl px-4 py-3 text-sm text-rose-600 hover:bg-rose-50/80"

@@ -27,7 +27,6 @@ const RegisterPage = () => {
     addressType: "home",
   });
 
-  // Province/District/Ward states
   const [provinces, setProvinces] = useState([]);
   const [districts, setDistricts] = useState([]);
   const [wards, setWards] = useState([]);
@@ -42,7 +41,6 @@ const RegisterPage = () => {
     });
   };
 
-  // Fetch provinces on mount
   useEffect(() => {
     const fetchProvinces = async () => {
       try {
@@ -53,6 +51,7 @@ const RegisterPage = () => {
         toast.error("Không thể tải danh sách tỉnh thành");
       }
     };
+
     fetchProvinces();
   }, [toast]);
 
@@ -146,7 +145,6 @@ const RegisterPage = () => {
     setIsLoading(true);
 
     try {
-      
       const fullAddress = [
         addressData.fullAddress,
         selectedWard?.name,
@@ -155,16 +153,16 @@ const RegisterPage = () => {
       ]
         .filter(Boolean)
         .join(", ");
-          await register({
+
+      await register({
         name: formData.name,
         email: formData.email,
         password: formData.password,
-        receiverName: addressData.receiverName,
-        fullAddress: fullAddress,
+        fullAddress,
         phoneNumber: addressData.phoneNumber,
         addressType: addressData.addressType,
       });
-      
+
       toast.success("Đăng ký thành công! Vui lòng đăng nhập");
       navigate("/login");
     } catch (error) {
@@ -178,7 +176,6 @@ const RegisterPage = () => {
     <div className="min-h-screen bg-gradient-to-br from-coffee-50 to-cream-100 flex items-center justify-center p-4">
       <div className="w-full max-w-6xl">
         <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-          {/* Form Đăng Ký - Bên Trái */}
           <div className="bg-white rounded-2xl shadow-xl p-8">
             <div className="text-center mb-8">
               <Coffee className="w-16 h-16 mx-auto mb-4 text-coffee-600" />
@@ -245,7 +242,6 @@ const RegisterPage = () => {
             </p>
           </div>
 
-          {/* Form Địa Chỉ - Bên Phải */}
           <div className="bg-white rounded-2xl shadow-xl p-8">
             <div className="text-center mb-8">
               <div className="w-16 h-16 mx-auto mb-4 bg-coffee-100 rounded-full flex items-center justify-center">
@@ -285,7 +281,6 @@ const RegisterPage = () => {
                 required
               />
 
-              {/* 3 Dropdowns nằm ngang */}
               <div className="grid grid-cols-3 gap-3">
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-2">
@@ -378,7 +373,7 @@ const RegisterPage = () => {
               </div>
 
               <div className="bg-blue-50 border border-blue-200 rounded-lg p-3 text-xs text-blue-700">
-                 Địa chỉ này sẽ được đặt làm địa chỉ mặc định cho các đơn hàng tiếp theo !
+                Địa chỉ này sẽ được đặt làm địa chỉ mặc định cho các đơn hàng tiếp theo!
               </div>
             </form>
           </div>
