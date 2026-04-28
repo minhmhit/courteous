@@ -60,6 +60,7 @@ const AdminHRMPage = () => {
     baseSalary: "",
     roleEffectiveDate: new Date().toISOString().split("T")[0],
   });
+  const isEditing = Boolean(editingEmployee);
 
   useEffect(() => {
     fetchEmployees();
@@ -242,9 +243,6 @@ const AdminHRMPage = () => {
       );
 
       if (editingEmployee) {
-        if (!formData.password) {
-          delete submitData.password;
-        }
         await employeeAPI.updateEmployee(editingEmployee.id, submitData);
 
         const hasPositionChange =
@@ -304,7 +302,6 @@ const AdminHRMPage = () => {
     try {
       await employeeAPI.updateEmployeeStatus(employeeId, {
         status: "TERMINATED",
-        isActive: 0,
       });
       toast.success("\u0110\u00e3 x\u00f3a nh\u00e2n vi\u00ean");
       fetchEmployees();
@@ -729,6 +726,7 @@ const AdminHRMPage = () => {
                           setFormData({ ...formData, email: e.target.value })
                         }
                         required
+                        disabled={isEditing}
                         icon={<Mail className="w-5 h-5" />}
                       />
                       <Input
@@ -744,6 +742,7 @@ const AdminHRMPage = () => {
                           setFormData({ ...formData, password: e.target.value })
                         }
                         required={!editingEmployee}
+                        disabled={isEditing}
                       />
                     </div>
 
@@ -755,6 +754,7 @@ const AdminHRMPage = () => {
                         onChange={(e) =>
                           setFormData({ ...formData, username: e.target.value })
                         }
+                        disabled={isEditing}
                       />
                       <Input
                         label="Mã Nhân Viên *"
@@ -764,6 +764,7 @@ const AdminHRMPage = () => {
                           setFormData({ ...formData, employeeCode: e.target.value })
                         }
                         required
+                        disabled={isEditing}
                       />
                     </div>
 
@@ -786,6 +787,7 @@ const AdminHRMPage = () => {
                         onChange={(e) =>
                           setFormData({ ...formData, phoneNumber: e.target.value })
                         }
+                        disabled={isEditing}
                         icon={<Phone className="w-5 h-5" />}
                       />
                     </div>
@@ -799,6 +801,7 @@ const AdminHRMPage = () => {
                           setFormData({ ...formData, fullName: e.target.value })
                         }
                         required
+                        disabled={isEditing}
                       />
                       <Input
                         label="Địa chỉ"
@@ -824,6 +827,7 @@ const AdminHRMPage = () => {
                         }
                         className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-coffee-500"
                         required
+                        disabled={isEditing}
                       >
                         <option value="">-- Chọn quyền --</option>
                         <option value={2}>Nhân viên</option>

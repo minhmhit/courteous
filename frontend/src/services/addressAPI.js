@@ -26,10 +26,6 @@ const addressAPI = {
     return await axiosInstance.delete(`/addresses/${id}`);
   },
 
-  // Đặt địa chỉ làm mặc định
-  setDefaultAddress: async (id) => {
-    return await axiosInstance.put(`/addresses/${id}/set-default`);
-  },
 };
 
 export default addressAPI;

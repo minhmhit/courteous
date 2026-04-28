@@ -15,6 +15,12 @@ import { authAPI, orderAPI, userAPI, addressAPI } from "../../services";
 import { formatDate } from "../../utils/formatDate";
 import { Trash2 } from "lucide-react";
 
+const unwrapApiData = (response) => response?.data?.data || response?.data || null;
+const unwrapApiList = (response) => {
+  const data = unwrapApiData(response);
+  return Array.isArray(data) ? data : [];
+};
+
 const ProfilePage = () => {
   const { user, updateProfile } = useAuthStore();
   const toast = useToastStore();
@@ -67,11 +73,11 @@ const ProfilePage = () => {
 
       const authUser =
         authProfile.status === "fulfilled"
-          ? authProfile.value?.data || authProfile.value
+          ? unwrapApiData(authProfile.value)
           : null;
       const selfUser =
         userProfile.status === "fulfilled"
-          ? userProfile.value?.data || userProfile.value
+          ? unwrapApiData(userProfile.value)
           : null;
 
       setProfileData(selfUser || authUser || user || null);
@@ -89,9 +95,7 @@ const ProfilePage = () => {
       setIsLoadingAddresses(true);
       try {
         const response = await addressAPI.getMyAddresses();
-        console.log("Addresses response:", response);
-        const addressList = response?.data || response || [];
-        setAddresses(Array.isArray(addressList) ? addressList : []);
+        setAddresses(unwrapApiList(response));
       } catch (error) {
         console.error("Error fetching addresses:", error);
         setAddresses([]);
@@ -143,6 +147,7 @@ const ProfilePage = () => {
       await authAPI.changePassword({
         currentPassword: passwordForm.currentPassword,
         newPassword: passwordForm.newPassword,
+        confirmPassword: passwordForm.confirmPassword,
       });
       toast.success("Đổi mật khẩu thành công!");
       setPasswordForm({
@@ -199,8 +204,7 @@ const ProfilePage = () => {
 
       // Refresh addresses list
       const response = await addressAPI.getMyAddresses();
-      const addressList = response?.data || response || [];
-      setAddresses(Array.isArray(addressList) ? addressList : []);
+      setAddresses(unwrapApiList(response));
     } catch (error) {
       toast.error(error?.message || "Không thể thêm địa chỉ");
     } finally {
@@ -220,8 +224,7 @@ const ProfilePage = () => {
 
       // Refresh addresses list
       const response = await addressAPI.getMyAddresses();
-      const addressList = response?.data || response || [];
-      setAddresses(Array.isArray(addressList) ? addressList : []);
+      setAddresses(unwrapApiList(response));
     } catch (error) {
       toast.error(error?.message || "Không thể xóa địa chỉ");
     } finally {
