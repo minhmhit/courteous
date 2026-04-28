@@ -26,7 +26,14 @@ const ContactPage = lazy(() => import("./pages/customer/ContactPage"));
 const LoginPage = lazy(() => import("./pages/auth/LoginPage"));
 const RegisterPage = lazy(() => import("./pages/auth/RegisterPage"));
 const AdminLayout = lazy(() => import("./pages/admin/AdminLayout"));
+const EmployeeLayout = lazy(() => import("./pages/employee/EmployeeLayout"));
 const DashboardPage = lazy(() => import("./pages/admin/DashboardPage"));
+const EmployeeDashboardPage = lazy(() =>
+  import("./pages/employee/EmployeeDashboardPage"),
+);
+const EmployeeAttendancePage = lazy(() =>
+  import("./pages/employee/EmployeeAttendancePage"),
+);
 const AdminProductsPage = lazy(() => import("./pages/admin/AdminProductsPage"));
 const AdminOrdersPage = lazy(() => import("./pages/admin/AdminOrdersPage"));
 const AdminUsersPage = lazy(() => import("./pages/admin/AdminUsersPage"));
@@ -324,6 +331,21 @@ function App() {
                   </ProtectedRoute>
                 }
               />
+            </Route>
+
+            <Route
+              path="/employee"
+              element={
+                <ProtectedRoute>
+                  <EmployeeLayout />
+                </ProtectedRoute>
+              }
+            >
+              <Route index element={<Navigate to="/employee/dashboard" replace />} />
+              <Route path="dashboard" element={<EmployeeDashboardPage />} />
+              <Route path="attendance" element={<EmployeeAttendancePage />} />
+              <Route path="leave" element={<AdminLeavePage />} />
+              <Route path="payroll" element={<AdminPayrollPage />} />
             </Route>
 
             <Route path="*" element={<Navigate to="/" replace />} />

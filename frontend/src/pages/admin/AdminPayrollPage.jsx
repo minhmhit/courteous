@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from "react";
+import { useLocation } from "react-router-dom";
 import {
   Printer,
   Wallet,
@@ -6,6 +7,8 @@ import {
   CheckCircle,
   DollarSign,
   Lock,
+  ChevronDown,
+  ChevronUp,
 } from "lucide-react";
 import useAuthStore from "../../stores/useAuthStore";
 import useToastStore from "../../stores/useToastStore";
@@ -27,8 +30,10 @@ import Pagination from "../../components/ui/Pagination";
 const AdminPayrollPage = () => {
   const { user } = useAuthStore();
   const toast = useToastStore();
-  const roleId = user?.roleId || user?.role_id || user?.role;
-  const isHR = roleId === 1 || roleId === 5;
+  const location = useLocation();
+  const roleId = Number(user?.roleId || user?.role_id || user?.role || 0);
+  const isEmployeePortal = location.pathname.startsWith("/employee");
+  const isHR = !isEmployeePortal && (roleId === 1 || roleId === 5);
 
   const [reportType, setReportType] = useState("month");
   const [selectedMonth, setSelectedMonth] = useState(
@@ -44,8 +49,30 @@ const AdminPayrollPage = () => {
   const [periods, setPeriods] = useState([]);
   const [reloadToggle, setReloadToggle] = useState(false);
   const [attendanceByEmployee, setAttendanceByEmployee] = useState({});
+  const [myEmployeeProfile, setMyEmployeeProfile] = useState(null);
   const [currentPage, setCurrentPage] = useState(1);
+  const [expandedPayrollRows, setExpandedPayrollRows] = useState({});
   const itemsPerPage = 6;
+  const internalEmployeeId = myEmployeeProfile?.id || myEmployeeProfile?.employeeId || null;
+
+  const getPeriodMonthValue = (period) => {
+    if (!period) return null;
+    const month =
+      Number(period.monthNo || period.month_no || period.month || 0) || null;
+    const year =
+      Number(period.yearNo || period.year_no || period.year || 0) || null;
+
+    if (month && year) {
+      return `${year}-${String(month).padStart(2, "0")}`;
+    }
+
+    const start = period.startDate || period.start_date || period.fromDate || period.from_date;
+    if (!start) return null;
+
+    const date = new Date(start);
+    if (Number.isNaN(date.getTime())) return null;
+    return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, "0")}`;
+  };
 
   useEffect(() => {
     if (!isHR) return;
@@ -62,6 +89,39 @@ const AdminPayrollPage = () => {
   }, [isHR]);
 
   useEffect(() => {
+    let isMounted = true;
+
+    const fetchMyEmployeeProfile = async () => {
+      if (![3, 4, 5].includes(Number(roleId))) {
+        setMyEmployeeProfile(null);
+        return;
+      }
+
+      try {
+        const res = await employeeAPI.getMyProfile();
+        if (isMounted) {
+          setMyEmployeeProfile(res?.data || res || null);
+        }
+      } catch {
+        if (isMounted) {
+          setMyEmployeeProfile(null);
+        }
+      }
+    };
+
+    fetchMyEmployeeProfile();
+
+    return () => {
+      isMounted = false;
+    };
+  }, [roleId]);
+
+  useEffect(() => {
+    if (!isHR) {
+      setPeriods([]);
+      return;
+    }
+
     const fetchPeriods = async () => {
       try {
         const res = await payrollPeriodAPI.getAllPeriods();
@@ -74,13 +134,37 @@ const AdminPayrollPage = () => {
           data?.data ||
           data ||
           [];
-        setPeriods(Array.isArray(list) ? list : []);
+        const normalizedList = Array.isArray(list) ? list : [];
+        setPeriods(normalizedList);
+
+        if (normalizedList.length > 0) {
+          const hasCurrentPeriod = normalizedList.some(
+            (period) => getPeriodMonthValue(period) === selectedMonth,
+          );
+
+          if (!hasCurrentPeriod) {
+            const latestPeriod = [...normalizedList].sort((a, b) => {
+              const aValue = getPeriodMonthValue(a) || "";
+              const bValue = getPeriodMonthValue(b) || "";
+              return bValue.localeCompare(aValue);
+            })[0];
+
+            const latestMonth = getPeriodMonthValue(latestPeriod);
+            if (latestMonth) {
+              setSelectedMonth(latestMonth);
+              const latestYear = Number(latestMonth.split("-")[0]);
+              if (latestYear) {
+                setSelectedYear(latestYear);
+              }
+            }
+          }
+        }
       } catch (error) {
         console.error("Error fetching payroll periods:", error);
       }
     };
     fetchPeriods();
-  }, []);
+  }, [isHR, selectedMonth]);
 
   useEffect(() => {
     if (!isHR || reportType !== "month") {
@@ -218,6 +302,7 @@ const AdminPayrollPage = () => {
   const extractList = (res) => {
     const data = res?.data || res;
     if (Array.isArray(data)) return data;
+    if (Array.isArray(data?.attendances)) return data.attendances;
     if (Array.isArray(data?.items)) return data.items;
     if (Array.isArray(data?.payrolls)) return data.payrolls;
     if (Array.isArray(data?.rows)) return data.rows;
@@ -226,10 +311,14 @@ const AdminPayrollPage = () => {
   };
 
   const normalizeRow = (item, fallbackName) => {
+    const salaryPayload = item.salary || item.payroll || {};
+    const employeePayload = item.employee || item.user || {};
+    const periodPayload = item.period || {};
     const employeeId =
       item.employeeId ||
       item.employee_id ||
       item.employee?.id ||
+      employeePayload.id ||
       item.userId ||
       item.user?.id ||
       item.user_id;
@@ -238,6 +327,8 @@ const AdminPayrollPage = () => {
       item.employee_name ||
       item.employee?.name ||
       item.employee?.fullName ||
+      employeePayload.name ||
+      employeePayload.fullName ||
       item.userName ||
       item.username ||
       item.user?.name ||
@@ -249,6 +340,8 @@ const AdminPayrollPage = () => {
     const baseSalary = Number(
       item.baseSalary ||
         item.base_salary ||
+        salaryPayload.baseSalary ||
+        salaryPayload.base_salary ||
         item.basicSalary ||
         item.basic_salary ||
         item.salary_base ||
@@ -263,25 +356,61 @@ const AdminPayrollPage = () => {
       null;
     const salary = Number(
       item.totalSalary ||
-        
+        item.total_salary ||
+        item.netSalary ||
+        item.net_salary ||
+        item.payableSalary ||
+        item.payable_salary ||
+        salaryPayload.totalSalary ||
+        salaryPayload.total_salary ||
+        salaryPayload.netSalary ||
+        salaryPayload.net_salary ||
+        salaryPayload.payableSalary ||
+        salaryPayload.payable_salary ||
         0,
     );
     const periodLabel =
       item.periodName ||
       item.period_name ||
       item.period ||
+      periodPayload.code ||
+      periodPayload.periodCode ||
+      (periodPayload.monthNo && periodPayload.yearNo
+        ? `${periodPayload.monthNo}/${periodPayload.yearNo}`
+        : "") ||
       item.month ||
       item.label ||
       "";
     const status = item.status || item.payrollStatus || "";
-    const allowance = Number(item.allowanceTotal || item.allowance_total || 0);
+    const allowance = Number(
+      item.allowanceTotal ||
+        item.allowance_total ||
+        salaryPayload.allowanceTotal ||
+        salaryPayload.allowance_total ||
+        0,
+    );
     const bonus = Number(
-      item.bonusTotal || item.bonus_total || item.bonus || 0,
+      item.bonusTotal ||
+        item.bonus_total ||
+        item.bonus ||
+        salaryPayload.bonusTotal ||
+        salaryPayload.bonus_total ||
+        0,
     );
     const insurance = Number(
-      item.insuranceAmount || item.insurance_amount || 0,
+      item.insuranceAmount ||
+        item.insurance_amount ||
+        salaryPayload.insuranceAmount ||
+        salaryPayload.insurance_amount ||
+        0,
     );
-    const tax = Number(item.taxAmount || item.tax_amount || 0);
+    const tax = Number(
+      item.taxAmount ||
+        item.tax_amount ||
+        salaryPayload.taxAmount ||
+        salaryPayload.tax_amount ||
+        0,
+    );
     return {
       id:
         item.id ||
@@ -310,6 +439,69 @@ const AdminPayrollPage = () => {
     );
   };
 
+  const applySelectedMonth = (monthValue) => {
+    if (!monthValue) return;
+    setSelectedMonth(monthValue);
+    const nextYear = Number(String(monthValue).split("-")[0]);
+    if (nextYear) {
+      setSelectedYear(nextYear);
+    }
+  };
+
+  const findLatestAdminPayrollPeriod = async () => {
+    const sortedPeriods = [...periods].sort((a, b) => {
+      const aValue = getPeriodMonthValue(a) || "";
+      const bValue = getPeriodMonthValue(b) || "";
+      return bValue.localeCompare(aValue);
+    });
+
+    for (const period of sortedPeriods) {
+      if (!period?.id) continue;
+      const res = await payrollAPI.getPayrolls({ periodId: period.id }).catch(() => null);
+      const list = extractList(res).map((item) => normalizeRow(item));
+      if (list.length > 0) {
+        return { rows: list, period };
+      }
+    }
+
+    return null;
+  };
+
+  const extractMonthlyRowsFromYearly = (yearlyRes, fallbackName) => {
+    const payload = yearlyRes?.data || yearlyRes || {};
+    const months = payload?.months || payload?.monthlyPayrolls || payload?.data?.months || [];
+    if (!Array.isArray(months)) return [];
+
+    return months.map((item) => {
+      const periodMonth = Number(item.monthNo || item.month || item.periodMonth || 0) || null;
+      const periodYear = Number(item.yearNo || item.year || selectedYear) || selectedYear;
+      return {
+        id: item.id || `month-${periodYear}-${periodMonth || "x"}`,
+        employeeId: item.employeeId || null,
+        name: fallbackName,
+        baseSalary: Number(item.baseSalary || 0),
+        workDays: item.workDays || item.work_days || null,
+        salary: Number(
+          item.totalSalary ||
+            item.total_salary ||
+            item.netSalary ||
+            item.net_salary ||
+            item.payableSalary ||
+            item.payable_salary ||
+            0,
+        ),
+        periodLabel:
+          item.periodCode ||
+          item.period ||
+          (periodMonth ? `${periodMonth}/${periodYear}` : `${periodYear}`),
+        monthValue: periodMonth
+          ? `${periodYear}-${String(periodMonth).padStart(2, "0")}`
+          : null,
+        status: item.status || "",
+      };
+    });
+  };
+
   useEffect(() => {
     let isMounted = true;
     const fetchPayroll = async () => {
@@ -322,8 +514,19 @@ const AdminPayrollPage = () => {
             reportType === "month" ? { periodId } : { year: selectedYear };
 
           if (reportType === "month" && !periodId) {
-            setRows([]);
-            setSummary({ totalEmployees: 0, totalSalary: 0 });
+            const fallback = await findLatestAdminPayrollPeriod();
+            if (!isMounted) return;
+            if (fallback) {
+              setRows(fallback.rows);
+              setSummary(buildSummary(fallback.rows));
+              const monthValue = getPeriodMonthValue(fallback.period);
+              if (monthValue && monthValue !== selectedMonth) {
+                applySelectedMonth(monthValue);
+              }
+            } else {
+              setRows([]);
+              setSummary({ totalEmployees: 0, totalSalary: 0 });
+            }
             lastErrorRef.current = "";
             return;
           }
@@ -331,6 +534,17 @@ const AdminPayrollPage = () => {
           const payrollRes = await payrollAPI.getPayrolls(params);
           let list = extractList(payrollRes);
           let normalized = list.map((item) => normalizeRow(item));
+
+          if (reportType === "month" && normalized.length === 0) {
+            const fallback = await findLatestAdminPayrollPeriod();
+            if (fallback) {
+              normalized = fallback.rows;
+              const monthValue = getPeriodMonthValue(fallback.period);
+              if (monthValue && monthValue !== selectedMonth) {
+                applySelectedMonth(monthValue);
+              }
+            }
+          }
 
           if (reportType === "year") {
             const grouped = new Map();
@@ -372,81 +586,167 @@ const AdminPayrollPage = () => {
             setSummary(buildSummary(normalized));
           }
         } else {
-          const fallbackName = user?.name || user?.fullName || "Tôi";
+          const fallbackName =
+            myEmployeeProfile?.user?.name ||
+            myEmployeeProfile?.userName ||
+            myEmployeeProfile?.name ||
+            user?.name ||
+            user?.fullName ||
+            "Tôi";
           if (reportType === "month") {
             const params = getMonthYear();
-            let monthlyRes = await payrollAPI
-              .getMyMonthlySlip(params)
-              .catch(() => null);
-            let list = extractList(monthlyRes);
+            let list = [];
 
-            if (list.length === 0) {
-              const payload = monthlyRes?.data || monthlyRes;
-              if (payload?.payroll) list = [payload.payroll];
-              else if (payload && !Array.isArray(payload)) list = [payload];
-            }
-
-            if (list.length === 0) {
-              const payrollRes = await payrollAPI
-                .getMyPayrolls(params)
-                .catch(() => null);
-              list = extractList(payrollRes);
-            }
-
-            const normalized = list.map((item) =>
+            let normalized = list.map((item) =>
               normalizeRow(item, fallbackName),
             );
+
+            if (normalized.length === 0) {
+              const attendanceRes = await attendanceAPI
+                .getMyAttendance(params)
+                .catch(() => null);
+              const attendances = extractList(attendanceRes);
+              const baseSalary = Number(
+                myEmployeeProfile?.baseSalary ||
+                  myEmployeeProfile?.base_salary ||
+                  myEmployeeProfile?.currentPosition?.baseSalary ||
+                  myEmployeeProfile?.currentPosition?.base_salary ||
+                  myEmployeeProfile?.currentSalary ||
+                  myEmployeeProfile?.current_salary ||
+                  myEmployeeProfile?.position?.baseSalary ||
+                  0,
+              );
+              const allowance = Number(
+                myEmployeeProfile?.allowanceAmount ||
+                  myEmployeeProfile?.allowance_amount ||
+                  myEmployeeProfile?.currentPosition?.allowanceAmount ||
+                  myEmployeeProfile?.currentPosition?.allowance_amount ||
+                  0,
+              );
+
+              if (attendances.length > 0) {
+                const breakdown = calculatePayrollByAttendance({
+                  baseSalary,
+                  allowance,
+                  bonus: 0,
+                  attendances,
+                });
+                const previewNetSalary = Math.max(
+                  0,
+                  baseSalary +
+                    breakdown.allowance +
+                    breakdown.bonus +
+                    breakdown.overtimePay -
+                    breakdown.insuranceAmount -
+                    breakdown.taxAmount -
+                    breakdown.lateDeduction -
+                    breakdown.leaveDeduction,
+                );
+
+                normalized = [
+                  {
+                    id: `preview-${selectedMonth}`,
+                    employeeId: internalEmployeeId,
+                    name: fallbackName,
+                    baseSalary,
+                    workDays: breakdown.workDays,
+                    salary: previewNetSalary,
+                    allowance: breakdown.allowance,
+                    bonus: breakdown.bonus,
+                    insurance: breakdown.insuranceAmount,
+                    tax: breakdown.taxAmount,
+                    overtimeHours: breakdown.overtimeHours,
+                    lateDeduction: breakdown.lateDeduction,
+                    leaveDeduction: breakdown.leaveDeduction,
+                    status: "PREVIEW",
+                    periodLabel: selectedMonth,
+                  },
+                ];
+              }
+            }
+
             if (!isMounted) return;
             setRows(normalized);
             setSummary(buildSummary(normalized));
             setEmptyMessage(
               normalized.length > 0
-                ? "Chưa có dữ liệu lương"
-                : "Tháng này chưa chốt bảng lương",
+                ? "Bảng lương đang hiển thị tạm tính từ chấm công"
+                : "Tháng này chưa có dữ liệu chấm công",
             );
             lastErrorRef.current = "";
           } else {
             const params = { year: selectedYear };
-            let yearlyRes = await payrollAPI
-              .getMyYearlySummary(params)
-              .catch(() => null);
-            let list = extractList(yearlyRes);
-            if (list.length === 0) {
-              const payload = yearlyRes?.data || yearlyRes;
-              if (Array.isArray(payload?.summary)) list = payload.summary;
-              else if (Array.isArray(payload?.months)) list = payload.months;
-              else if (Array.isArray(payload?.yearly)) list = payload.yearly;
-            }
+            const baseSalary = Number(
+              myEmployeeProfile?.baseSalary ||
+                myEmployeeProfile?.base_salary ||
+                myEmployeeProfile?.currentPosition?.baseSalary ||
+                myEmployeeProfile?.currentPosition?.base_salary ||
+                myEmployeeProfile?.currentSalary ||
+                myEmployeeProfile?.current_salary ||
+                myEmployeeProfile?.position?.baseSalary ||
+                0,
+            );
+            const allowance = Number(
+              myEmployeeProfile?.allowanceAmount ||
+                myEmployeeProfile?.allowance_amount ||
+                myEmployeeProfile?.currentPosition?.allowanceAmount ||
+                myEmployeeProfile?.currentPosition?.allowance_amount ||
+                0,
+            );
+            const normalized = [];
 
-            const normalized = list.map((item) => {
-              const monthLabel =
-                item.month ||
-                item.period ||
-                item.label ||
-                item.periodLabel ||
-                item.name ||
-                "";
-              return {
-                id: item.id || `month-${monthLabel}`,
-                name: monthLabel ? `Tháng ${monthLabel}` : `${selectedYear}`,
-                baseSalary: Number(item.baseSalary || 0),
-                workDays: item.workDays || item.work_days || null,
-                salary: Number(
-                  item.totalSalary ||
-                    item.total_salary ||
-                    item.netSalary ||
-                    item.amount ||
-                    item.total ||
-                    0,
-                ),
-                periodLabel: monthLabel,
-              };
-            });
+            for (let month = 1; month <= 12; month += 1) {
+              const attendanceRes = await attendanceAPI
+                .getMyAttendance({ year: params.year, month })
+                .catch(() => null);
+              const attendances = extractList(attendanceRes);
+              if (!attendances.length) continue;
+
+              const breakdown = calculatePayrollByAttendance({
+                baseSalary,
+                allowance,
+                bonus: 0,
+                attendances,
+              });
+              const previewNetSalary = Math.max(
+                0,
+                baseSalary +
+                  breakdown.allowance +
+                  breakdown.bonus +
+                  breakdown.overtimePay -
+                  breakdown.insuranceAmount -
+                  breakdown.taxAmount -
+                  breakdown.lateDeduction -
+                  breakdown.leaveDeduction,
+              );
+
+              normalized.push({
+                id: `preview-${selectedYear}-${month}`,
+                employeeId: internalEmployeeId,
+                name: `Tháng ${month}`,
+                baseSalary,
+                workDays: breakdown.workDays,
+                salary: previewNetSalary,
+                allowance: breakdown.allowance,
+                bonus: breakdown.bonus,
+                insurance: breakdown.insuranceAmount,
+                tax: breakdown.taxAmount,
+                overtimeHours: breakdown.overtimeHours,
+                lateDeduction: breakdown.lateDeduction,
+                leaveDeduction: breakdown.leaveDeduction,
+                status: "PREVIEW",
+                periodLabel: `${month}/${selectedYear}`,
+              });
+            }
 
             if (!isMounted) return;
             setRows(normalized);
             setSummary(buildSummary(normalized));
-            setEmptyMessage("Chưa có dữ liệu lương");
+            setEmptyMessage(
+              normalized.length > 0
+                ? "Bảng lương năm đang hiển thị tạm tính từ chấm công"
+                : "Năm này chưa có dữ liệu chấm công",
+            );
             lastErrorRef.current = "";
           }
         }
@@ -472,6 +772,7 @@ const AdminPayrollPage = () => {
     selectedMonth,
     selectedYear,
     isHR,
+    internalEmployeeId,
     employeeMap,
     user,
     reloadToggle,
@@ -480,40 +781,8 @@ const AdminPayrollPage = () => {
   const payrollRows = useMemo(() => {
     if (!isHR || reportType !== "month") return rows;
 
-    const applyFormula = (row) => {
-      const key = String(row.employeeId || "");
-      const attendances = attendanceByEmployee[key] || [];
-      const baseSalary = Number(
-        row.baseSalary || employeeBaseSalaryMap[key] || 0,
-      );
-      const allowance = Number(row.allowance || employeeAllowanceMap[key] || 0);
-      const bonus = Number(row.bonus || 0);
-      const breakdown = calculatePayrollByAttendance({
-        baseSalary,
-        allowance,
-        bonus,
-        attendances,
-      });
-
-      return {
-        ...row,
-        baseSalary,
-        salary: breakdown.netSalary,
-        workDays: breakdown.workDays,
-        overtimeHours: breakdown.overtimeHours,
-        allowance: breakdown.allowance,
-        bonus: breakdown.bonus,
-        insurance: breakdown.insuranceAmount,
-        tax: breakdown.taxAmount,
-        lateDays: breakdown.lateDays,
-        leaveDays: breakdown.leaveDays,
-        lateDeduction: breakdown.lateDeduction,
-        leaveDeduction: breakdown.leaveDeduction,
-      };
-    };
-
     if (rows.length > 0) {
-      return rows.map(applyFormula);
+      return rows;
     }
 
     // Nếu backend chưa generate payroll, vẫn hiển thị bảng lương dự kiến từ chấm công.
@@ -687,15 +956,23 @@ const AdminPayrollPage = () => {
     window.print();
   };
 
+  const togglePayrollDetails = (rowId) => {
+    setExpandedPayrollRows((prev) => ({
+      ...prev,
+      [rowId]: !prev[rowId],
+    }));
+  };
+
   const showWorkDays = reportType === "month";
   const isYearView = reportType === "year";
   const showActions = isHR && reportType === "month";
+  const compactHrMonthView = showWorkDays && isHR;
   const displayRows = isHR && reportType === "month" ? payrollRows : rows;
   const firstColumnLabel = isHR
-    ? "Nhân viên"
+    ? "Nh\u00e2n vi\u00ean"
     : reportType === "year"
-      ? "Kỳ lương"
-      : "Nhân viên";
+      ? "K\u1ef3 l\u01b0\u01a1ng"
+      : "Nh\u00e2n vi\u00ean";
 
   const STATUS_BADGE = {
     DRAFT: "bg-yellow-100 text-yellow-800",
@@ -825,55 +1102,25 @@ const AdminPayrollPage = () => {
                 </th>
                 {!isYearView && (
                   <th className="px-4 py-3 text-right text-xs font-medium text-gray-500 uppercase">
-                    Lương cơ bản
-                  </th>
-                )}
-                {showWorkDays && isHR && (
-                  <th className="px-4 py-3 text-right text-xs font-medium text-gray-500 uppercase">
-                    Ngày công
-                  </th>
-                )}
-                {showWorkDays && isHR && (
-                  <th className="px-4 py-3 text-right text-xs font-medium text-gray-500 uppercase">
-                    OT (giờ)
-                  </th>
-                )}
-                {showWorkDays && isHR && (
-                  <th className="px-4 py-3 text-right text-xs font-medium text-gray-500 uppercase">
-                    Phụ cấp
-                  </th>
-                )}
-                {showWorkDays && isHR && (
-                  <th className="px-4 py-3 text-right text-xs font-medium text-gray-500 uppercase">
-                    Thưởng
-                  </th>
-                )}
-                {showWorkDays && isHR && (
-                  <th className="px-4 py-3 text-right text-xs font-medium text-gray-500 uppercase">
-                    Bảo hiểm
-                  </th>
-                )}
-                {showWorkDays && isHR && (
-                  <th className="px-4 py-3 text-right text-xs font-medium text-gray-500 uppercase">
-                    Thuế
-                  </th>
-                )}
-                {showWorkDays && isHR && (
-                  <th className="px-4 py-3 text-right text-xs font-medium text-gray-500 uppercase">
-                    Trừ trễ + nghỉ
+                    {"L\u01b0\u01a1ng c\u01a1 b\u1ea3n"}
                   </th>
                 )}
                 <th className="px-4 py-3 text-right text-xs font-medium text-gray-500 uppercase">
-                  Thực lãnh
+                  {"Th\u1ef1c l\u00e3nh"}
                 </th>
+                {compactHrMonthView && (
+                  <th className="px-4 py-3 text-center text-xs font-medium text-gray-500 uppercase">
+                    {"Chi ti\u1ebft"}
+                  </th>
+                )}
                 {showActions && (
                   <th className="px-4 py-3 text-center text-xs font-medium text-gray-500 uppercase">
-                    Trạng thái
+                    {"Tr\u1ea1ng th\u00e1i"}
                   </th>
                 )}
                 {showActions && (
                   <th className="px-4 py-3 text-right text-xs font-medium text-gray-500 uppercase">
-                    Thao tác
+                    {"Thao t\u00e1c"}
                   </th>
                 )}
               </tr>
@@ -882,117 +1129,139 @@ const AdminPayrollPage = () => {
               {isLoading ? (
                 <tr>
                   <td
-                    colSpan={10}
+                    colSpan={compactHrMonthView ? (showActions ? 6 : 4) : showActions ? 5 : 3}
                     className="px-6 py-12 text-center text-gray-500"
                   >
-                    Đang tải dữ liệu...
+                    {"\u0110ang t\u1ea3i d\u1eef li\u1ec7u..."}
                   </td>
                 </tr>
               ) : displayRows.length > 0 ? (
-                displayRows.slice((currentPage - 1) * itemsPerPage, currentPage * itemsPerPage).map((row) => (
-                  <tr key={row.id}>
-                    <td className="px-4 py-3 text-gray-900">
-                      {row.name || row.periodLabel || "--"}
-                    </td>
-                    {!isYearView && (
-                      <td className="px-4 py-3 text-right text-gray-900">
-                        {formatCurrency(row.baseSalary || 0)}
-                      </td>
-                    )}
-                    {showWorkDays && isHR && (
-                      <td className="px-4 py-3 text-right text-gray-600">
-                        {Number(row.workDays || 0).toFixed(2)}
-                      </td>
-                    )}
-                    {showWorkDays && isHR && (
-                      <td className="px-4 py-3 text-right text-gray-600">
-                        {Number(row.overtimeHours || 0).toFixed(2)}
-                      </td>
-                    )}
-                    {showWorkDays && isHR && (
-                      <td className="px-4 py-3 text-right text-gray-600">
-                        {formatCurrency(row.allowance || 0)}
-                      </td>
-                    )}
-                    {showWorkDays && isHR && (
-                      <td className="px-4 py-3 text-right text-gray-600">
-                        {formatCurrency(row.bonus || 0)}
-                      </td>
-                    )}
-                    {showWorkDays && isHR && (
-                      <td className="px-4 py-3 text-right text-gray-600">
-                        -{formatCurrency(row.insurance || 0)}
-                      </td>
-                    )}
-                    {showWorkDays && isHR && (
-                      <td className="px-4 py-3 text-right text-gray-600">
-                        -{formatCurrency(row.tax || 0)}
-                      </td>
-                    )}
-                    {showWorkDays && isHR && (
-                      <td className="px-4 py-3 text-right text-gray-600">
-                        -
-                        {formatCurrency(
-                          Number(row.lateDeduction || 0) +
-                            Number(row.leaveDeduction || 0),
+                displayRows
+                  .slice((currentPage - 1) * itemsPerPage, currentPage * itemsPerPage)
+                  .map((row) => {
+                    const deductionTotal =
+                      Number(row.lateDeduction || 0) + Number(row.leaveDeduction || 0);
+                    const isExpanded = Boolean(expandedPayrollRows[row.id]);
+
+                    if (compactHrMonthView) {
+                      return [
+                        <tr key={row.id}>
+                          <td className="px-4 py-3 text-gray-900">
+                            {row.name || row.periodLabel || "--"}
+                          </td>
+                          <td className="px-4 py-3 text-right text-gray-900">
+                            {formatCurrency(row.baseSalary || 0)}
+                          </td>
+                          <td className="px-4 py-3 text-right font-semibold text-gray-900">
+                            {formatCurrency(row.salary || 0)}
+                          </td>
+                          <td className="px-4 py-3 text-center">
+                            <button
+                              type="button"
+                              onClick={() => togglePayrollDetails(row.id)}
+                              className="inline-flex items-center gap-1 rounded-lg border border-stone-200 px-3 py-1.5 text-xs font-medium text-stone-700 hover:bg-stone-50 transition-colors"
+                            >
+                              {isExpanded ? (
+                                <>
+                                  <ChevronUp className="w-3.5 h-3.5" />
+                                  {"\u1ea8n"}
+                                </>
+                              ) : (
+                                <>
+                                  <ChevronDown className="w-3.5 h-3.5" />
+                                  {"Xem"}
+                                </>
+                              )}
+                            </button>
+                          </td>
+                          {showActions && (
+                            <td className="px-4 py-3 text-center">
+                              <span
+                                className={`px-2 py-1 rounded-full text-xs font-medium ${STATUS_BADGE[row.status] || "bg-gray-100 text-gray-600"}`}
+                              >
+                                {row.status === "DRAFT"
+                                  ? "Nh\u00e1p"
+                                  : row.status === "FINALIZED"
+                                    ? "\u0110\u00e3 ch\u1ed1t"
+                                    : row.status === "PAID"
+                                      ? "\u0110\u00e3 tr\u1ea3"
+                                      : row.status === "PREVIEW"
+                                        ? "T\u1ea1m t\u00ednh"
+                                        : row.status || "--"}
+                              </span>
+                            </td>
+                          )}
+                          {showActions && (
+                            <td className="px-4 py-3 text-right">
+                              <div className="flex items-center justify-end gap-1">
+                                {row.status === "DRAFT" && (
+                                  <button
+                                    onClick={() => handleFinalize(row.id)}
+                                    className="px-2 py-1 text-xs bg-blue-50 text-blue-700 rounded-lg hover:bg-blue-100 transition-colors flex items-center gap-1"
+                                    title={"Ch\u1ed1t b\u1ea3ng l\u01b0\u01a1ng"}
+                                  >
+                                    <Lock className="w-3 h-3" /> {"Ch\u1ed1t"}
+                                  </button>
+                                )}
+                                {row.status === "FINALIZED" && (
+                                  <button
+                                    onClick={() => handleMarkPaid(row.id)}
+                                    className="px-2 py-1 text-xs bg-green-50 text-green-700 rounded-lg hover:bg-green-100 transition-colors flex items-center gap-1"
+                                    title={"\u0110\u00e1nh d\u1ea5u \u0111\u00e3 tr\u1ea3 l\u01b0\u01a1ng"}
+                                  >
+                                    <DollarSign className="w-3 h-3" /> {"\u0110\u00e3 tr\u1ea3"}
+                                  </button>
+                                )}
+                                {row.status === "PAID" && (
+                                  <span className="text-xs text-green-600 flex items-center gap-1">
+                                    <CheckCircle className="w-3 h-3" /> {"Ho\u00e0n t\u1ea5t"}
+                                  </span>
+                                )}
+                              </div>
+                            </td>
+                          )}
+                        </tr>,
+                        isExpanded ? (
+                          <tr key={`${row.id}-details`} className="bg-stone-50/55">
+                            <td
+                              colSpan={showActions ? 6 : 4}
+                              className="px-4 pb-4 pt-0 text-sm text-gray-600"
+                            >
+                              <div className="flex flex-wrap gap-x-5 gap-y-2 border-t border-stone-200 pt-3">
+                                <span><strong>{"Ng\u00e0y c\u00f4ng:"}</strong> {Number(row.workDays || 0).toFixed(2)}</span>
+                                <span><strong>OT:</strong> {Number(row.overtimeHours || 0).toFixed(2)} {"gi\u1edd"}</span>
+                                <span><strong>{"Ph\u1ee5 c\u1ea5p:"}</strong> {formatCurrency(row.allowance || 0)}</span>
+                                <span><strong>{"Th\u01b0\u1edfng:"}</strong> {formatCurrency(row.bonus || 0)}</span>
+                                <span><strong>{"B\u1ea3o hi\u1ec3m:"}</strong> -{formatCurrency(row.insurance || 0)}</span>
+                                <span><strong>{"Thu\u1ebf:"}</strong> -{formatCurrency(row.tax || 0)}</span>
+                                <span><strong>{"Tr\u1eeb tr\u1ec5 + ngh\u1ec9:"}</strong> -{formatCurrency(deductionTotal)}</span>
+                              </div>
+                            </td>
+                          </tr>
+                        ) : null,
+                      ];
+                    }
+
+                    return (
+                      <tr key={row.id}>
+                        <td className="px-4 py-3 text-gray-900">
+                          {row.name || row.periodLabel || "--"}
+                        </td>
+                        {!isYearView && (
+                          <td className="px-4 py-3 text-right text-gray-900">
+                            {formatCurrency(row.baseSalary || 0)}
+                          </td>
                         )}
-                      </td>
-                    )}
-                    <td className="px-4 py-3 text-right font-semibold text-gray-900">
-                      {formatCurrency(row.salary || 0)}
-                    </td>
-                    {showActions && (
-                      <td className="px-4 py-3 text-center">
-                        <span
-                          className={`px-2 py-1 rounded-full text-xs font-medium ${STATUS_BADGE[row.status] || "bg-gray-100 text-gray-600"}`}
-                        >
-                          {row.status === "DRAFT"
-                            ? "Nháp"
-                            : row.status === "FINALIZED"
-                              ? "Đã chốt"
-                              : row.status === "PAID"
-                                ? "Đã trả"
-                                : row.status === "PREVIEW"
-                                  ? "Tạm tính"
-                                  : row.status || "--"}
-                        </span>
-                      </td>
-                    )}
-                    {showActions && (
-                      <td className="px-4 py-3 text-right">
-                        <div className="flex items-center justify-end gap-1">
-                          {row.status === "DRAFT" && (
-                            <button
-                              onClick={() => handleFinalize(row.id)}
-                              className="px-2 py-1 text-xs bg-blue-50 text-blue-700 rounded-lg hover:bg-blue-100 transition-colors flex items-center gap-1"
-                              title="Chốt bảng lương"
-                            >
-                              <Lock className="w-3 h-3" /> Chốt
-                            </button>
-                          )}
-                          {row.status === "FINALIZED" && (
-                            <button
-                              onClick={() => handleMarkPaid(row.id)}
-                              className="px-2 py-1 text-xs bg-green-50 text-green-700 rounded-lg hover:bg-green-100 transition-colors flex items-center gap-1"
-                              title="Đánh dấu đã trả lương"
-                            >
-                              <DollarSign className="w-3 h-3" /> Đã trả
-                            </button>
-                          )}
-                          {row.status === "PAID" && (
-                            <span className="text-xs text-green-600 flex items-center gap-1">
-                              <CheckCircle className="w-3 h-3" /> Hoàn tất
-                            </span>
-                          )}
-                        </div>
-                      </td>
-                    )}
-                  </tr>
-                ))
+                        <td className="px-4 py-3 text-right font-semibold text-gray-900">
+                          {formatCurrency(row.salary || 0)}
+                        </td>
+                      </tr>
+                    );
+                  })
               ) : (
                 <tr>
                   <td
-                    colSpan={10}
+                    colSpan={compactHrMonthView ? (showActions ? 6 : 4) : showActions ? 5 : 3}
                     className="px-6 py-12 text-center text-gray-500"
                   >
                     {emptyMessage}

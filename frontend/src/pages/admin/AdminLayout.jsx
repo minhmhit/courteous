@@ -19,6 +19,11 @@ import {
   LibraryBig,
 } from "lucide-react";
 import useAuthStore from "../../stores/useAuthStore";
+import { employeeAPI } from "../../services";
+import {
+  getEnterpriseWorkspacePath,
+  isManagementEmployee,
+} from "../../utils/employeeAccess";
 
 const MENU_GROUPS = [
   { id: "dashboards", label: "Dashboard", icon: LayoutDashboard },
@@ -36,6 +41,7 @@ const AdminLayout = () => {
   const location = useLocation();
 
   let userRole = user?.roleId || user?.role_id || user?.role;
+  const [employeeProfile, setEmployeeProfile] = useState(undefined);
 
   if (!userRole) {
     const storedUser = localStorage.getItem("user");
@@ -50,6 +56,8 @@ const AdminLayout = () => {
     }
   }
 
+  userRole = Number(userRole);
+
   useEffect(() => {
     if (
       window.location.pathname === "/admin" ||
@@ -63,9 +71,46 @@ const AdminLayout = () => {
         navigate("/admin/hrm-dashboard", { replace: true });
       } else if (userRole === 1) {
         navigate("/admin/dashboard", { replace: true });
+    let isMounted = true;
+
+    const fetchEmployeeProfile = async () => {
+      if (![4, 5].includes(Number(userRole))) {
+        setEmployeeProfile(null);
+        return;
       }
+
+      try {
+        const res = await employeeAPI.getMyProfile();
+        if (isMounted) {
+          setEmployeeProfile(res?.data || res || null);
+        }
+      } catch {
+        if (isMounted) {
+          setEmployeeProfile(null);
+        }
+      }
+    };
+
+    fetchEmployeeProfile();
+
+    return () => {
+      isMounted = false;
+    };
+  }, [userRole]);
+
+  useEffect(() => {
+    if ([4, 5].includes(Number(userRole)) && employeeProfile === undefined) {
+      return;
     }
-  }, [userRole, navigate]);
+
+    if (window.location.pathname === "/admin" || window.location.pathname === "/admin/") {
+      navigate(getEnterpriseWorkspacePath(userRole, employeeProfile), {
+        replace: true,
+      });
+    }
+  }, [employeeProfile, location.pathname, navigate, userRole]);
+
+  const isDepartmentManager = isManagementEmployee(userRole, employeeProfile);
 
   const allMenuItems = [
     {
@@ -239,6 +284,16 @@ const AdminLayout = () => {
   };
 
   const roleInfo = getRoleName(userRole);
+
+  if ([4, 5].includes(Number(userRole)) && employeeProfile === undefined) {
+    return (
+      <div className="admin-shell min-h-screen px-3 py-3 md:px-6 md:py-5">
+        <div className="mx-auto flex min-h-[calc(100vh-1.5rem)] max-w-7xl items-center justify-center rounded-[32px] border-white/35 bg-[linear-gradient(180deg,rgba(255,250,245,0.42),rgba(255,248,241,0.18))] p-8">
+          <div className="text-sm text-stone-600">Dang tai khu vuc lam viec...</div>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="admin-shell min-h-screen px-3 py-3 md:px-6 md:py-5">
