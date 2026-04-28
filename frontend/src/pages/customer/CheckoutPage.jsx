@@ -36,6 +36,10 @@ const DEFAULT_PAYMENT_METHODS = [
 ];
 
 const unwrapResponseData = (response) => response?.data?.data || response?.data || response;
+const unwrapListData = (response) => {
+  const data = unwrapResponseData(response);
+  return Array.isArray(data) ? data : [];
+};
 
 const getImageSrc = (imageUrl) => {
   if (!imageUrl) {
@@ -104,19 +108,13 @@ const CheckoutPage = () => {
       setIsLoadingAddresses(true);
       try {
         const response = await addressAPI.getMyAddresses();
-        console.log('Addresses response:', response);
-        
-        // API returns { success: true, data: addresses }
-        const addresses = response?.data?.data || response?.data || [];
-        console.log('Parsed addresses:', addresses);
-        
+        const addresses = unwrapListData(response);
         setSavedAddresses(addresses);
         
         // Nếu có địa chỉ lưu, mặc định chọn mode "existing" và địa chỉ đầu tiên
         if (Array.isArray(addresses) && addresses.length > 0) {
           setAddressMode("existing");
           setSelectedAddressId(addresses[0].id);
-          console.log('Selected first address:', addresses[0].id);
         } else {
           setAddressMode("new");
         }
@@ -138,7 +136,7 @@ const CheckoutPage = () => {
     const fetchCoupons = async () => {
       try {
         const response = await couponAPI.getAllCoupons();
-        const coupons = response.data.coupons;
+        const coupons = response?.data?.data?.coupons || [];
         setAvailableCoupons(coupons);
       } catch (error) {
         console.error("Error fetching coupons:", error);
@@ -263,8 +261,8 @@ const CheckoutPage = () => {
     }
 
     const currentDate = new Date();
-    const startDate = new Date(foundCoupon.startDate);
-    const endDate = new Date(foundCoupon.endDate);
+    const startDate = new Date(foundCoupon.validFrom || foundCoupon.startDate);
+    const endDate = new Date(foundCoupon.validUntil || foundCoupon.endDate);
 
     if (currentDate < startDate) {
       toast.error("Mã giảm giá chưa bắt đầu hiệu lực");
@@ -314,13 +312,18 @@ const CheckoutPage = () => {
 
     // Validate địa chỉ
     if (addressMode === "existing") {
-      if (!selectedAddressId) {
+      const selectedAddress = savedAddresses.find(
+        (address) => Number(address.id) === Number(selectedAddressId),
+      );
+      if (!selectedAddressId || !selectedAddress) {
         toast.error("Vui lòng chọn địa chỉ giao hàng");
         return;
       }
     } else if (addressMode === "new") {
       if (
         !formData.shipAddress ||
+        !formData.fullName ||
+        !formData.phoneNumber ||
         !selectedProvince ||
         !selectedDistrict ||
         !selectedWard

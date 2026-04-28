@@ -159,6 +159,7 @@ const RegisterPage = () => {
         name: formData.name,
         email: formData.email,
         password: formData.password,
+        receiverName: addressData.receiverName,
         fullAddress: fullAddress,
         phoneNumber: addressData.phoneNumber,
         addressType: addressData.addressType,

@@ -19,6 +19,15 @@ import Input from "../../components/ui/Input";
 import Pagination from "../../components/ui/Pagination";
 import { exportToCsv } from "../../utils/exportCSV";
 
+const PRODUCT_IMAGE_PREFIX = "./asset/img/products/";
+
+const normalizeProductImagePath = (value) => {
+  if (!value) return "";
+  if (value.startsWith("http")) return value;
+  const filename = value.split("/").pop();
+  return filename ? `${PRODUCT_IMAGE_PREFIX}${filename}` : value;
+};
+
 const AdminProductsPage = () => {
   const toast = useToastStore();
   const [products, setProducts] = useState([]);
@@ -134,9 +143,13 @@ const AdminProductsPage = () => {
           "",
         categoryId: product.categoryId || product.category_id || "",
         supplierId: product.supplierId || product.supplier_id || "",
-        imageUrl: product.imageUrl || product.image_url || "",
+        imageUrl: normalizeProductImagePath(
+          product.imageUrl || product.image_url || "",
+        ),
       });
-      setImagePreview(product.imageUrl || product.image_url || "");
+      setImagePreview(
+        normalizeProductImagePath(product.imageUrl || product.image_url || ""),
+      );
     } else {
       setEditingProduct(null);
       setFormData({
@@ -173,6 +186,8 @@ const AdminProductsPage = () => {
 
     if (
       !formData.name ||
+      !formData.description ||
+      formData.description.trim().length < 10 ||
       !formData.price ||
       !formData.categoryId ||
       !formData.supplierId
@@ -182,24 +197,28 @@ const AdminProductsPage = () => {
     }
 
     try {
+      let resolvedImageUrl = formData.imageUrl;
       // If user selected a new image but didn't click upload, upload it automatically
       if (
         selectedImageFile &&
-        !formData.imageUrl?.includes("./asset") &&
-        !formData.imageUrl?.startsWith("http")
+        !resolvedImageUrl?.includes(PRODUCT_IMAGE_PREFIX) &&
+        !resolvedImageUrl?.startsWith("http")
       ) {
         try {
           const res = await productAPI.uploadImage(selectedImageFile);
           const data = res.data || res;
           let imgPath = "";
-          if (data.path) imgPath = data.path;
+          if (data.path) imgPath = normalizeProductImagePath(data.path);
           else if (data.filename)
-            imgPath = `./asset/products/img/${data.filename}`;
+            imgPath = `${PRODUCT_IMAGE_PREFIX}${data.filename}`;
           else if (data.fileName)
-            imgPath = `./asset/products/img/${data.fileName}`;
+            imgPath = `${PRODUCT_IMAGE_PREFIX}${data.fileName}`;
           else if (data.url) imgPath = data.url;
 
-          if (imgPath) setFormData((f) => ({ ...f, imageUrl: imgPath }));
+          if (imgPath) {
+            resolvedImageUrl = imgPath;
+            setFormData((f) => ({ ...f, imageUrl: imgPath }));
+          }
         } catch (err) {
           console.error("Auto upload image error:", err);
           toast.error("Không thể tải ảnh lên. Vui lòng thử lại hoặc nhập URL");
@@ -208,7 +227,10 @@ const AdminProductsPage = () => {
         }
       }
       // Destructure costPrice out to avoid sending it to a backend that doesn't have the column
-      const { costPrice, ...apiData } = formData;
+      const { costPrice, ...apiData } = {
+        ...formData,
+        imageUrl: resolvedImageUrl,
+      };
 
       if (editingProduct) {
         const productId =
@@ -442,7 +464,7 @@ const AdminProductsPage = () => {
                 className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-coffee-500"
               >
                 <option value="all">Tất cả nhà cung cấp</option>
-                {(suppliers?.data || []).map((sup) => (
+                {supplierList.map((sup) => (
                   <option key={sup.id} value={sup.id}>
                     {sup.name}
                   </option>
@@ -555,7 +577,11 @@ const AdminProductsPage = () => {
                       <td className="px-6 py-4">
                         <div className="flex items-center gap-3">
                           <img
-                            src={`../.${product.imageUrl}`}
+                            src={
+                              product.imageUrl?.startsWith("http")
+                                ? product.imageUrl
+                                : `..${normalizeProductImagePath(product.imageUrl)}`
+                            }
                             alt={product.name}
                             className="w-12 h-12 rounded-lg object-cover"
                           />
@@ -817,11 +843,11 @@ const AdminProductsPage = () => {
                               // Expect backend to return { filename: 'img.jpg' } or { path: './asset/products/img/img.jpg' }
                               const data = res.data || res;
                               let imgPath = "";
-                              if (data.path) imgPath = data.path;
+                              if (data.path) imgPath = normalizeProductImagePath(data.path);
                               else if (data.filename)
-                                imgPath = `./asset/img/products/${data.filename}`;
+                                imgPath = `${PRODUCT_IMAGE_PREFIX}${data.filename}`;
                               else if (data.fileName)
-                                imgPath = `./asset/img/products/${data.fileName}`;
+                                imgPath = `${PRODUCT_IMAGE_PREFIX}${data.fileName}`;
                               else if (data.url) imgPath = data.url;
 
                               if (!imgPath) {
@@ -848,7 +874,12 @@ const AdminProductsPage = () => {
                       <div className="mt-2">
                         {imagePreview ? (
                           <img
-                            src={imagePreview}
+                            src={
+                              imagePreview.startsWith("blob:") ||
+                              imagePreview.startsWith("http")
+                                ? imagePreview
+                                : `..${normalizeProductImagePath(imagePreview)}`
+                            }
                             alt="Preview"
                             className="w-32 h-32 object-cover rounded-lg"
                             onError={(e) => {

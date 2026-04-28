@@ -51,6 +51,7 @@ const AdminHRMPage = () => {
     baseSalary: "",
     roleEffectiveDate: new Date().toISOString().split("T")[0],
   });
+  const isEditing = Boolean(editingEmployee);
 
   useEffect(() => {
     fetchEmployees();
@@ -192,22 +193,30 @@ const AdminHRMPage = () => {
     }
 
     try {
-      const payload = {
-        email: formData.email,
-        password: formData.password,
-        username: formData.username,
-        name: formData.fullName,
-        phoneNumber: formData.phoneNumber,
-        employeeCode: formData.employeeCode,
-        hireDate: formData.hireDate,
-        roleId: formData.roleId ? Number(formData.roleId) : undefined,
-        address: formData.address,
-        departmentId: formData.departmentId
-          ? Number(formData.departmentId)
-          : undefined,
-        positionId: formData.positionId ? Number(formData.positionId) : undefined,
-        baseSalary: formData.baseSalary ? Number(formData.baseSalary) : undefined,
-      };
+      const payload = editingEmployee
+        ? {
+            hireDate: formData.hireDate,
+            address: formData.address,
+            departmentId: formData.departmentId
+              ? Number(formData.departmentId)
+              : undefined,
+          }
+        : {
+            email: formData.email,
+            password: formData.password,
+            username: formData.username,
+            name: formData.fullName,
+            phoneNumber: formData.phoneNumber,
+            employeeCode: formData.employeeCode,
+            hireDate: formData.hireDate,
+            roleId: formData.roleId ? Number(formData.roleId) : undefined,
+            address: formData.address,
+            departmentId: formData.departmentId
+              ? Number(formData.departmentId)
+              : undefined,
+            positionId: formData.positionId ? Number(formData.positionId) : undefined,
+            baseSalary: formData.baseSalary ? Number(formData.baseSalary) : undefined,
+          };
 
       const submitData = Object.fromEntries(
         Object.entries(payload).filter(
@@ -216,9 +225,6 @@ const AdminHRMPage = () => {
       );
 
       if (editingEmployee) {
-        if (!formData.password) {
-          delete submitData.password;
-        }
         await employeeAPI.updateEmployee(editingEmployee.id, submitData);
 
         if (formData.roleEffectiveDate && formData.positionId && formData.baseSalary) {
@@ -265,7 +271,6 @@ const AdminHRMPage = () => {
     try {
       await employeeAPI.updateEmployeeStatus(employeeId, {
         status: "TERMINATED",
-        isActive: 0,
       });
       toast.success("Đã cập nhật trạng thái nhân viên");
       fetchEmployees();
@@ -661,6 +666,7 @@ const AdminHRMPage = () => {
                           setFormData({ ...formData, email: e.target.value })
                         }
                         required
+                        disabled={isEditing}
                         icon={<Mail className="w-5 h-5" />}
                       />
                       <Input
@@ -676,6 +682,7 @@ const AdminHRMPage = () => {
                           setFormData({ ...formData, password: e.target.value })
                         }
                         required={!editingEmployee}
+                        disabled={isEditing}
                       />
                     </div>
 
@@ -687,6 +694,7 @@ const AdminHRMPage = () => {
                         onChange={(e) =>
                           setFormData({ ...formData, username: e.target.value })
                         }
+                        disabled={isEditing}
                       />
                       <Input
                         label="Mã Nhân Viên *"
@@ -696,6 +704,7 @@ const AdminHRMPage = () => {
                           setFormData({ ...formData, employeeCode: e.target.value })
                         }
                         required
+                        disabled={isEditing}
                       />
                     </div>
 
@@ -718,6 +727,7 @@ const AdminHRMPage = () => {
                         onChange={(e) =>
                           setFormData({ ...formData, phoneNumber: e.target.value })
                         }
+                        disabled={isEditing}
                         icon={<Phone className="w-5 h-5" />}
                       />
                     </div>
@@ -731,6 +741,7 @@ const AdminHRMPage = () => {
                           setFormData({ ...formData, fullName: e.target.value })
                         }
                         required
+                        disabled={isEditing}
                       />
                       <Input
                         label="Địa chỉ"
@@ -756,6 +767,7 @@ const AdminHRMPage = () => {
                         }
                         className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-coffee-500"
                         required
+                        disabled={isEditing}
                       >
                         <option value={1}>Admin</option>
                         <option value={3}>Nhân Viên Kho</option>
