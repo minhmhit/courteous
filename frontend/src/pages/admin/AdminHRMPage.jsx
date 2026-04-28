@@ -349,25 +349,13 @@ const AdminHRMPage = () => {
   };
 
   const getBaseSalary = (employee) => {
-    const value =
-      employee.baseSalary ||
-      employee.base_salary ||
-      employee.currentPosition?.baseSalary ||
-      employee.currentPosition?.base_salary ||
-      employee.currentSalary ||
-      employee.current_salary ||
-      employee.positionSalary ||
-      employee.position?.baseSalary ||
-      employee.position?.salary ||
-      0;
+    const value =employee?.currentPosition?.baseSalary || 0;
     return Number(value || 0);
   };
 
   const getStatusLabel = (employee) => {
     const status =
-      employee.status ||
-      employee.employee_status ||
-      employee.user_status ||
+      employee.status||
       (employee.isActive === 0 ? "INACTIVE" : "ACTIVE");
     const normalized = String(status).toUpperCase();
     if (normalized === "TERMINATED") {
@@ -645,7 +633,7 @@ const AdminHRMPage = () => {
                         <span className="text-sm font-semibold text-gray-900">
                           {getBaseSalary(employee) > 0
                             ? formatCurrency(getBaseSalary(employee))
-                            : "-- / Tùy chức vụ"}
+                            : "--"}
                         </span>
                       </td>
                       <td className="px-6 py-4">
