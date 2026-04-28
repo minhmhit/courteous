@@ -60,10 +60,10 @@ const HRMDashboardPage = () => {
 
 
       const activeEmployees = employees.filter(
-        (e) => e.isActive !== false
+        (e) => Number(e.isActive) !== 0 && e.isActive !== false
       );
       const inactiveEmployees = employees.filter(
-        (e) => e.isActive === false
+        (e) => Number(e.isActive) === 0 || e.isActive === false
       );
 
       setStats({

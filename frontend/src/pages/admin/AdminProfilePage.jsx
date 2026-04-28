@@ -37,21 +37,34 @@ const AdminProfilePage = () => {
     let isMounted = true;
     const fetchProfile = async () => {
       try {
-        const res = await employeeAPI.getMyProfile();
-        const payload = res?.data || res;
-        const profile = payload?.employee || payload;
-        if (!isMounted || !profile) return;
+        const [employeeRes, authRes] = await Promise.all([
+          employeeAPI.getMyProfile().catch(() => null),
+          authAPI.getProfile().catch(() => null),
+        ]);
+        const employeePayload = employeeRes?.data || employeeRes;
+        const profile = employeePayload?.employee || employeePayload;
+        const authPayload = authRes?.data || authRes;
+        const authProfile =
+          authPayload?.user || authPayload?.data || authPayload || null;
+        if (!isMounted) return;
         setInfoForm((prev) => ({
           ...prev,
           name:
-            profile.name ||
-            profile.fullName ||
-            profile.employee_name ||
+            authProfile?.name ||
+            profile?.userName ||
+            profile?.name ||
+            profile?.fullName ||
+            profile?.employee_name ||
             prev.name,
-          email: profile.email || profile.user_email || prev.email,
+          email:
+            authProfile?.email || profile?.email || profile?.user_email || prev.email,
           phoneNumber:
-            profile.phoneNumber || profile.phone || profile.user_phone || "",
-          address: profile.address || profile.user_address || "",
+            authProfile?.phoneNumber ||
+            profile?.phoneNumber ||
+            profile?.phone ||
+            profile?.user_phone ||
+            "",
+          address: profile?.address || profile?.user_address || "",
         }));
       } catch (error) {
         // ignore
@@ -67,20 +80,19 @@ const AdminProfilePage = () => {
     event.preventDefault();
     setIsLoading(true);
     try {
-      try {
-        await employeeAPI.updateMyProfile({
+      await Promise.all([
+        authAPI.updateProfile({
           name: infoForm.name,
           phoneNumber: infoForm.phoneNumber,
+        }),
+        employeeAPI.updateMyProfile({
           address: infoForm.address,
-        });
-        try {
-          await updateProfile(infoForm);
-        } catch (error) {
-          // ignore sync errors
-        }
-      } catch (error) {
-        await updateProfile(infoForm);
-      }
+        }),
+      ]);
+      await updateProfile({
+        name: infoForm.name,
+        phoneNumber: infoForm.phoneNumber,
+      });
       toast.success("Cập nhật thông tin thành công!");
     } catch (error) {
       toast.error("Không thể cập nhật thông tin");

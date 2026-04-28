@@ -21,6 +21,14 @@ import Input from "../../components/ui/Input";
 import Pagination from "../../components/ui/Pagination";
 import { formatCurrency } from "../../utils/formatDate";
 
+const getApiErrorMessage = (error, fallbackMessage) => {
+  const details = error?.response?.data?.errors;
+  if (Array.isArray(details) && details.length > 0) {
+    return details[0]?.msg || fallbackMessage;
+  }
+  return error?.response?.data?.message || fallbackMessage;
+};
+
 const AdminHRMPage = () => {
   const toast = useToastStore();
   const [employees, setEmployees] = useState([]);
@@ -31,6 +39,7 @@ const AdminHRMPage = () => {
   const [roleFilter, setRoleFilter] = useState("all");
   const [showModal, setShowModal] = useState(false);
   const [editingEmployee, setEditingEmployee] = useState(null);
+  const [initialPositionState, setInitialPositionState] = useState(null);
   
   // Pagination details
   const [currentPage, setCurrentPage] = useState(1);
@@ -118,6 +127,7 @@ const AdminHRMPage = () => {
         baseSalary: employee.baseSalary || "",
         roleEffectiveDate: "",
       });
+      setInitialPositionState(null);
 
       try {
         const historyRes = await employeeAPI.getPositionHistory(employee.id);
@@ -138,6 +148,20 @@ const AdminHRMPage = () => {
             roleEffectiveDate:
               latest.effectiveFrom || latest.effective_from || latest.effectiveDate || prev.roleEffectiveDate,
           }));
+          setInitialPositionState({
+            positionId: String(
+              latest.positionId || latest.position_id || latest.position?.id || "",
+            ),
+            baseSalary: String(
+              latest.baseSalary || latest.base_salary || latest.salary || "",
+            ),
+            effectiveFrom: String(
+              latest.effectiveFrom ||
+                latest.effective_from ||
+                latest.effectiveDate ||
+                "",
+            ),
+          });
         }
       } catch (error) {
         console.error("Error fetching position history:", error);
@@ -159,6 +183,7 @@ const AdminHRMPage = () => {
         baseSalary: "",
         roleEffectiveDate: new Date().toISOString().split("T")[0],
       });
+      setInitialPositionState(null);
     }
     setShowModal(true);
   };
@@ -181,6 +206,7 @@ const AdminHRMPage = () => {
       baseSalary: "",
       roleEffectiveDate: new Date().toISOString().split("T")[0],
     });
+    setInitialPositionState(null);
   };
 
   const handleSubmit = async (e) => {
@@ -198,7 +224,7 @@ const AdminHRMPage = () => {
         username: formData.username,
         name: formData.fullName,
         phoneNumber: formData.phoneNumber,
-        employeeCode: formData.employeeCode,
+        employeeCode: String(formData.employeeCode || "").trim().toUpperCase(),
         hireDate: formData.hireDate,
         roleId: formData.roleId ? Number(formData.roleId) : undefined,
         address: formData.address,
@@ -221,7 +247,20 @@ const AdminHRMPage = () => {
         }
         await employeeAPI.updateEmployee(editingEmployee.id, submitData);
 
-        if (formData.roleEffectiveDate && formData.positionId && formData.baseSalary) {
+        const hasPositionChange =
+          String(formData.positionId || "") !==
+            String(initialPositionState?.positionId || "") ||
+          String(formData.baseSalary || "") !==
+            String(initialPositionState?.baseSalary || "") ||
+          String(formData.roleEffectiveDate || "") !==
+            String(initialPositionState?.effectiveFrom || "");
+
+        if (
+          hasPositionChange &&
+          formData.roleEffectiveDate &&
+          formData.positionId &&
+          formData.baseSalary
+        ) {
           await employeeAPI.addPositionHistory(editingEmployee.id, {
             positionId: Number(formData.positionId),
             baseSalary: Number(formData.baseSalary || 0),
@@ -232,7 +271,7 @@ const AdminHRMPage = () => {
         toast.success("Cập nhật nhân viên thành công");
       } else {
         const res = await employeeAPI.createEmployee(submitData);
-        const payloadRes = res?.data || res;
+        const payloadRes = res?.data?.data || res?.data || res;
         const newEmployeeId =
           payloadRes?.id ||
           payloadRes?.employeeId ||
@@ -255,7 +294,7 @@ const AdminHRMPage = () => {
     } catch (error) {
       console.error("Error saving employee:", error);
 
-      toast.error(error.response?.data?.message || "Không thể lưu nhân viên");
+      toast.error(getApiErrorMessage(error, "\u004b\u0068\u00f4\u006e\u0067 \u0074\u0068\u1ec3 \u006c\u01b0\u0075 \u006e\u0068\u00e2\u006e \u0076\u0069\u00ea\u006e"));
     }
   };
 
@@ -267,11 +306,11 @@ const AdminHRMPage = () => {
         status: "TERMINATED",
         isActive: 0,
       });
-      toast.success("Đã cập nhật trạng thái nhân viên");
+      toast.success("\u0110\u00e3 x\u00f3a nh\u00e2n vi\u00ean");
       fetchEmployees();
     } catch (error) {
       console.error("Error deleting employee:", error);
-      toast.error("Không thể cập nhật nhân viên");
+      toast.error(getApiErrorMessage(error, "\u004b\u0068\u00f4\u006e\u0067 \u0074\u0068\u1ec3 \u0063\u1ead\u0070 \u006e\u0068\u1ead\u0074 \u006e\u0068\u00e2\u006e \u0076\u0069\u00ea\u006e"));
     }
   };
 
@@ -285,6 +324,13 @@ const AdminHRMPage = () => {
   };
 
   const getRoleName = (employee) => {
+    const positionName =
+      employee.currentPosition?.name ||
+      employee.currentPositionName ||
+      employee.positionName ||
+      employee.position_name;
+    if (positionName) return positionName;
+
     const roleIdNum = Number(getRoleKey(employee));
     if (roleIdNum === 1) return "Admin";
     if (roleIdNum === 3) return "Nhân Viên Kho";
@@ -324,13 +370,19 @@ const AdminHRMPage = () => {
       employee.user_status ||
       (employee.isActive === 0 ? "INACTIVE" : "ACTIVE");
     const normalized = String(status).toUpperCase();
-    if (["INACTIVE", "TERMINATED", "RESIGNED"].includes(normalized)) {
-      return { label: "Đã khóa", className: "bg-red-100 text-red-800" };
+    if (normalized === "TERMINATED") {
+      return { label: "\u0110\u00e3 x\u00f3a", className: "bg-red-100 text-red-800" };
+    }
+    if (normalized === "RESIGNED") {
+      return { label: "\u0110\u00e3 ngh\u1ec9 vi\u1ec7c", className: "bg-slate-100 text-slate-700" };
+    }
+    if (normalized === "INACTIVE") {
+      return { label: "\u0110\u00e3 kh\u00f3a", className: "bg-red-100 text-red-800" };
     }
     if (["ON_LEAVE"].includes(normalized)) {
-      return { label: "Đang nghỉ", className: "bg-yellow-100 text-yellow-800" };
+      return { label: "\u0110ang ngh\u1ec9", className: "bg-yellow-100 text-yellow-800" };
     }
-    return { label: "Hoạt động", className: "bg-green-100 text-green-800" };
+    return { label: "Ho\u1ea1t \u0111\u1ed9ng", className: "bg-green-100 text-green-800" };
   };
 
   const filteredEmployees = employees.filter((employee) => {
@@ -433,15 +485,17 @@ const AdminHRMPage = () => {
               <p className="text-2xl font-bold text-gray-900">
                 {
                   employees.filter((e) => {
-                    const status =
-                      e.status ||
-                      e.employee_status ||
-                      e.user_status ||
-                      (e.isActive === 0 ? "INACTIVE" : "ACTIVE");
-                    return String(status).toUpperCase() !== "INACTIVE";
-                  }).length
-                }
-              </p>
+                            const status =
+                              e.status ||
+                              e.employee_status ||
+                              e.user_status ||
+                              (e.isActive === 0 ? "INACTIVE" : "ACTIVE");
+                            return ["ACTIVE", "PROBATION", "ON_LEAVE"].includes(
+                              String(status).toUpperCase(),
+                            );
+                          }).length
+                        }
+                      </p>
             </div>
           </div>
         </div>
@@ -510,7 +564,7 @@ const AdminHRMPage = () => {
                   Liên Hệ
                 </th>
                 <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">
-                  Vai Trò
+                  Chức Vụ
                 </th>
                 <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">
                   Lương Cơ Bản
@@ -536,7 +590,21 @@ const AdminHRMPage = () => {
                   const displayname =
                     employee.username
                   const roleKey = getRoleKey(employee);
-                  const statusInfo = getStatusLabel(employee);
+                  const rawStatus = String(
+                    employee.status ||
+                      employee.employee_status ||
+                      employee.user_status ||
+                      (employee.isActive === 0 ? "INACTIVE" : "ACTIVE"),
+                  ).toUpperCase();
+                  const statusInfo =
+                    rawStatus === "TERMINATED"
+                      ? { label: "Đã xóa", className: "bg-red-100 text-red-800" }
+                      : rawStatus === "RESIGNED"
+                        ? {
+                            label: "Đã nghỉ việc",
+                            className: "bg-slate-100 text-slate-700",
+                          }
+                        : getStatusLabel(employee);
                   return (
                     <tr key={employee.id} className="hover:bg-white/40">
                       <td className="px-6 py-4">
@@ -756,23 +824,25 @@ const AdminHRMPage = () => {
 
                     <div>
                       <label className="block text-sm font-medium text-gray-700 mb-2">
-                        Vai trò *
+                        Chức Vụ *
                       </label>
                       <select
                         value={formData.roleId}
                         onChange={(e) =>
                           setFormData({
                             ...formData,
-                            roleId: parseInt(e.target.value),
+                            roleId: e.target.value ? parseInt(e.target.value, 10) : "",
                           })
                         }
                         className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-coffee-500"
                         required
                       >
+                        <option value="">-- Chọn quyền --</option>
+                        <option value={2}>Nhân viên</option>
                         <option value={1}>Admin</option>
-                        <option value={3}>Nhân Viên Kho</option>
-                        <option value={4}>Nhân Viên Bán Hàng</option>
-                        <option value={5}>Quản Lý</option>
+                        <option value={3}>Nhân viên kho</option>
+                        <option value={4}>Nhân viên bán hàng</option>
+                        <option value={5}>Nhân sự</option>
                       </select>
                     </div>
                     <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
@@ -868,3 +938,5 @@ const AdminHRMPage = () => {
 };
 
 export default AdminHRMPage;
+
+

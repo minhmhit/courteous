@@ -25,8 +25,10 @@ const employeeAPI = {
     try {
       return await axiosInstance.post("/employees", payload);
     } catch (error) {
-      // Fallback legacy
-      return await axiosInstance.post("/admin/users", payload);
+      if (error?.response?.status === 404) {
+        return await axiosInstance.post("/admin/users", payload);
+      }
+      throw error;
     }
   },
 
@@ -35,8 +37,10 @@ const employeeAPI = {
     try {
       return await axiosInstance.patch(`/employees/${employeeId}`, payload);
     } catch (error) {
-      // Fallback legacy
-      return await axiosInstance.patch(`/admin/users/${employeeId}`, payload);
+      if (error?.response?.status === 404) {
+        return await axiosInstance.patch(`/admin/users/${employeeId}`, payload);
+      }
+      throw error;
     }
   },
 
