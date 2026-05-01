@@ -41,7 +41,7 @@ export default function AdminCouponsPage() {
     setLoading(true);
     try {
       const res = await couponAPI.getAllCoupons();
-      setCoupons(res?.data?.coupons || []);
+      setCoupons(res?.data?.data?.coupons || []);
     } catch (err) {
       console.error(err);
       toast.error("Không thể tải danh sách mã giảm giá");
