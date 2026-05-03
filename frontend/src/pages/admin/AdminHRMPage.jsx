@@ -21,6 +21,8 @@ import Input from "../../components/ui/Input";
 import Pagination from "../../components/ui/Pagination";
 import { formatCurrency } from "../../utils/formatDate";
 
+const EMPLOYEE_CODE_REGEX = /^EMP(00[1-9]|0[1-9]\d|[1-9]\d{2})$/;
+
 const getApiErrorMessage = (error, fallbackMessage) => {
   const details = error?.response?.data?.errors;
   if (Array.isArray(details) && details.length > 0) {
@@ -40,6 +42,7 @@ const AdminHRMPage = () => {
   const [showModal, setShowModal] = useState(false);
   const [editingEmployee, setEditingEmployee] = useState(null);
   const [initialPositionState, setInitialPositionState] = useState(null);
+  const [employeeCodeError, setEmployeeCodeError] = useState("");
   
   // Pagination details
   const [currentPage, setCurrentPage] = useState(1);
@@ -70,6 +73,7 @@ const AdminHRMPage = () => {
 
   const fetchEmployees = async () => {
     setIsLoading(true);
+
     try {
       const response = await employeeAPI.getAllEmployees({
         page: 1,
@@ -128,9 +132,10 @@ const AdminHRMPage = () => {
         baseSalary: employee.baseSalary || "",
         roleEffectiveDate: "",
       });
-      setInitialPositionState(null);
+	      setInitialPositionState(null);
+        setEmployeeCodeError("");
 
-      try {
+	      try {
         const historyRes = await employeeAPI.getPositionHistory(employee.id);
         const historyList =
           historyRes?.data || historyRes?.items || historyRes?.history || [];
@@ -184,10 +189,11 @@ const AdminHRMPage = () => {
         baseSalary: "",
         roleEffectiveDate: new Date().toISOString().split("T")[0],
       });
-      setInitialPositionState(null);
-    }
-    setShowModal(true);
-  };
+	      setInitialPositionState(null);
+        setEmployeeCodeError("");
+	    }
+	    setShowModal(true);
+	  };
 
   const handleCloseModal = () => {
     setShowModal(false);
@@ -206,15 +212,26 @@ const AdminHRMPage = () => {
       positionId: "",
       baseSalary: "",
       roleEffectiveDate: new Date().toISOString().split("T")[0],
-    });
-    setInitialPositionState(null);
-  };
+	    });
+	    setInitialPositionState(null);
+      setEmployeeCodeError("");
+	  };
 
   const handleSubmit = async (e) => {
     e.preventDefault();
 
     if (!editingEmployee && !formData.password) {
       toast.error("Vui lòng nhập mật khẩu cho nhân viên mới");
+      return;
+    }
+
+    const normalizedEmployeeCode = String(formData.employeeCode || "")
+      .trim()
+      .toUpperCase();
+
+    if (!editingEmployee && !EMPLOYEE_CODE_REGEX.test(normalizedEmployeeCode)) {
+      setEmployeeCodeError("M� nh�n vi�n ph?i theo d?nh d?ng EMP001 d?n EMP999");
+      toast.error("M� nh�n vi�n ph?i theo d?nh d?ng EMP001 d?n EMP999");
       return;
     }
 
@@ -225,7 +242,7 @@ const AdminHRMPage = () => {
         username: formData.username,
         name: formData.fullName,
         phoneNumber: formData.phoneNumber,
-        employeeCode: String(formData.employeeCode || "").trim().toUpperCase(),
+        employeeCode: normalizedEmployeeCode,
         hireDate: formData.hireDate,
         roleId: formData.roleId ? Number(formData.roleId) : undefined,
         address: formData.address,
@@ -760,9 +777,21 @@ const AdminHRMPage = () => {
                         label="Mã Nhân Viên *"
                         name="employeeCode"
                         value={formData.employeeCode}
-                        onChange={(e) =>
-                          setFormData({ ...formData, employeeCode: e.target.value })
-                        }
+                        onChange={(e) => {
+                          const nextValue = e.target.value.toUpperCase();
+                          setFormData({ ...formData, employeeCode: nextValue });
+                          if (!nextValue.trim()) {
+                            setEmployeeCodeError("");
+                            return;
+                          }
+                          setEmployeeCodeError(
+                            EMPLOYEE_CODE_REGEX.test(nextValue.trim())
+                              ? ""
+                              : "Mã nhân viên phải theo định dạng EMP001 đến EMP999"
+                          );
+                        }}
+                        error={employeeCodeError}
+                        maxLength={6}
                         required
                         disabled={isEditing}
                       />
@@ -930,5 +959,6 @@ const AdminHRMPage = () => {
 };
 
 export default AdminHRMPage;
+
 
 
