@@ -16,6 +16,8 @@ import provinceAPI from "../../services/provinceAPI";
 import Button from "../../components/ui/Button";
 import Input from "../../components/ui/Input";
 import { formatCurrency } from "../../utils/formatDate";
+import { getApiErrorMessage, getApiFieldErrors } from "../../utils/apiValidation";
+import { validateCheckoutForm } from "../../validations/order";
 
 const PAYMENT_METHOD_CONFIG = {
   COD: {
@@ -92,6 +94,7 @@ const CheckoutPage = () => {
     note: "",
     paymentMethod: "COD",
   });
+  const [formErrors, setFormErrors] = useState({});
 
   useEffect(() => {
     const fetchProvinces = async () => {
@@ -181,6 +184,7 @@ const CheckoutPage = () => {
   const handleInputChange = (e) => {
     const { name, value } = e.target;
     setFormData((prev) => ({ ...prev, [name]: value }));
+    setFormErrors((prev) => ({ ...prev, [name]: "" }));
   };
 
   const handleProvinceChange = async (e) => {
@@ -191,6 +195,12 @@ const CheckoutPage = () => {
       setWards([]);
       setSelectedDistrict(null);
       setSelectedWard(null);
+      setFormErrors((prev) => ({
+        ...prev,
+        selectedProvince: "",
+        selectedDistrict: "",
+        selectedWard: "",
+      }));
       return;
     }
 
@@ -199,6 +209,12 @@ const CheckoutPage = () => {
     setSelectedDistrict(null);
     setSelectedWard(null);
     setWards([]);
+    setFormErrors((prev) => ({
+      ...prev,
+      selectedProvince: "",
+      selectedDistrict: "",
+      selectedWard: "",
+    }));
 
     try {
       const data = await provinceAPI.getDistrictsByProvince(provinceCode);
@@ -215,12 +231,22 @@ const CheckoutPage = () => {
       setSelectedDistrict(null);
       setWards([]);
       setSelectedWard(null);
+      setFormErrors((prev) => ({
+        ...prev,
+        selectedDistrict: "",
+        selectedWard: "",
+      }));
       return;
     }
 
     const district = districts.find((d) => d.code === parseInt(districtCode, 10));
     setSelectedDistrict(district);
     setSelectedWard(null);
+    setFormErrors((prev) => ({
+      ...prev,
+      selectedDistrict: "",
+      selectedWard: "",
+    }));
 
     try {
       const data = await provinceAPI.getWardsByDistrict(districtCode);
@@ -235,11 +261,13 @@ const CheckoutPage = () => {
     const wardCode = e.target.value;
     if (!wardCode) {
       setSelectedWard(null);
+      setFormErrors((prev) => ({ ...prev, selectedWard: "" }));
       return;
     }
 
     const ward = wards.find((w) => w.code === parseInt(wardCode, 10));
     setSelectedWard(ward);
+    setFormErrors((prev) => ({ ...prev, selectedWard: "" }));
   };
 
   const handleApplyCoupon = () => {
@@ -303,38 +331,21 @@ const CheckoutPage = () => {
 
   const handleSubmit = async (e) => {
     e.preventDefault();
+    const validation = validateCheckoutForm({
+      formData,
+      items,
+      addressMode,
+      savedAddresses,
+      selectedAddressId,
+      newAddressType,
+      selectedProvince,
+      selectedDistrict,
+      selectedWard,
+    });
 
-    // Validate - phần nào phụ thuộc vào addressMode
-    if (!formData.fullName || !formData.phoneNumber) {
-      toast.error("Vui lòng điền đầy đủ thông tin cá nhân");
-      return;
-    }
-
-    // Validate địa chỉ
-    if (addressMode === "existing") {
-      const selectedAddress = savedAddresses.find(
-        (address) => Number(address.id) === Number(selectedAddressId),
-      );
-      if (!selectedAddressId || !selectedAddress) {
-        toast.error("Vui lòng chọn địa chỉ giao hàng");
-        return;
-      }
-    } else if (addressMode === "new") {
-      if (
-        !formData.shipAddress ||
-        !formData.fullName ||
-        !formData.phoneNumber ||
-        !selectedProvince ||
-        !selectedDistrict ||
-        !selectedWard
-      ) {
-        toast.error("Vui lòng điền đầy đủ thông tin địa chỉ mới");
-        return;
-      }
-    }
-
-    if (!items || items.length === 0) {
-      toast.error("Giỏ hàng trống");
+    if (!validation.isValid) {
+      setFormErrors(validation.errors);
+      toast.error(Object.values(validation.errors)[0]);
       return;
     }
 
@@ -342,6 +353,7 @@ const CheckoutPage = () => {
     let createdOrderId = null;
 
     try {
+      setFormErrors({});
       const orderData = {
         cartItems: items.map((item) => ({
           cartItemId: item.id || item.cartItemId,
@@ -404,12 +416,20 @@ const CheckoutPage = () => {
       }, 3000);
     } catch (error) {
       console.error("Lỗi khi đặt hàng:", error);
+      const fieldErrors = getApiFieldErrors(error, {
+        shipAddress: "shipAddress",
+        paymentMethodCode: "paymentMethod",
+      });
+      if (Object.keys(fieldErrors).length > 0) {
+        setFormErrors((prev) => ({ ...prev, ...fieldErrors }));
+      }
       toast.error(
-        error?.message ||
-          (createdOrderId
-            ? `Đơn hàng #${createdOrderId} đã tạo nhưng chưa hoàn tất xử lý.`
-            : null) ||
-          "Không thể đặt hàng. Vui lòng thử lại",
+        getApiErrorMessage(
+          error,
+          createdOrderId
+            ? `Don hang #${createdOrderId} da tao nhung chua hoan tat xu ly.`
+            : "Khong the dat hang. Vui long thu lai",
+        ),
       );
     } finally {
       setIsSubmitting(false);
@@ -471,6 +491,7 @@ const CheckoutPage = () => {
                     name="fullName"
                     value={formData.fullName}
                     onChange={handleInputChange}
+                    error={formErrors.fullName}
                     required
                     icon={<User className="h-5 w-5" />}
                   />
@@ -480,6 +501,7 @@ const CheckoutPage = () => {
                     type="tel"
                     value={formData.phoneNumber}
                     onChange={handleInputChange}
+                    error={formErrors.phoneNumber}
                     required
                     icon={<Phone className="h-5 w-5" />}
                   />
@@ -490,6 +512,7 @@ const CheckoutPage = () => {
                       type="email"
                       value={formData.email}
                       onChange={handleInputChange}
+                      error={formErrors.email}
                     />
                   </div>
                 </div>
@@ -506,7 +529,10 @@ const CheckoutPage = () => {
                           type="radio"
                           value="existing"
                           checked={addressMode === "existing"}
-                          onChange={(e) => setAddressMode(e.target.value)}
+                          onChange={(e) => {
+                            setAddressMode(e.target.value);
+                            setFormErrors((prev) => ({ ...prev, selectedAddressId: "" }));
+                          }}
                           className="h-4 w-4 text-coffee-600"
                         />
                         <span className="text-sm font-medium text-gray-700">
@@ -519,7 +545,10 @@ const CheckoutPage = () => {
                         type="radio"
                         value="new"
                         checked={addressMode === "new"}
-                        onChange={(e) => setAddressMode(e.target.value)}
+                        onChange={(e) => {
+                          setAddressMode(e.target.value);
+                          setFormErrors((prev) => ({ ...prev, selectedAddressId: "" }));
+                        }}
                         className="h-4 w-4 text-coffee-600"
                       />
                       <span className="text-sm font-medium text-gray-700">
@@ -544,7 +573,10 @@ const CheckoutPage = () => {
                             type="radio"
                             value={addr.id}
                             checked={selectedAddressId === addr.id}
-                            onChange={(e) => setSelectedAddressId(parseInt(e.target.value))}
+                            onChange={(e) => {
+                              setSelectedAddressId(parseInt(e.target.value));
+                              setFormErrors((prev) => ({ ...prev, selectedAddressId: "" }));
+                            }}
                             className="mt-1 h-4 w-4 text-coffee-600"
                           />
                           <div className="flex-1">
@@ -570,6 +602,9 @@ const CheckoutPage = () => {
                       ))}
                     </div>
                   )}
+                  {formErrors.selectedAddressId && (
+                    <p className="mt-2 text-sm text-red-600">{formErrors.selectedAddressId}</p>
+                  )}
 
                   {/* New address form */}
                   {addressMode === "new" && (
@@ -580,6 +615,7 @@ const CheckoutPage = () => {
                           name="shipAddress"
                           value={formData.shipAddress}
                           onChange={handleInputChange}
+                          error={formErrors.shipAddress || formErrors.fullAddress}
                           placeholder="VD: 123 Nguyễn Huệ..."
                         />
                       </div>
@@ -600,6 +636,9 @@ const CheckoutPage = () => {
                             </option>
                           ))}
                         </select>
+                        {formErrors.selectedProvince && (
+                          <p className="mt-1 text-sm text-red-600">{formErrors.selectedProvince}</p>
+                        )}
                       </div>
 
                       <div>
@@ -619,6 +658,9 @@ const CheckoutPage = () => {
                             </option>
                           ))}
                         </select>
+                        {formErrors.selectedDistrict && (
+                          <p className="mt-1 text-sm text-red-600">{formErrors.selectedDistrict}</p>
+                        )}
                       </div>
 
                       <div>
@@ -638,6 +680,9 @@ const CheckoutPage = () => {
                             </option>
                           ))}
                         </select>
+                        {formErrors.selectedWard && (
+                          <p className="mt-1 text-sm text-red-600">{formErrors.selectedWard}</p>
+                        )}
                       </div>
 
                       {/* Address type selection */}
@@ -651,7 +696,10 @@ const CheckoutPage = () => {
                               type="radio"
                               value="home"
                               checked={newAddressType === "home"}
-                              onChange={(e) => setNewAddressType(e.target.value)}
+                              onChange={(e) => {
+                                setNewAddressType(e.target.value);
+                                setFormErrors((prev) => ({ ...prev, addressType: "" }));
+                              }}
                               className="h-4 w-4"
                             />
                             <span className="text-sm font-medium text-gray-700">Nhà riêng</span>
@@ -661,12 +709,18 @@ const CheckoutPage = () => {
                               type="radio"
                               value="office"
                               checked={newAddressType === "office"}
-                              onChange={(e) => setNewAddressType(e.target.value)}
+                              onChange={(e) => {
+                                setNewAddressType(e.target.value);
+                                setFormErrors((prev) => ({ ...prev, addressType: "" }));
+                              }}
                               className="h-4 w-4"
                             />
                             <span className="text-sm font-medium text-gray-700">Văn phòng</span>
                           </label>
                         </div>
+                        {formErrors.addressType && (
+                          <p className="mt-1 text-sm text-red-600">{formErrors.addressType}</p>
+                        )}
                       </div>
                     </div>
                   )}
@@ -685,6 +739,9 @@ const CheckoutPage = () => {
                     placeholder="Ghi chú về đơn hàng (thời gian giao, yêu cầu đặc biệt...)"
                   />
                 </div>
+                {formErrors.paymentMethod && (
+                  <p className="mt-4 text-sm text-red-600">{formErrors.paymentMethod}</p>
+                )}
               </div>
 
               <div className="glass-card rounded-[28px] p-6">
@@ -837,6 +894,9 @@ const CheckoutPage = () => {
                       ? "Tiếp tục đến VNPay"
                       : "Đặt hàng"}
                 </Button>
+                {formErrors.cartItems && (
+                  <p className="mt-3 text-sm text-red-600">{formErrors.cartItems}</p>
+                )}
 
                 <p className="mt-4 text-center text-xs text-slate-500">
                   Bằng việc đặt hàng, bạn đồng ý với{" "}

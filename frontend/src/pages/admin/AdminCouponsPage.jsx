@@ -7,6 +7,8 @@ import Input from "../../components/ui/Input";
 import Pagination from "../../components/ui/Pagination";
 import useToastStore from "../../stores/useToastStore";
 import { formatDate, formatDateISO } from "../../utils/formatDate";
+import { getApiErrorMessage, getApiFieldErrors } from "../../utils/apiValidation";
+import { validateCouponForm } from "../../validations/catalog";
 
 const emptyForm = {
   code: "",
@@ -31,9 +33,8 @@ export default function AdminCouponsPage() {
     sort: "newest",
   });
   const [form, setForm] = useState(emptyForm);
+  const [formErrors, setFormErrors] = useState({});
   const [submitting, setSubmitting] = useState(false);
-  
-  // Pagination
   const [currentPage, setCurrentPage] = useState(1);
   const itemsPerPage = 6;
 
@@ -44,7 +45,7 @@ export default function AdminCouponsPage() {
       setCoupons(res?.data?.data?.coupons || []);
     } catch (err) {
       console.error(err);
-      toast.error("Không thể tải danh sách mã giảm giá");
+      toast.error("Khong the tai danh sach ma giam gia");
     } finally {
       setLoading(false);
     }
@@ -57,6 +58,7 @@ export default function AdminCouponsPage() {
   const openCreate = () => {
     setEditing(null);
     setForm(emptyForm);
+    setFormErrors({});
     setShowModal(true);
   };
 
@@ -70,20 +72,30 @@ export default function AdminCouponsPage() {
       usageLimit: coupon.usageLimit || 0,
       isActive: !!coupon.isActive,
     });
+    setFormErrors({});
     setShowModal(true);
   };
 
   const handleChange = (e) => {
     const { name, value, type, checked } = e.target;
     setForm((state) => ({ ...state, [name]: type === "checkbox" ? checked : value }));
+    setFormErrors((prev) => ({ ...prev, [name]: "" }));
   };
 
   const handleSubmit = async (e) => {
     e.preventDefault();
+    const validation = validateCouponForm(form);
+    if (!validation.isValid) {
+      setFormErrors(validation.errors);
+      toast.error(Object.values(validation.errors)[0]);
+      return;
+    }
+
     setSubmitting(true);
     try {
+      setFormErrors({});
       const payload = {
-        code: form.code,
+        code: String(form.code || "").trim().toUpperCase(),
         discountPercent: Number(form.discountPercentage) || 0,
         validFrom: form.validFrom ? formatDateISO(form.validFrom) : null,
         validUntil: form.validUntil ? formatDateISO(form.validUntil) : null,
@@ -91,31 +103,37 @@ export default function AdminCouponsPage() {
 
       if (editing?.id) {
         await couponAPI.updateCoupon(editing.id, payload);
-        toast.success("Cập nhật mã giảm giá thành công");
+        toast.success("Cap nhat ma giam gia thanh cong");
       } else {
         await couponAPI.createCoupon(payload);
-        toast.success("Tạo mã giảm giá thành công");
+        toast.success("Tao ma giam gia thanh cong");
       }
 
       setShowModal(false);
       await loadCoupons();
     } catch (err) {
       console.error(err);
-      toast.error("Lỗi khi lưu mã giảm giá");
+      const fieldErrors = getApiFieldErrors(err, {
+        discountPercent: "discountPercentage",
+      });
+      if (Object.keys(fieldErrors).length > 0) {
+        setFormErrors((prev) => ({ ...prev, ...fieldErrors }));
+      }
+      toast.error(getApiErrorMessage(err, "Loi khi luu ma giam gia"));
     } finally {
       setSubmitting(false);
     }
   };
 
   const handleDelete = async (coupon) => {
-    if (!window.confirm(`Xóa mã ${coupon.code}?`)) return;
+    if (!window.confirm(`Xoa ma ${coupon.code}?`)) return;
     try {
       await couponAPI.deleteCoupon(coupon.id);
-      toast.success("Đã xóa mã giảm giá");
+      toast.success("Da xoa ma giam gia");
       await loadCoupons();
     } catch (err) {
       console.error(err);
-      toast.error("Không thể xóa mã giảm giá");
+      toast.error("Khong the xoa ma giam gia");
     }
   };
 
@@ -153,35 +171,35 @@ export default function AdminCouponsPage() {
             <Tag className="h-5 w-5" />
           </div>
           <div>
-            <h1 className="text-xl font-bold text-slate-900">Mã giảm giá</h1>
+            <h1 className="text-xl font-bold text-slate-900">Ma giam gia</h1>
           </div>
         </div>
-        
+
         <div className="flex flex-wrap items-center gap-2">
           <div className="w-full sm:w-48">
             <Input
-              placeholder="Tìm mã coupon..."
+              placeholder="Tim ma coupon..."
               value={searchTerm}
               onChange={(e) => setSearchTerm(e.target.value)}
               icon={<Search className="h-4 w-4" />}
             />
           </div>
           <select value={filters.status} onChange={(e) => setFilters((prev) => ({ ...prev, status: e.target.value }))} className="glass-input text-sm">
-            <option value="all">Tất cả</option>
-            <option value="active">Đang hoạt động</option>
-            <option value="scheduled">Chưa tới hạn</option>
-            <option value="inactive">Đã tắt</option>
+            <option value="all">Tat ca</option>
+            <option value="active">Dang hoat dong</option>
+            <option value="scheduled">Chua toi han</option>
+            <option value="inactive">Da tat</option>
           </select>
           <input type="date" value={filters.validFrom} onChange={(e) => setFilters((prev) => ({ ...prev, validFrom: e.target.value }))} className="glass-input text-sm w-[130px]" />
           <input type="date" value={filters.validUntil} onChange={(e) => setFilters((prev) => ({ ...prev, validUntil: e.target.value }))} className="glass-input text-sm w-[130px]" />
           <select value={filters.sort} onChange={(e) => setFilters((prev) => ({ ...prev, sort: e.target.value }))} className="glass-input text-sm">
-            <option value="newest">Mới nhất</option>
+            <option value="newest">Moi nhat</option>
             <option value="code-asc">A-Z</option>
             <option value="code-desc">Z-A</option>
-            <option value="highest-discount">% Cao nhất</option>
+            <option value="highest-discount">% Cao nhat</option>
           </select>
           <Button onClick={openCreate} variant="primary" className="whitespace-nowrap">
-            <Plus className="mr-2 h-4 w-4" /> Tạo mã
+            <Plus className="mr-2 h-4 w-4" /> Tao ma
           </Button>
         </div>
       </div>
@@ -191,16 +209,16 @@ export default function AdminCouponsPage() {
           <table className="w-full text-left">
             <thead className="bg-white/10 text-slate-500">
               <tr>
-                <th className="p-4 text-xs font-semibold uppercase tracking-[0.2em]">Mã</th>
-                <th className="p-4 text-xs font-semibold uppercase tracking-[0.2em]">% Giảm</th>
-                <th className="p-4 text-xs font-semibold uppercase tracking-[0.2em]">Hiệu lực</th>
-                <th className="p-4 text-xs font-semibold uppercase tracking-[0.2em]">Trạng thái</th>
-                <th className="p-4 text-xs font-semibold uppercase tracking-[0.2em]">Hành động</th>
+                <th className="p-4 text-xs font-semibold uppercase tracking-[0.2em]">Ma</th>
+                <th className="p-4 text-xs font-semibold uppercase tracking-[0.2em]">% Giam</th>
+                <th className="p-4 text-xs font-semibold uppercase tracking-[0.2em]">Hieu luc</th>
+                <th className="p-4 text-xs font-semibold uppercase tracking-[0.2em]">Trang thai</th>
+                <th className="p-4 text-xs font-semibold uppercase tracking-[0.2em]">Hanh dong</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-white/20">
-              {loading && <tr><td colSpan={5} className="p-6 text-center text-slate-500">Đang tải...</td></tr>}
-              {!loading && filteredCoupons.length === 0 && <tr><td colSpan={5} className="p-6 text-center text-slate-500">Không có mã giảm giá phù hợp</td></tr>}
+              {loading && <tr><td colSpan={5} className="p-6 text-center text-slate-500">Dang tai...</td></tr>}
+              {!loading && filteredCoupons.length === 0 && <tr><td colSpan={5} className="p-6 text-center text-slate-500">Khong co ma giam gia phu hop</td></tr>}
               {filteredCoupons.slice((currentPage - 1) * itemsPerPage, currentPage * itemsPerPage).map((coupon) => {
                 const now = new Date();
                 const validFrom = coupon.validFrom ? new Date(coupon.validFrom) : null;
@@ -218,16 +236,16 @@ export default function AdminCouponsPage() {
                     </td>
                     <td className="p-4">
                       <span className={isActive ? "glass-chip text-emerald-700" : "glass-chip text-slate-500"}>
-                        {isInValidPeriod ? "Hoạt động" : "Ngoài thời gian"}
+                        {isInValidPeriod ? "Hoat dong" : "Ngoai thoi gian"}
                       </span>
                     </td>
                     <td className="p-4">
                       <div className="flex gap-2">
                         <button onClick={() => openEdit(coupon)} className="glass-card inline-flex items-center rounded-2xl px-3 py-2 text-sm text-blue-600">
-                          <Edit className="mr-1 h-4 w-4" /> Sửa
+                          <Edit className="mr-1 h-4 w-4" /> Sua
                         </button>
                         <button onClick={() => handleDelete(coupon)} className="glass-card inline-flex items-center rounded-2xl px-3 py-2 text-sm text-red-600">
-                          <Trash2 className="mr-1 h-4 w-4" /> Xóa
+                          <Trash2 className="mr-1 h-4 w-4" /> Xoa
                         </button>
                       </div>
                     </td>
@@ -237,7 +255,7 @@ export default function AdminCouponsPage() {
             </tbody>
           </table>
         </div>
-        
+
         {!loading && Math.ceil(filteredCoupons.length / itemsPerPage) > 1 && (
           <div className="p-4 border-t border-white/20">
             <Pagination
@@ -249,29 +267,31 @@ export default function AdminCouponsPage() {
         )}
       </div>
 
-      <Modal isOpen={showModal} onClose={() => setShowModal(false)} title={editing ? "Sửa mã" : "Tạo mã mới"}>
+      <Modal isOpen={showModal} onClose={() => setShowModal(false)} title={editing ? "Sua ma" : "Tao ma moi"}>
         <form onSubmit={handleSubmit} className="p-6">
           <div className="space-y-4">
-            <Input label="Mã" name="code" value={form.code} onChange={handleChange} required />
-            <Input label="% Giảm" name="discountPercentage" type="number" value={form.discountPercentage} onChange={handleChange} required />
+            <Input label="Ma" name="code" value={form.code} onChange={handleChange} error={formErrors.code} required />
+            <Input label="% Giam" name="discountPercentage" type="number" value={form.discountPercentage} onChange={handleChange} error={formErrors.discountPercentage} required />
             <div>
-              <label className="mb-2 block text-sm font-medium text-slate-700">Bắt đầu</label>
+              <label className="mb-2 block text-sm font-medium text-slate-700">Bat dau</label>
               <input type="datetime-local" name="validFrom" value={form.validFrom} onChange={handleChange} className="glass-input w-full" />
+              {formErrors.validFrom && <p className="mt-1 text-sm text-red-600">{formErrors.validFrom}</p>}
             </div>
             <div>
-              <label className="mb-2 block text-sm font-medium text-slate-700">Kết thúc</label>
+              <label className="mb-2 block text-sm font-medium text-slate-700">Ket thuc</label>
               <input type="datetime-local" name="validUntil" value={form.validUntil} onChange={handleChange} className="glass-input w-full" />
+              {formErrors.validUntil && <p className="mt-1 text-sm text-red-600">{formErrors.validUntil}</p>}
             </div>
-            <Input label="Lượt sử dụng (limit)" name="usageLimit" type="number" value={form.usageLimit} onChange={handleChange} />
+            <Input label="Luot su dung (limit)" name="usageLimit" type="number" value={form.usageLimit} onChange={handleChange} />
             <label className="glass-card flex items-center gap-3 rounded-2xl px-4 py-3 text-sm text-slate-700">
               <Tag className="h-4 w-4 text-coffee-700" />
               <input type="checkbox" name="isActive" checked={form.isActive} onChange={handleChange} />
-              <span>Kích hoạt</span>
+              <span>Kich hoat</span>
             </label>
           </div>
           <div className="mt-6 flex justify-end gap-2">
-            <Button type="button" variant="ghost" onClick={() => setShowModal(false)}>Hủy</Button>
-            <Button type="submit" isLoading={submitting}>{editing ? "Lưu" : "Tạo"}</Button>
+            <Button type="button" variant="ghost" onClick={() => setShowModal(false)}>Huy</Button>
+            <Button type="submit" isLoading={submitting}>{editing ? "Luu" : "Tao"}</Button>
           </div>
         </form>
       </Modal>

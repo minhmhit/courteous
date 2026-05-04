@@ -6,6 +6,8 @@ import useToastStore from "../../stores/useToastStore";
 import Button from "../../components/ui/Button";
 import Input from "../../components/ui/Input";
 import Pagination from "../../components/ui/Pagination";
+import { getApiErrorMessage, getApiFieldErrors } from "../../utils/apiValidation";
+import { validateCategoryForm } from "../../validations/catalog";
 
 const AdminCategoriesPage = () => {
   const toast = useToastStore();
@@ -16,8 +18,7 @@ const AdminCategoriesPage = () => {
   const [showModal, setShowModal] = useState(false);
   const [editingCategory, setEditingCategory] = useState(null);
   const [formData, setFormData] = useState({ name: "", description: "" });
-  
-  // Pagination
+  const [formErrors, setFormErrors] = useState({});
   const [currentPage, setCurrentPage] = useState(1);
   const itemsPerPage = 6;
 
@@ -32,7 +33,7 @@ const AdminCategoriesPage = () => {
       setCategories(response.data || []);
     } catch (error) {
       console.error("Error fetching categories:", error);
-      toast.error("Không thể tải danh sách danh mục");
+      toast.error("Khong the tai danh sach danh muc");
     } finally {
       setIsLoading(false);
     }
@@ -49,6 +50,7 @@ const AdminCategoriesPage = () => {
       setEditingCategory(null);
       setFormData({ name: "", description: "" });
     }
+    setFormErrors({});
     setShowModal(true);
   };
 
@@ -56,40 +58,48 @@ const AdminCategoriesPage = () => {
     setShowModal(false);
     setEditingCategory(null);
     setFormData({ name: "", description: "" });
+    setFormErrors({});
   };
 
   const handleSubmit = async (e) => {
     e.preventDefault();
-    if (!formData.name) {
-      toast.error("Vui lòng nhập tên danh mục");
+    const validation = validateCategoryForm(formData);
+    if (!validation.isValid) {
+      setFormErrors(validation.errors);
+      toast.error(Object.values(validation.errors)[0]);
       return;
     }
 
     try {
+      setFormErrors({});
       if (editingCategory) {
         await categoryAPI.updateCategory(editingCategory.id, formData);
-        toast.success("Cập nhật danh mục thành công");
+        toast.success("Cap nhat danh muc thanh cong");
       } else {
         await categoryAPI.createCategory(formData);
-        toast.success("Thêm danh mục thành công");
+        toast.success("Them danh muc thanh cong");
       }
       handleCloseModal();
       fetchCategories();
     } catch (error) {
       console.error("Error saving category:", error);
-      toast.error("Không thể lưu danh mục");
+      const fieldErrors = getApiFieldErrors(error);
+      if (Object.keys(fieldErrors).length > 0) {
+        setFormErrors((prev) => ({ ...prev, ...fieldErrors }));
+      }
+      toast.error(getApiErrorMessage(error, "Khong the luu danh muc"));
     }
   };
 
   const handleDelete = async (categoryId) => {
-    if (!confirm("Bạn có chắc muốn xóa danh mục này?")) return;
+    if (!confirm("Ban co chac muon xoa danh muc nay?")) return;
     try {
       await categoryAPI.deleteCategory(categoryId);
-      toast.success("Xóa danh mục thành công");
+      toast.success("Xoa danh muc thanh cong");
       fetchCategories();
     } catch (error) {
       console.error("Error deleting category:", error);
-      toast.error("Không thể xóa danh mục");
+      toast.error("Khong the xoa danh muc");
     }
   };
 
@@ -110,19 +120,19 @@ const AdminCategoriesPage = () => {
     <div className="space-y-6">
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-3xl font-bold text-gray-900">Quản Lý Danh Mục</h1>
-          <p className="mt-1 text-gray-600">Quản lý danh mục sản phẩm cà phê</p>
+          <h1 className="text-3xl font-bold text-gray-900">Quan Ly Danh Muc</h1>
+          <p className="mt-1 text-gray-600">Quan ly danh muc san pham ca phe</p>
         </div>
         <Button onClick={() => handleOpenModal()} variant="primary">
           <Plus className="mr-2 h-5 w-5" />
-          Thêm Danh Mục
+          Them Danh Muc
         </Button>
       </div>
 
       <div className="rounded-lg bg-white p-4 shadow-sm">
         <div className="grid grid-cols-1 gap-3 md:grid-cols-[1fr_220px]">
           <Input
-            placeholder="Tìm kiếm theo tên hoặc mô tả..."
+            placeholder="Tim kiem theo ten hoac mo ta..."
             value={searchTerm}
             onChange={(e) => setSearchTerm(e.target.value)}
             icon={<Search className="h-5 w-5" />}
@@ -132,8 +142,8 @@ const AdminCategoriesPage = () => {
             onChange={(e) => setSortBy(e.target.value)}
             className="rounded-lg border border-gray-300 px-3 py-2"
           >
-            <option value="name-asc">Tên A-Z</option>
-            <option value="name-desc">Tên Z-A</option>
+            <option value="name-asc">Ten A-Z</option>
+            <option value="name-desc">Ten Z-A</option>
           </select>
         </div>
       </div>
@@ -168,18 +178,18 @@ const AdminCategoriesPage = () => {
                   </div>
                   <h3 className="mb-2 text-xl font-bold text-gray-900">{category.name}</h3>
                   <p className="line-clamp-2 text-sm text-gray-600">
-                    {category.description || "Không có mô tả"}
+                    {category.description || "Khong co mo ta"}
                   </p>
                 </motion.div>
               ))
             ) : (
               <div className="col-span-3 py-12 text-center text-gray-500">
-                {searchTerm ? "Không tìm thấy danh mục nào" : "Chưa có danh mục nào"}
+                {searchTerm ? "Khong tim thay danh muc nao" : "Chua co danh muc nao"}
               </div>
             )}
           </div>
         )}
-        
+
         {!isLoading && Math.ceil(filteredCategories.length / itemsPerPage) > 1 && (
           <Pagination
             currentPage={currentPage}
@@ -210,7 +220,7 @@ const AdminCategoriesPage = () => {
                 <form onSubmit={handleSubmit}>
                   <div className="flex items-center justify-between border-b border-gray-200 p-6">
                     <h3 className="text-2xl font-bold text-gray-900">
-                      {editingCategory ? "Sửa Danh Mục" : "Thêm Danh Mục Mới"}
+                      {editingCategory ? "Sua Danh Muc" : "Them Danh Muc Moi"}
                     </h3>
                     <button type="button" onClick={handleCloseModal} className="text-gray-400 transition-colors hover:text-gray-600">
                       <X className="h-6 w-6" />
@@ -219,31 +229,41 @@ const AdminCategoriesPage = () => {
 
                   <div className="space-y-4 p-6">
                     <Input
-                      label="Tên Danh Mục"
+                      label="Ten Danh Muc"
                       name="name"
                       value={formData.name}
-                      onChange={(e) => setFormData({ ...formData, name: e.target.value })}
+                      onChange={(e) => {
+                        setFormData({ ...formData, name: e.target.value });
+                        setFormErrors((prev) => ({ ...prev, name: "" }));
+                      }}
+                      error={formErrors.name}
                       required
                       icon={<Coffee className="h-5 w-5" />}
-                      placeholder="VD: Cà phê Arabica"
+                      placeholder="VD: Ca phe Arabica"
                     />
 
                     <div>
-                      <label className="mb-2 block text-sm font-medium text-gray-700">Mô Tả</label>
+                      <label className="mb-2 block text-sm font-medium text-gray-700">Mo Ta</label>
                       <textarea
                         value={formData.description}
-                        onChange={(e) => setFormData({ ...formData, description: e.target.value })}
+                        onChange={(e) => {
+                          setFormData({ ...formData, description: e.target.value });
+                          setFormErrors((prev) => ({ ...prev, description: "" }));
+                        }}
                         rows={3}
                         className="w-full rounded-lg border border-gray-300 px-4 py-2 focus:outline-none focus:ring-2 focus:ring-coffee-500"
-                        placeholder="Mô tả về danh mục..."
+                        placeholder="Mo ta ve danh muc..."
                       />
+                      {formErrors.description && (
+                        <p className="mt-1 text-sm text-red-600">{formErrors.description}</p>
+                      )}
                     </div>
                   </div>
 
                   <div className="flex items-center justify-end gap-3 border-t border-gray-200 bg-gray-50 p-6">
-                    <Button type="button" onClick={handleCloseModal} variant="outline">Hủy</Button>
+                    <Button type="button" onClick={handleCloseModal} variant="outline">Huy</Button>
                     <Button type="submit" variant="primary">
-                      {editingCategory ? "Cập Nhật" : "Thêm Mới"}
+                      {editingCategory ? "Cap Nhat" : "Them Moi"}
                     </Button>
                   </div>
                 </form>

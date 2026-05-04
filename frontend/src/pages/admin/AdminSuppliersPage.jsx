@@ -7,7 +7,6 @@ import {
   Edit,
   Trash2,
   X,
-  Mail,
   Phone,
   MapPin,
   User,
@@ -18,6 +17,8 @@ import useToastStore from "../../stores/useToastStore";
 import Button from "../../components/ui/Button";
 import Input from "../../components/ui/Input";
 import Pagination from "../../components/ui/Pagination";
+import { getApiErrorMessage, getApiFieldErrors } from "../../utils/apiValidation";
+import { validateSupplierForm } from "../../validations/catalog";
 
 const AdminSuppliersPage = () => {
   const toast = useToastStore();
@@ -37,8 +38,7 @@ const AdminSuppliersPage = () => {
     contactInfo: "",
     address: "",
   });
-  
-  // Pagination
+  const [formErrors, setFormErrors] = useState({});
   const [currentPage, setCurrentPage] = useState(1);
   const itemsPerPage = 6;
 
@@ -52,10 +52,10 @@ const AdminSuppliersPage = () => {
       const response = await supplierAPI.getAllSuppliers();
       const raw = response?.suppliers?.data || response?.suppliers || response?.data || response || [];
       const supplierData = Array.isArray(raw) ? raw : [];
-      setSuppliers(supplierData.filter(s => s.isActive !== 0));
+      setSuppliers(supplierData.filter((s) => s.isActive !== 0));
     } catch (error) {
       console.error("Error fetching suppliers:", error);
-      toast.error("Không thể tải danh sách nhà cung cấp");
+      toast.error("Khong the tai danh sach nha cung cap");
     } finally {
       setIsLoading(false);
     }
@@ -79,6 +79,7 @@ const AdminSuppliersPage = () => {
         address: "",
       });
     }
+    setFormErrors({});
     setShowModal(true);
   };
 
@@ -91,43 +92,52 @@ const AdminSuppliersPage = () => {
       contactInfo: "",
       address: "",
     });
+    setFormErrors({});
   };
 
   const handleSubmit = async (e) => {
     e.preventDefault();
-
-    if (!formData.name || !formData.code) {
-      toast.error("Vui lòng điền đầy đủ thông tin bắt buộc");
+    const normalizedFormData = {
+      ...formData,
+      code: String(formData.code || "").trim().toUpperCase(),
+    };
+    const validation = validateSupplierForm(normalizedFormData);
+    if (!validation.isValid) {
+      setFormErrors(validation.errors);
+      toast.error(Object.values(validation.errors)[0]);
       return;
     }
 
     try {
+      setFormErrors({});
       const submitData = {
-        name: formData.name,
-        code: formData.code,
-        contactInfo: formData.contactInfo,
-        address: formData.address,
+        name: normalizedFormData.name,
+        code: normalizedFormData.code,
+        contactInfo: normalizedFormData.contactInfo,
+        address: normalizedFormData.address,
       };
 
       if (editingSupplier) {
         await supplierAPI.updateSupplier(editingSupplier.id, submitData);
-        toast.success("Cập nhật nhà cung cấp thành công");
+        toast.success("Cap nhat nha cung cap thanh cong");
       } else {
         await supplierAPI.createSupplier(submitData);
-        toast.success("Thêm nhà cung cấp thành công");
+        toast.success("Them nha cung cap thanh cong");
       }
       handleCloseModal();
       fetchSuppliers();
     } catch (error) {
       console.error("Error saving supplier:", error);
-      toast.error(
-        error.response?.data?.message || "Không thể lưu nhà cung cấp"
-      );
+      const fieldErrors = getApiFieldErrors(error);
+      if (Object.keys(fieldErrors).length > 0) {
+        setFormErrors((prev) => ({ ...prev, ...fieldErrors }));
+      }
+      toast.error(getApiErrorMessage(error, "Khong the luu nha cung cap"));
     }
   };
 
   const handleDelete = async (supplierId) => {
-    if (!confirm("Bạn có chắc muốn xóa nhà cung cấp này?")) return;
+    if (!confirm("Ban co chac muon xoa nha cung cap nay?")) return;
 
     try {
       const resolvedId =
@@ -136,11 +146,11 @@ const AdminSuppliersPage = () => {
         supplierId?.supplier_id ||
         supplierId;
       await supplierAPI.deleteSupplier(resolvedId);
-      toast.success("Xóa nhà cung cấp thành công");
+      toast.success("Xoa nha cung cap thanh cong");
       fetchSuppliers();
     } catch (error) {
       console.error("Error deleting supplier:", error);
-      toast.error(error.response?.data?.message || "Không thể xóa nhà cung cấp");
+      toast.error("Khong the xoa nha cung cap");
     }
   };
 
@@ -181,23 +191,17 @@ const AdminSuppliersPage = () => {
 
   return (
     <div className="space-y-6">
-      {/* Header */}
       <div className="flex justify-between items-center">
         <div>
-          <h1 className="text-3xl font-bold text-gray-900">
-            Quản Lý Nhà Cung Cấp
-          </h1>
-          <p className="text-gray-600 mt-1">
-            Quản lý thông tin các nhà cung cấp sản phẩm
-          </p>
+          <h1 className="text-3xl font-bold text-gray-900">Quan Ly Nha Cung Cap</h1>
+          <p className="text-gray-600 mt-1">Quan ly thong tin cac nha cung cap san pham</p>
         </div>
         <Button onClick={() => handleOpenModal()} variant="primary">
           <Plus className="w-5 h-5 mr-2" />
-          Thêm Nhà Cung Cấp
+          Them Nha Cung Cap
         </Button>
       </div>
 
-      {/* Stats Card */}
       <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
         <div className="bg-white rounded-xl shadow-sm p-6 border border-gray-100">
           <div className="flex items-center gap-4">
@@ -205,10 +209,8 @@ const AdminSuppliersPage = () => {
               <Building2 className="w-6 h-6 text-blue-600" />
             </div>
             <div>
-              <p className="text-sm text-gray-600">Tổng Nhà Cung Cấp</p>
-              <p className="text-2xl font-bold text-gray-900">
-                {suppliers.length}
-              </p>
+              <p className="text-sm text-gray-600">Tong Nha Cung Cap</p>
+              <p className="text-2xl font-bold text-gray-900">{suppliers.length}</p>
             </div>
           </div>
         </div>
@@ -219,7 +221,7 @@ const AdminSuppliersPage = () => {
               <Users className="w-6 h-6 text-green-600" />
             </div>
             <div>
-              <p className="text-sm text-gray-600">Đang Hoạt Động</p>
+              <p className="text-sm text-gray-600">Dang Hoat Dong</p>
               <p className="text-2xl font-bold text-gray-900">
                 {suppliers.filter((s) => s.isActive !== 0 && s.isActive !== false).length}
               </p>
@@ -233,7 +235,7 @@ const AdminSuppliersPage = () => {
               <Users className="w-6 h-6 text-red-600" />
             </div>
             <div>
-              <p className="text-sm text-gray-600">Ngừng Hoạt Động</p>
+              <p className="text-sm text-gray-600">Ngung Hoat Dong</p>
               <p className="text-2xl font-bold text-gray-900">
                 {suppliers.filter((s) => s.isActive === 0 || s.isActive === false).length}
               </p>
@@ -242,12 +244,11 @@ const AdminSuppliersPage = () => {
         </div>
       </div>
 
-      {/* Search & Filters */}
       <div className="bg-white rounded-lg shadow-sm p-4">
         <div className="flex flex-wrap items-center gap-3">
           <div className="flex-1 min-w-[220px]">
             <Input
-              placeholder="Tìm kiếm nhà cung cấp..."
+              placeholder="Tim kiem nha cung cap..."
               value={searchTerm}
               onChange={(e) => setSearchTerm(e.target.value)}
               icon={<Search className="w-5 h-5" />}
@@ -257,7 +258,7 @@ const AdminSuppliersPage = () => {
             onClick={() => setShowAdvanced((prev) => !prev)}
             variant="outline"
           >
-            {showAdvanced ? "Ẩn Bộ Lọc" : "Bộ Lọc Nâng Cao"}
+            {showAdvanced ? "An Bo Loc" : "Bo Loc Nang Cao"}
           </Button>
           {(searchTerm || filters.status !== "all") && (
             <Button
@@ -267,16 +268,14 @@ const AdminSuppliersPage = () => {
               }}
               variant="outline"
             >
-              Xóa Lọc
+              Xoa Loc
             </Button>
           )}
         </div>
         {showAdvanced && (
           <div className="mt-4 grid grid-cols-1 gap-3 md:grid-cols-2">
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-2">
-                Trạng thái
-              </label>
+              <label className="block text-sm font-medium text-gray-700 mb-2">Trang thai</label>
               <select
                 value={filters.status}
                 onChange={(e) =>
@@ -284,15 +283,13 @@ const AdminSuppliersPage = () => {
                 }
                 className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-coffee-500"
               >
-                <option value="all">Tất cả</option>
-                <option value="active">Đang hoạt động</option>
-                <option value="inactive">Ngừng hoạt động</option>
+                <option value="all">Tat ca</option>
+                <option value="active">Dang hoat dong</option>
+                <option value="inactive">Ngung hoat dong</option>
               </select>
             </div>
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-2">
-                Sắp xếp
-              </label>
+              <label className="block text-sm font-medium text-gray-700 mb-2">Sap xep</label>
               <select
                 value={filters.sort}
                 onChange={(e) =>
@@ -300,17 +297,16 @@ const AdminSuppliersPage = () => {
                 }
                 className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-coffee-500"
               >
-                <option value="name-asc">Tên (A→Z)</option>
-                <option value="name-desc">Tên (Z→A)</option>
-                <option value="code-asc">Mã tăng dần</option>
-                <option value="code-desc">Mã giảm dần</option>
+                <option value="name-asc">Ten (A-Z)</option>
+                <option value="name-desc">Ten (Z-A)</option>
+                <option value="code-asc">Ma tang dan</option>
+                <option value="code-desc">Ma giam dan</option>
               </select>
             </div>
           </div>
         )}
       </div>
 
-      {/* Suppliers Table */}
       <div className="bg-white rounded-lg shadow-sm overflow-hidden">
         {isLoading ? (
           <div className="flex items-center justify-center h-64">
@@ -320,19 +316,10 @@ const AdminSuppliersPage = () => {
           <table className="w-full">
             <thead className="bg-gray-50">
               <tr>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">
-                  Tên Công Ty
-                </th>
-                
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">
-                  Thông Tin Liên Lạc
-                </th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">
-                  Địa Chỉ
-                </th>
-                <th className="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase">
-                  Thao Tác
-                </th>
+                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Ten Cong Ty</th>
+                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Thong Tin Lien Lac</th>
+                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Dia Chi</th>
+                <th className="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase">Thao Tac</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-gray-200">
@@ -344,15 +331,11 @@ const AdminSuppliersPage = () => {
                         <div className="w-10 h-10 bg-coffee-100 rounded-lg flex items-center justify-center">
                           <Building2 className="w-5 h-5 text-coffee-600" />
                         </div>
-                        <p className="font-bold text-gray-900">
-                          {supplier.name}
-                        </p>
+                        <p className="font-bold text-gray-900">{supplier.name}</p>
                       </div>
                     </td>
-                    
                     <td className="px-6 py-4">
                       <div className="space-y-1">
-                        
                         {supplier.contactInfo && (
                           <div className="flex items-center gap-2 text-sm text-gray-600">
                             <Phone className="w-4 h-4" />
@@ -364,9 +347,7 @@ const AdminSuppliersPage = () => {
                     <td className="px-6 py-4">
                       <div className="flex items-start gap-2 text-sm text-gray-600">
                         <MapPin className="w-4 h-4 mt-0.5 flex-shrink-0" />
-                        <span className="line-clamp-2">
-                          {supplier.address || "-"}
-                        </span>
+                        <span className="line-clamp-2">{supplier.address || "-"}</span>
                       </div>
                     </td>
                     <td className="px-6 py-4 text-right">
@@ -389,19 +370,15 @@ const AdminSuppliersPage = () => {
                 ))
               ) : (
                 <tr>
-                  <td
-                    colSpan="5"
-                    className="px-6 py-12 text-center text-gray-500"
-                  >
-                    Không tìm thấy nhà cung cấp nào
+                  <td colSpan="5" className="px-6 py-12 text-center text-gray-500">
+                    Khong tim thay nha cung cap nao
                   </td>
                 </tr>
               )}
             </tbody>
           </table>
         )}
-        
-        {/* Pagination Logic at bottom */}
+
         {!isLoading && Math.ceil(filteredSuppliers.length / itemsPerPage) > 1 && (
           <div className="p-4 border-t border-gray-200">
             <Pagination
@@ -413,7 +390,6 @@ const AdminSuppliersPage = () => {
         )}
       </div>
 
-      {/* Add/Edit Modal */}
       <AnimatePresence>
         {showModal && (
           <div className="fixed inset-0 z-50 overflow-y-auto">
@@ -435,9 +411,7 @@ const AdminSuppliersPage = () => {
                 <form onSubmit={handleSubmit}>
                   <div className="flex items-center justify-between p-6 border-b">
                     <h3 className="text-2xl font-bold text-gray-900">
-                      {editingSupplier
-                        ? "Sửa Nhà Cung Cấp"
-                        : "Thêm Nhà Cung Cấp Mới"}
+                      {editingSupplier ? "Sua Nha Cung Cap" : "Them Nha Cung Cap Moi"}
                     </h3>
                     <button
                       type="button"
@@ -450,67 +424,73 @@ const AdminSuppliersPage = () => {
 
                   <div className="p-6 space-y-4 max-h-[70vh] overflow-y-auto">
                     <Input
-                      label="Tên công ty *"
+                      label="Ten cong ty *"
                       name="name"
                       value={formData.name}
-                      onChange={(e) =>
-                        setFormData({ ...formData, name: e.target.value })
-                      }
+                      onChange={(e) => {
+                        setFormData({ ...formData, name: e.target.value });
+                        setFormErrors((prev) => ({ ...prev, name: "" }));
+                      }}
+                      error={formErrors.name}
                       required
                       icon={<Building2 className="w-5 h-5" />}
-                      placeholder="VD: Công ty Cà Phê ABC"
+                      placeholder="VD: Cong ty Ca Phe ABC"
                     />
 
                     <Input
-                      label="Mã nhà cung cấp *"
+                      label="Ma nha cung cap *"
                       name="code"
                       value={formData.code}
-                      onChange={(e) =>
+                      onChange={(e) => {
                         setFormData({
                           ...formData,
-                          code: e.target.value,
-                        })
-                      }
+                          code: e.target.value.toUpperCase(),
+                        });
+                        setFormErrors((prev) => ({ ...prev, code: "" }));
+                      }}
+                      error={formErrors.code}
                       icon={<User className="w-5 h-5" />}
-                      placeholder="VD:ABC123"
+                      placeholder="VD: ABC123"
                     />
 
                     <div className="grid grid-cols-2 gap-4">
                       <Input
-                        label="Số điện thoại *"
+                        label="So dien thoai *"
                         name="contactInfo"
                         type="tel"
                         value={formData.contactInfo}
-                        onChange={(e) =>
-                          setFormData({ ...formData, contactInfo: e.target.value })
-                        }
+                        onChange={(e) => {
+                          setFormData({ ...formData, contactInfo: e.target.value });
+                          setFormErrors((prev) => ({ ...prev, contactInfo: "" }));
+                        }}
+                        error={formErrors.contactInfo}
                         required
-                        icon={<Mail className="w-5 h-5" />}
+                        icon={<Phone className="w-5 h-5" />}
                         placeholder="0123456789"
                       />
-
-                      
                     </div>
 
                     <div>
-                      <label className="block text-sm font-medium text-gray-700 mb-2">
-                        Địa chỉ
-                      </label>
+                      <label className="block text-sm font-medium text-gray-700 mb-2">Dia chi</label>
                       <div className="relative">
                         <MapPin className="absolute left-3 top-3 w-5 h-5 text-gray-400" />
                         <textarea
                           value={formData.address}
-                          onChange={(e) =>
+                          onChange={(e) => {
                             setFormData({
                               ...formData,
                               address: e.target.value,
-                            })
-                          }
+                            });
+                            setFormErrors((prev) => ({ ...prev, address: "" }));
+                          }}
                           rows={3}
                           className="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-coffee-500"
-                          placeholder="Địa chỉ công ty..."
+                          placeholder="Dia chi cong ty..."
                         />
                       </div>
+                      {formErrors.address && (
+                        <p className="mt-1 text-sm text-red-600">{formErrors.address}</p>
+                      )}
                     </div>
                   </div>
 
@@ -520,10 +500,10 @@ const AdminSuppliersPage = () => {
                       onClick={handleCloseModal}
                       variant="outline"
                     >
-                      Hủy
+                      Huy
                     </Button>
                     <Button type="submit" variant="primary">
-                      {editingSupplier ? "Cập Nhật" : "Thêm Mới"}
+                      {editingSupplier ? "Cap Nhat" : "Them Moi"}
                     </Button>
                   </div>
                 </form>
