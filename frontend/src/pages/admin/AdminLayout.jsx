@@ -92,13 +92,13 @@ const AdminLayout = () => {
         }
       }
     };
-
+ 
     fetchEmployeeProfile();
 
     return () => {
       isMounted = false;
     };
-  }, [userRole,navigate]);
+  }, [userRole, navigate]);
 
   useEffect(() => {
     if ([4, 5].includes(Number(userRole)) && employeeProfile === undefined) {
