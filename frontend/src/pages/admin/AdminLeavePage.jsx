@@ -563,10 +563,10 @@ const AdminLeavePage = () => {
               ) && (
                 <div className="rounded-xl border border-amber-200 bg-amber-50 p-4">
                   <p className="text-sm font-medium text-amber-900">
-                    Lo?i ngh? n�y c?n ch?ng t?
+                    Loại nghỉ này cần chứng từ
                   </p>
                   <p className="mt-1 text-sm text-amber-800">
-                    B?n c� th? ch?n c�ch b? sung ch?ng t? sau khi g?i don.
+                    Bạn có thể chọn cách bổ sung chứng từ sau khi gửi đơn.
                   </p>
                   <div className="mt-3 flex flex-col gap-2">
                     <label className="flex items-center gap-2 text-sm text-gray-700">
@@ -582,7 +582,7 @@ const AdminLeavePage = () => {
                           }))
                         }
                       />
-                      N?p sau
+                      Nộp sau
                     </label>
                     <label className="flex items-center gap-2 text-sm text-gray-700">
                       <input
@@ -597,7 +597,7 @@ const AdminLeavePage = () => {
                           }))
                         }
                       />
-                      N?p tr?c ti?p
+                      Nộp trực tiếp
                     </label>
                   </div>
                 </div>
