@@ -7,8 +7,6 @@ import Input from "../../components/ui/Input";
 import Button from "../../components/ui/Button";
 import { employeeAPI } from "../../services";
 import { getEnterpriseLandingPath } from "../../utils/employeeAccess";
-import { getApiErrorMessage, getApiFieldErrors } from "../../utils/apiValidation";
-import { validateLoginForm } from "../../validations/auth";
 
 const LoginPage = () => {
   const navigate = useNavigate();
@@ -20,40 +18,39 @@ const LoginPage = () => {
     email: "",
     password: "",
   });
-  const [formErrors, setFormErrors] = useState({});
 
   const handleChange = (e) => {
-    const { name, value } = e.target;
-    setFormData((prev) => ({
-      ...prev,
-      [name]: value,
-    }));
-    setFormErrors((prev) => ({ ...prev, [name]: "" }));
+    setFormData({
+      ...formData,
+      [e.target.name]: e.target.value,
+    });
   };
 
   const handleSubmit = async (e) => {
     e.preventDefault();
-
-    const validation = validateLoginForm(formData);
-    if (!validation.isValid) {
-      setFormErrors(validation.errors);
-      toast.error(Object.values(validation.errors)[0]);
-      return;
-    }
-
     try {
-      setFormErrors({});
       const response = await login(formData);
       const payload = response?.data || response;
       if (payload?.error) {
         throw new Error(payload.message);
       }
-      toast.success("Dang nhap thanh cong");
+      toast.success("Đăng nhập thành công!");
 
+      // Lấy roleId từ response
       const user = payload?.user;
       const roleId = user?.roleId || user?.role_id || user?.role;
+
+      // Kiểm tra nếu có trang redirect trước đó (từ ProtectedRoute)
       const from = location.state?.from?.pathname || null;
 
+      // Logic redirect:
+      // 1. Nếu có trang trước đó (user cố vào trang cần login) -> redirect về đó
+      // 2. Redirect theo role-specific dashboard:
+      //    - Role 1 (Admin) -> /admin/dashboard
+      //    - Role 3 (Warehouse) -> /admin/warehouse-dashboard
+      //    - Role 4 (Sales) -> /admin/sales-dashboard
+      //    - Role 5 (HRM) -> /admin/hrm-dashboard
+      //    - Role 2 (Customer) -> / (homepage)
       let employeeProfile = null;
       if ([2, 4, 5].includes(Number(roleId))) {
         try {
@@ -72,11 +69,7 @@ const LoginPage = () => {
         navigate(landingPath, { replace: true });
       }
     } catch (error) {
-      const fieldErrors = getApiFieldErrors(error);
-      if (Object.keys(fieldErrors).length > 0) {
-        setFormErrors((prev) => ({ ...prev, ...fieldErrors }));
-      }
-      toast.error(getApiErrorMessage(error, "Dang nhap that bai"));
+      toast.error(error.message || "Đăng nhập thất bại");
     }
   };
 
@@ -85,28 +78,26 @@ const LoginPage = () => {
       <div className="bg-white rounded-2xl shadow-xl p-8 w-full max-w-md">
         <div className="text-center mb-8">
           <Coffee className="w-16 h-16 mx-auto mb-4 text-coffee-600" />
-          <h1 className="text-3xl font-bold text-gray-900">Dang Nhap</h1>
-          <p className="text-gray-600 mt-2">Chao mung tro lai</p>
+          <h1 className="text-3xl font-bold text-gray-900">Đăng Nhập</h1>
+          <p className="text-gray-600 mt-2">Chào mừng trở lại!</p>
         </div>
 
         <form onSubmit={handleSubmit} className="space-y-4">
           <Input
-            label="Email hoac username"
+            label="Email hoặc username"
             type="text"
             name="email"
             value={formData.email}
             onChange={handleChange}
-            error={formErrors.email}
             required
           />
 
           <Input
-            label="Mat khau"
+            label="Mật khẩu"
             type="password"
             name="password"
             value={formData.password}
             onChange={handleChange}
-            error={formErrors.password}
             required
           />
 
@@ -116,17 +107,17 @@ const LoginPage = () => {
             className="w-full"
             isLoading={isLoading}
           >
-            Dang Nhap
+            Đăng Nhập
           </Button>
         </form>
 
         <p className="text-center mt-6 text-gray-600">
-          Chua co tai khoan?{" "}
+          Chưa có tài khoản?{" "}
           <Link
             to="/register"
             className="text-coffee-600 hover:underline font-medium"
           >
-            Dang ky ngay
+            Đăng ký ngay
           </Link>
         </p>
       </div>
