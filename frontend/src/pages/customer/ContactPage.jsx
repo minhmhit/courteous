@@ -26,6 +26,45 @@ const ContactPage = () => {
     message: "",
   });
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [errors, setErrors] = useState({
+    name: null,
+    email: null,
+    phone: null,
+  });
+
+  const NAME_REGEX = /^(?=.*[A-Za-zÀ-ỹĐđ])[A-Za-zÀ-ỹĐđ\s]+$/u;
+  const PHONE_REGEX = /^0\d{9}$/;
+  const EMAIL_REGEX = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+
+  const CONTACT_FIELD_MESSAGES = {
+    name: "Họ và tên phải có ký tự chữ và chỉ gồm chữ cái và khoảng trắng.",
+    phone: "Số điện thoại phải bắt đầu bằng 0 và có đúng 10 chữ số.",
+    email:
+      "Email không hợp lệ. Vui lòng nhập đúng định dạng email ( example@domain.com ).",
+  };
+
+  const getContactFieldErrorMessage = (field, value) => {
+    const v = typeof value === "string" ? value.trim() : value;
+    if (field === "name") {
+      if (!v) return "Họ và tên không được để trống.";
+      if (!NAME_REGEX.test(v)) return CONTACT_FIELD_MESSAGES.name;
+      return null;
+    }
+
+    if (field === "phone") {
+      if (!v) return "Số điện thoại không được để trống.";
+      if (!PHONE_REGEX.test(v)) return CONTACT_FIELD_MESSAGES.phone;
+      return null;
+    }
+
+    if (field === "email") {
+      if (!v) return "Email không được để trống.";
+      if (!EMAIL_REGEX.test(v)) return CONTACT_FIELD_MESSAGES.email;
+      return null;
+    }
+
+    return null;
+  };
 
   const contactInfo = [
     {
@@ -62,12 +101,35 @@ const ContactPage = () => {
   const handleChange = (e) => {
     const { name, value } = e.target;
     setFormData((prev) => ({ ...prev, [name]: value }));
+    // live-validate single field
+    if (name === "name" || name === "email" || name === "phone") {
+      const fieldErr = getContactFieldErrorMessage(name, value);
+      setErrors((prev) => ({ ...prev, [name]: fieldErr }));
+    }
   };
 
   const handleSubmit = async (e) => {
     e.preventDefault();
-    setIsSubmitting(true);
+    // Frontend-only validations (no backend changes)
+    const nameErr = getContactFieldErrorMessage("name", formData.name);
+    if (nameErr) {
+      toast.error(nameErr);
+      return;
+    }
 
+    const emailErr = getContactFieldErrorMessage("email", formData.email);
+    if (emailErr) {
+      toast.error(emailErr);
+      return;
+    }
+
+    const phoneErr = getContactFieldErrorMessage("phone", formData.phone);
+    if (phoneErr) {
+      toast.error(phoneErr);
+      return;
+    }
+
+    setIsSubmitting(true);
     // Simulate API call
     setTimeout(() => {
       toast.success("Tin nhắn của bạn đã được gửi thành công!");
@@ -150,26 +212,40 @@ const ContactPage = () => {
               <h2 className="text-3xl font-bold text-coffee-800 mb-6">
                 Gửi Tin Nhắn
               </h2>
-              <form onSubmit={handleSubmit} className="space-y-6">
-                <Input
-                  label="Họ và tên"
-                  type="text"
-                  name="name"
-                  value={formData.name}
-                  onChange={handleChange}
-                  required
-                  placeholder="Nguyễn Văn A"
-                />
-                <div className="grid md:grid-cols-2 gap-6">
+              <form onSubmit={handleSubmit} className="space-y-6" noValidate>
+                <div>
                   <Input
-                    label="Email"
-                    type="email"
-                    name="email"
-                    value={formData.email}
+                    label="Họ và tên"
+                    type="text"
+                    name="name"
+                    value={formData.name}
                     onChange={handleChange}
                     required
-                    placeholder="example@email.com"
+                    placeholder="Nguyễn Văn A"
                   />
+                  {errors.name && (
+                    <p className="mt-1 text-sm text-red-600" role="alert">
+                      {errors.name}
+                    </p>
+                  )}
+                </div>
+                <div className="grid md:grid-cols-2 gap-6">
+                  <div>
+                    <Input
+                      label="Email"
+                      type="email"
+                      name="email"
+                      value={formData.email}
+                      onChange={handleChange}
+                      required
+                      placeholder="example@email.com"
+                    />
+                    {errors.email && (
+                      <p className="mt-1 text-sm text-red-600" role="alert">
+                        {errors.email}
+                      </p>
+                    )}
+                  </div>
                   <Input
                     label="Số điện thoại"
                     type="tel"
@@ -178,6 +254,11 @@ const ContactPage = () => {
                     onChange={handleChange}
                     placeholder="0123456789"
                   />
+                  {errors.phone && (
+                    <p className="mt-1 text-sm text-red-600" role="alert">
+                      {errors.phone}
+                    </p>
+                  )}
                 </div>
                 <Input
                   label="Tiêu đề"
