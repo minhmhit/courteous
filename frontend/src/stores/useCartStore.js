@@ -1,5 +1,58 @@
 import { create } from "zustand";
-import { cartAPI } from "../services";
+import { cartAPI, productAPI } from "../services";
+
+const getItemStockQuantity = (item) => {
+  const stockCandidates = [
+    item?.stockQuantity,
+    item?.stock,
+    item?.availableStock,
+    item?.inventoryQuantity,
+    item?.product?.stockQuantity,
+    item?.product?.stock,
+    item?.product?.availableStock,
+    item?.inventory?.quantity,
+  ];
+
+  for (const candidate of stockCandidates) {
+    const value = Number(candidate);
+    if (Number.isFinite(value) && value >= 0) {
+      return value;
+    }
+  }
+
+  return null;
+};
+
+const enrichCartItemsWithStock = async (items) => {
+  return Promise.all(
+    items.map(async (item) => {
+      const stockQuantity = getItemStockQuantity(item);
+
+      if (stockQuantity !== null || !item?.productId) {
+        return {
+          ...item,
+          stockQuantity,
+        };
+      }
+
+      try {
+        const productResponse = await productAPI.getProductById(item.productId);
+        const product = productResponse?.data || productResponse;
+
+        return {
+          ...item,
+          product,
+          stockQuantity: Number(product?.stockQuantity || 0),
+        };
+      } catch {
+        return {
+          ...item,
+          stockQuantity: null,
+        };
+      }
+    }),
+  );
+};
 
 const useCartStore = create((set, get) => ({
   cart: null,
@@ -19,7 +72,8 @@ const useCartStore = create((set, get) => ({
 
       // Handle different response structures
       const cartData = response.data || response;
-      const items = cartData.items || cartData.cartItems || [];
+      const rawItems = cartData.items || cartData.cartItems || [];
+      const items = await enrichCartItemsWithStock(rawItems);
 
       const totalItems = items.reduce(
         (sum, item) => sum + (item.quantity || 0),
