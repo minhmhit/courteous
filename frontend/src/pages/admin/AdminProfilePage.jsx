@@ -95,16 +95,31 @@ const AdminProfilePage = () => {
     let isMounted = true;
     const fetchProfile = async () => {
       try {
-        const res = await employeeAPI.getMyProfile();
-        const profile = getProfileFromResponse(res);
+        let profile = null;
+        try {
+          const res = await employeeAPI.getMyProfile();
+          profile = getProfileFromResponse(res);
+        } catch (error) {
+          // ignore employee profile fetch errors
+        }
+
+        if (!profile) {
+          const res = await authAPI.getProfile();
+          const payload = res?.data || res;
+          profile = payload?.data || payload?.user || payload;
+        }
         if (!isMounted || !profile) return;
 
         setInfoForm((prev) => ({
           ...prev,
-          name: profile.name || prev.name,
+          name: profile.name || profile.fullName || prev.name,
           email: profile.email || prev.email,
-          phoneNumber: profile.phoneNumber || "",
-          address: profile.address || profile.user_address || "",
+          phoneNumber: profile.phoneNumber || profile.phone || "",
+          address:
+            profile.address ||
+            profile.user_address ||
+            profile.fullAddress ||
+            "",
           dateOfBirth: toDateInputValue(profile.dateOfBirth),
           gender: profile.gender || "",
           nationalId: profile.nationalId || "",
@@ -154,24 +169,23 @@ const AdminProfilePage = () => {
         bankName: normalizeNullable(infoForm.bankName),
       };
 
-      const userPayload = {
-        name: normalizeNullable(infoForm.name),
-        phoneNumber: normalizeNullable(infoForm.phoneNumber),
-        address: normalizeNullable(infoForm.address),
+      const profilePayload = {
+        name: infoForm.name,
+        phoneNumber: infoForm.phoneNumber,
       };
 
-      await employeeAPI.updateMyProfile(employeePayload);
-
-      try {
-        await updateProfile(userPayload);
-      } catch (error) {
-        // ignore sync errors
+      const normalizedAddress = (infoForm.address || "").trim();
+      if (normalizedAddress.length >= 5) {
+        profilePayload.address = normalizedAddress;
       }
 
+      await employeeAPI.updateMyProfile(employeePayload);
+      await updateProfile(profilePayload);
       toast.success("Cập nhật thông tin thành công!");
     } catch (error) {
       const message =
         error?.response?.data?.message ||
+        error?.response?.data?.error ||
         error?.message ||
         "Không thể cập nhật thông tin";
       toast.error(message);

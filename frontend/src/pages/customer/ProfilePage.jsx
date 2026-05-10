@@ -15,10 +15,39 @@ import { authAPI, orderAPI, userAPI, addressAPI } from "../../services";
 import { formatDate } from "../../utils/formatDate";
 import { Trash2 } from "lucide-react";
 
-const unwrapApiData = (response) => response?.data?.data || response?.data || null;
+const unwrapApiData = (response) =>
+  response?.data?.data || response?.data || null;
 const unwrapApiList = (response) => {
   const data = unwrapApiData(response);
   return Array.isArray(data) ? data : [];
+};
+
+const NAME_REGEX = /^(?=.*[A-Za-zÀ-ỹĐđ])[A-Za-zÀ-ỹĐđ\s]+$/u;
+const PHONE_REGEX = /^0\d{9}$/;
+
+const ADDRESS_FIELD_MESSAGES = {
+  receiverName:
+    "Tên người nhận phải có ký tự chữ và chỉ gồm chữ cái, khoảng trắng.",
+  phoneNumber: "Số điện thoại phải bắt đầu bằng 0 và có đúng 10 chữ số.",
+  fullAddress: "Địa chỉ chi tiết không được để trống.",
+};
+
+const getApiErrorMessage = (error) => {
+  const validationErrors = error?.response?.data?.errors;
+
+  if (Array.isArray(validationErrors) && validationErrors.length > 0) {
+    return validationErrors
+      .map((item) => item?.msg)
+      .filter(Boolean)
+      .join(". ");
+  }
+
+  return (
+    error?.response?.data?.message ||
+    error?.response?.data?.error ||
+    error?.message ||
+    "Không thể cập nhật thông tin"
+  );
 };
 
 const ProfilePage = () => {
@@ -111,19 +140,121 @@ const ProfilePage = () => {
     setInfoForm({ ...infoForm, [e.target.name]: e.target.value });
   };
 
+  const getAddressErrorMessage = (error) => {
+    const validationErrors = error?.response?.data?.errors;
+
+    if (Array.isArray(validationErrors) && validationErrors.length > 0) {
+      const priorityField = ["receiverName", "phoneNumber", "fullAddress"];
+
+      for (const field of priorityField) {
+        const fieldError = validationErrors.find(
+          (item) => item?.path === field,
+        );
+        if (fieldError?.msg) {
+          return fieldError.msg;
+        }
+      }
+
+      return validationErrors
+        .map((item) => item?.msg)
+        .filter(Boolean)
+        .join(". ");
+    }
+
+    return (
+      error?.response?.data?.message ||
+      error?.response?.data?.error ||
+      error?.message ||
+      "Không thể thêm địa chỉ"
+    );
+  };
+
+  const getAddressFieldErrorMessage = (field, value) => {
+    const trimmedValue = typeof value === "string" ? value.trim() : value;
+
+    if (field === "receiverName") {
+      if (!trimmedValue) {
+        return "Tên người nhận không được để trống.";
+      }
+
+      if (!NAME_REGEX.test(trimmedValue)) {
+        return ADDRESS_FIELD_MESSAGES.receiverName;
+      }
+
+      return null;
+    }
+
+    if (field === "phoneNumber") {
+      if (!trimmedValue) {
+        return "Số điện thoại không được để trống.";
+      }
+
+      if (!PHONE_REGEX.test(trimmedValue)) {
+        return ADDRESS_FIELD_MESSAGES.phoneNumber;
+      }
+
+      return null;
+    }
+
+    if (field === "fullAddress") {
+      if (!trimmedValue) {
+        return ADDRESS_FIELD_MESSAGES.fullAddress;
+      }
+
+      return null;
+    }
+
+    return null;
+  };
+
   const handlePasswordChange = (e) => {
     setPasswordForm({ ...passwordForm, [e.target.name]: e.target.value });
   };
 
   const handleUpdateInfo = async (e) => {
     e.preventDefault();
+
+    const nextName = infoForm.name.trim();
+    const nextPhone = infoForm.phoneNumber.trim();
+    const nextUsername = infoForm.username.trim();
+
+    if (!nextName) {
+      toast.error("Họ và tên không được để trống.");
+      return;
+    }
+
+    if (!NAME_REGEX.test(nextName)) {
+      toast.error(
+        "Họ và tên phải chứa ít nhất một chữ cái và chỉ gồm chữ cái, khoảng trắng, dấu chấm, dấu gạch ngang hoặc dấu nháy.",
+      );
+      return;
+    }
+
+    if (nextPhone && !PHONE_REGEX.test(nextPhone)) {
+      toast.error("Số điện thoại phải bắt đầu bằng 0 và có đúng 10 chữ số.");
+      return;
+    }
+
     setIsLoading(true);
     try {
-      await updateProfile(infoForm);
-      setProfileData((prev) => ({ ...(prev || {}), ...infoForm }));
-      toast.success("Cập nhật thông tin thành công!");
+      const payload = {
+        ...infoForm,
+        name: nextName,
+        phoneNumber: nextPhone || undefined,
+        username: nextUsername || undefined,
+      };
+
+      await updateProfile(payload);
+      setProfileData((prev) => ({ ...(prev || {}), ...payload }));
+      setInfoForm((prev) => ({
+        ...prev,
+        name: nextName,
+        phoneNumber: nextPhone,
+        username: nextUsername,
+      }));
+      toast.success("Cập nhật thông tin cá nhân thành công!");
     } catch (error) {
-      toast.error("Không thể cập nhật thông tin");
+      toast.error(getApiErrorMessage(error));
     } finally {
       setIsLoading(false);
     }
@@ -173,26 +304,46 @@ const ProfilePage = () => {
   const handleAddAddress = async (e) => {
     e.preventDefault();
 
-    if (
-      !newAddressForm.receiverName ||
-      !newAddressForm.phoneNumber ||
-      !newAddressForm.fullAddress
-    ) {
-      toast.error("Vui lòng điền đầy đủ thông tin địa chỉ");
+    const nextReceiverName = newAddressForm.receiverName.trim();
+    const nextPhoneNumber = newAddressForm.phoneNumber.trim();
+    const nextFullAddress = newAddressForm.fullAddress.trim();
+
+    if (!nextReceiverName) {
+      toast.error("Tên người nhận không được để trống.");
+      return;
+    }
+
+    if (!NAME_REGEX.test(nextReceiverName)) {
+      toast.error(ADDRESS_FIELD_MESSAGES.receiverName);
+      return;
+    }
+
+    if (!nextPhoneNumber) {
+      toast.error(getAddressFieldErrorMessage("phoneNumber", nextPhoneNumber));
+      return;
+    }
+
+    if (!PHONE_REGEX.test(nextPhoneNumber)) {
+      toast.error(getAddressFieldErrorMessage("phoneNumber", nextPhoneNumber));
+      return;
+    }
+
+    if (!nextFullAddress) {
+      toast.error(getAddressFieldErrorMessage("fullAddress", nextFullAddress));
       return;
     }
 
     setIsLoading(true);
     try {
       await addressAPI.createAddress({
-        receiverName: newAddressForm.receiverName,
-        phoneNumber: newAddressForm.phoneNumber,
-        fullAddress: newAddressForm.fullAddress,
+        receiverName: nextReceiverName,
+        phoneNumber: nextPhoneNumber,
+        fullAddress: nextFullAddress,
         addressType: newAddressForm.addressType,
         isDefault: newAddressForm.isDefault,
       });
-      
-      toast.success("Thêm địa chỉ thành công!");
+
+      toast.success("Thêm địa chỉ mới thành công!");
       setShowAddressForm(false);
       setNewAddressForm({
         receiverName: user?.name || "",
@@ -206,7 +357,7 @@ const ProfilePage = () => {
       const response = await addressAPI.getMyAddresses();
       setAddresses(unwrapApiList(response));
     } catch (error) {
-      toast.error(error?.message || "Không thể thêm địa chỉ");
+      toast.error(getAddressErrorMessage(error));
     } finally {
       setIsLoading(false);
     }
@@ -287,7 +438,10 @@ const ProfilePage = () => {
           <div className="lg:col-span-3">
             <div className="rounded-lg bg-white p-8 shadow-sm">
               {activeTab === "info" && (
-                <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }}>
+                <motion.div
+                  initial={{ opacity: 0, y: 20 }}
+                  animate={{ opacity: 1, y: 0 }}
+                >
                   <h2 className="mb-6 text-2xl font-bold text-gray-900">
                     Thông tin cá nhân
                   </h2>
@@ -321,7 +475,11 @@ const ProfilePage = () => {
                       value={infoForm.username}
                       onChange={handleInfoChange}
                     />
-                    <Button type="submit" variant="primary" isLoading={isLoading}>
+                    <Button
+                      type="submit"
+                      variant="primary"
+                      isLoading={isLoading}
+                    >
                       Cập nhật thông tin
                     </Button>
                   </form>
@@ -329,7 +487,10 @@ const ProfilePage = () => {
               )}
 
               {activeTab === "address" && (
-                <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }}>
+                <motion.div
+                  initial={{ opacity: 0, y: 20 }}
+                  animate={{ opacity: 1, y: 0 }}
+                >
                   <div className="mb-6 flex items-center justify-between">
                     <h2 className="text-2xl font-bold text-gray-900">
                       Địa chỉ của tôi
@@ -400,7 +561,8 @@ const ProfilePage = () => {
                     </div>
                   ) : (
                     <div className="mb-8 rounded-lg border border-dashed border-gray-300 p-6 text-center text-gray-600">
-                      Bạn chưa có địa chỉ nào. Hãy thêm địa chỉ mới để tiện cho việc mua hàng.
+                      Bạn chưa có địa chỉ nào. Hãy thêm địa chỉ mới để tiện cho
+                      việc mua hàng.
                     </div>
                   )}
 
@@ -467,7 +629,9 @@ const ProfilePage = () => {
                                 type="radio"
                                 name="addressType"
                                 value="office"
-                                checked={newAddressForm.addressType === "office"}
+                                checked={
+                                  newAddressForm.addressType === "office"
+                                }
                                 onChange={handleNewAddressChange}
                                 className="h-4 w-4 text-coffee-600"
                               />
@@ -516,7 +680,10 @@ const ProfilePage = () => {
               )}
 
               {activeTab === "password" && (
-                <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }}>
+                <motion.div
+                  initial={{ opacity: 0, y: 20 }}
+                  animate={{ opacity: 1, y: 0 }}
+                >
                   <h2 className="mb-6 text-2xl font-bold text-gray-900">
                     Đổi mật khẩu
                   </h2>
@@ -545,7 +712,11 @@ const ProfilePage = () => {
                       onChange={handlePasswordChange}
                       required
                     />
-                    <Button type="submit" variant="primary" isLoading={isLoading}>
+                    <Button
+                      type="submit"
+                      variant="primary"
+                      isLoading={isLoading}
+                    >
                       Đổi mật khẩu
                     </Button>
                   </form>
@@ -553,7 +724,10 @@ const ProfilePage = () => {
               )}
 
               {activeTab === "orders" && (
-                <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }}>
+                <motion.div
+                  initial={{ opacity: 0, y: 20 }}
+                  animate={{ opacity: 1, y: 0 }}
+                >
                   <h2 className="mb-6 text-2xl font-bold text-gray-900">
                     Đơn hàng của tôi
                   </h2>
@@ -570,7 +744,10 @@ const ProfilePage = () => {
               )}
 
               {activeTab === "settings" && (
-                <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }}>
+                <motion.div
+                  initial={{ opacity: 0, y: 20 }}
+                  animate={{ opacity: 1, y: 0 }}
+                >
                   <h2 className="mb-6 text-2xl font-bold text-gray-900">
                     Cài đặt
                   </h2>
