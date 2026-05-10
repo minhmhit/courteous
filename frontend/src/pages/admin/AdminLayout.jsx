@@ -71,6 +71,7 @@ const AdminLayout = () => {
         navigate("/admin/hrm-dashboard", { replace: true });
       } else if (userRole === 1) {
         navigate("/admin/dashboard", { replace: true });
+      }}
     let isMounted = true;
 
     const fetchEmployeeProfile = async () => {
@@ -96,7 +97,7 @@ const AdminLayout = () => {
     return () => {
       isMounted = false;
     };
-  }, [userRole]);
+  }, [userRole, navigate]);
 
   useEffect(() => {
     if ([4, 5].includes(Number(userRole)) && employeeProfile === undefined) {

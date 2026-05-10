@@ -9,8 +9,12 @@ const paymentAPI = {
     return await axiosInstance.post("/payments", paymentData);
   },
 
-  getOrderPayment: async (orderId) => {
-    return await axiosInstance.get(`/payments/order/${orderId}`);
+  getOrderPayment: async (orderId, options = {}) => {
+    const requestConfig = options.silentNotFound
+      ? { silentStatuses: [404] }
+      : undefined;
+
+    return await axiosInstance.get(`/payments/order/${orderId}`, requestConfig);
   },
 
   verifyVnpayReturn: async (params) => {

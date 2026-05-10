@@ -48,6 +48,9 @@ axiosInstance.interceptors.response.use(
     const originalRequest = error.config || {};
     const skipAuthRedirect = originalRequest.skipAuthRedirect;
     const skipAuthRefresh = originalRequest.skipAuthRefresh;
+    const silentStatuses = Array.isArray(originalRequest.silentStatuses)
+      ? originalRequest.silentStatuses
+      : [];
 
     if (error.response) {
       const { status, data } = error.response;
@@ -74,6 +77,10 @@ axiosInstance.interceptors.response.use(
         if (!skipAuthRedirect && !window.location.pathname.includes("/login")) {
           redirectToLogin();
         }
+      }
+
+      if (silentStatuses.includes(status)) {
+        return Promise.reject(data || error.message);
       }
 
       if (status === 403) {

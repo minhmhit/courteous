@@ -59,7 +59,9 @@ const AdminOrdersPage = () => {
       const ordersWithPayment = await Promise.all(
         orderList.map(async (order) => {
           try {
-            const paymentResponse = await paymentAPI.getOrderPayment(order.id);
+            const paymentResponse = await paymentAPI.getOrderPayment(order.id, {
+              silentNotFound: true,
+            });
             const payment = paymentResponse?.data || paymentResponse || null;
             return { ...order, paymentStatus: payment?.status || null };
           } catch {
