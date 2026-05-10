@@ -19,15 +19,14 @@ const getLogicalStatus = (orderStatus, orderId, vnpayPaidIds) => {
   const normalizedStatus = String(orderStatus || "").toUpperCase();
   const orderIdNum = Number(orderId);
 
-  if (
-    normalizedStatus === "COMPLETED" ||
-    (normalizedStatus === "PENDING" && vnpayPaidIds.includes(orderIdNum))
-  ) {
-    return "COMPLETED";
-  }
-
+  if (normalizedStatus === "COMPLETED") return "COMPLETED";
   if (normalizedStatus === "CANCELLED") return "CANCELLED";
   if (normalizedStatus === "SHIPPING") return "SHIPPING";
+
+  // PENDING + đã thanh toán VNPay → trạng thái riêng "PAID"
+  if (normalizedStatus === "PENDING" && vnpayPaidIds.includes(orderIdNum)) {
+    return "PAID";
+  }
 
   return "PENDING";
 };
@@ -36,6 +35,8 @@ const getStatusLabelText = (logicalStatus) => {
   switch (logicalStatus) {
     case "COMPLETED":
       return "HOÀN THÀNH";
+    case "PAID":
+      return "THANH TOÁN THÀNH CÔNG";
     case "CANCELLED":
       return "ĐÃ HỦY";
     case "SHIPPING":
@@ -56,6 +57,7 @@ const getImageSrc = (imageUrl) => {
 const TABS = [
   { id: "ALL", label: "Tất cả" },
   { id: "PENDING", label: "Chờ thanh toán" },
+  { id: "PAID", label: "Đã thanh toán" },
   { id: "SHIPPING", label: "Vận chuyển" },
   { id: "COMPLETED", label: "Hoàn thành" },
   { id: "CANCELLED", label: "Đã hủy" },
@@ -212,11 +214,15 @@ const OrderHistoryPage = () => {
                     </div>
 
                     <div className="flex items-center gap-2 text-xs font-bold text-coffee-600 sm:text-sm">
-                      {(logicalStatus === "COMPLETED" || logicalStatus === "SHIPPING") && (
+                      {(logicalStatus === "COMPLETED" || logicalStatus === "SHIPPING" || logicalStatus === "PAID") && (
                         <>
                           <Truck className="mr-0.5 hidden h-4 w-4 text-emerald-600 sm:inline" />
                           <span className="mr-1 hidden border-r border-coffee-200/50 pr-3 text-emerald-600 sm:inline">
-                            {logicalStatus === "COMPLETED" ? "Giao thành công" : "Đơn nhận nhanh"}
+                            {logicalStatus === "COMPLETED"
+                              ? "Giao thành công"
+                              : logicalStatus === "PAID"
+                              ? "Đã thanh toán"
+                              : "Đơn nhận nhanh"}
                           </span>
                         </>
                       )}
@@ -278,9 +284,13 @@ const OrderHistoryPage = () => {
                       <div className="hidden rounded-xl border border-white/60 bg-white/50 px-4 py-2 text-xs font-medium text-gray-500 sm:block sm:text-sm">
                         {logicalStatus === "COMPLETED"
                           ? "Giao hàng thành công"
+                          : logicalStatus === "PAID"
+                          ? "Thanh toán thành công, chờ xử lý đơn"
+                          : logicalStatus === "SHIPPING"
+                          ? "Đơn hàng đang được vận chuyển"
                           : logicalStatus === "CANCELLED"
-                            ? "Đơn đã bị hủy do thay đổi hoặc lỗi mạng"
-                            : "Vui lòng thanh toán hoặc chờ bộ phận xử lý"}
+                          ? "Đơn đã bị hủy do thay đổi hoặc lỗi mạng"
+                          : "Vui lòng thanh toán hoặc chờ bộ phận xử lý"}
                       </div>
                       <div className="flex flex-wrap gap-2 sm:gap-3">
                         {logicalStatus === "PENDING" && (
@@ -291,7 +301,7 @@ const OrderHistoryPage = () => {
                             Thanh toán / Hủy
                           </button>
                         )}
-                        {(logicalStatus === "COMPLETED" || logicalStatus === "CANCELLED") && (
+                        {(logicalStatus === "COMPLETED" || logicalStatus === "CANCELLED" || logicalStatus === "PAID") && (
                           <button
                             onClick={() => navigate("/products")}
                             className="rounded-xl border border-transparent bg-gradient-to-r from-coffee-600 to-amber-700 px-4 py-2.5 text-sm font-semibold text-white transition-all hover:-translate-y-0.5 hover:shadow-lg hover:shadow-coffee-600/30 sm:px-6 sm:py-3"

@@ -117,6 +117,12 @@ const authAPI = {
     });
   },
 
+  forgotPassword: async (username) => {
+    return await axiosInstance.post("/auth/forgot-password", { username }, {
+      headers: { "Content-Type": "application/x-www-form-urlencoded" },
+    });
+  },
+
   isAuthenticated: () => !!getAccessToken() || !!getRefreshToken(),
 
   getCurrentUser: () => getStoredUser(),
