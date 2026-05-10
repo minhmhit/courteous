@@ -111,7 +111,16 @@ const LoginPage = () => {
           </Button>
         </form>
 
-        <p className="text-center mt-6 text-gray-600">
+        <p className="text-right mt-3">
+          <Link
+            to="/forgot-password"
+            className="text-sm text-coffee-600 hover:underline"
+          >
+            Quên mật khẩu?
+          </Link>
+        </p>
+
+        <p className="text-center mt-4 text-gray-600">
           Chưa có tài khoản?{" "}
           <Link
             to="/register"

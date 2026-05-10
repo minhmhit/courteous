@@ -25,6 +25,7 @@ const AboutPage = lazy(() => import("./pages/customer/AboutPage"));
 const ContactPage = lazy(() => import("./pages/customer/ContactPage"));
 const LoginPage = lazy(() => import("./pages/auth/LoginPage"));
 const RegisterPage = lazy(() => import("./pages/auth/RegisterPage"));
+const ForgotPasswordPage = lazy(() => import("./pages/auth/ForgotPasswordPage"));
 const AdminLayout = lazy(() => import("./pages/admin/AdminLayout"));
 const EmployeeLayout = lazy(() => import("./pages/employee/EmployeeLayout"));
 const DashboardPage = lazy(() => import("./pages/admin/DashboardPage"));
@@ -107,6 +108,7 @@ function App() {
           <Routes>
             <Route path="/login" element={<LoginPage />} />
             <Route path="/register" element={<RegisterPage />} />
+            <Route path="/forgot-password" element={<ForgotPasswordPage />} />
 
             <Route element={<CustomerLayout />}>
               <Route path="/" element={<HomePage />} />

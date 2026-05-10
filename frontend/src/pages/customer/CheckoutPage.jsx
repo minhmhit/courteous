@@ -1,4 +1,4 @@
-﻿import { useEffect, useState } from "react";
+import { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { motion } from "framer-motion";
 import {
@@ -56,8 +56,25 @@ const getImageSrc = (imageUrl) => {
 const CheckoutPage = () => {
   const navigate = useNavigate();
   const toast = useToastStore();
-  const { items, totalPrice, fetchCart } = useCartStore();
+  const { items, fetchCart } = useCartStore();
   const { user } = useAuthStore();
+
+  // Lấy danh sách id được tick từ Cart
+  const selectedItems = (() => {
+    try {
+      const raw = JSON.parse(sessionStorage.getItem("checkout_selected_ids") || "[]");
+      const selectedSet = new Set(Array.isArray(raw) ? raw.map(Number) : []);
+      if (selectedSet.size === 0) return items || [];
+      return (items || []).filter((item) => selectedSet.has(Number(item.id)));
+    } catch {
+      return items || [];
+    }
+  })();
+
+  const selectedTotalPrice = selectedItems.reduce(
+    (sum, item) => sum + (item.unitPrice || 0) * (item.quantity || 0),
+    0,
+  );
 
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [orderSuccess, setOrderSuccess] = useState(false);
@@ -282,7 +299,7 @@ const CheckoutPage = () => {
       return;
     }
 
-    const discount = (totalPrice * foundCoupon.discountPercent) / 100;
+    const discount = (selectedTotalPrice * foundCoupon.discountPercent) / 100;
 
     setAppliedCoupon(foundCoupon);
     setDiscountAmount(discount);
@@ -297,7 +314,7 @@ const CheckoutPage = () => {
     toast.success("Đã xóa mã giảm giá");
   };
 
-  const finalPrice = totalPrice - discountAmount;
+  const finalPrice = selectedTotalPrice - discountAmount;
   const selectedPaymentConfig =
     PAYMENT_METHOD_CONFIG[formData.paymentMethod] || PAYMENT_METHOD_CONFIG.COD;
 
@@ -343,7 +360,7 @@ const CheckoutPage = () => {
 
     try {
       const orderData = {
-        cartItems: items.map((item) => ({
+        cartItems: selectedItems.map((item) => ({
           cartItemId: item.id || item.cartItemId,
           productId: item.productId || item.product_id,
           quantity: item.quantity,
@@ -740,23 +757,27 @@ const CheckoutPage = () => {
                 <h2 className="mb-6 text-xl font-bold text-gray-900">Đơn hàng của bạn</h2>
 
                 <div className="mb-6 max-h-60 space-y-3 overflow-y-auto">
-                  {items?.map((item) => (
-                    <div key={item.id} className="flex gap-3">
-                      <img
-                        src={getImageSrc(item.imageUrl)}
-                        alt={item.name}
-                        className="h-16 w-16 rounded-lg object-cover"
-                      />
-                      <div className="flex-1">
-                        <p className="line-clamp-2 text-sm font-medium text-gray-900">
-                          {item.name}
-                        </p>
-                        <p className="text-sm text-gray-600">
-                          {item.quantity} x {formatCurrency(item.unitPrice)}
-                        </p>
+                  {selectedItems.length === 0 ? (
+                    <p className="text-sm text-amber-600">Chưa có sản phẩm nào được chọn</p>
+                  ) : (
+                    selectedItems.map((item) => (
+                      <div key={item.id} className="flex gap-3">
+                        <img
+                          src={getImageSrc(item.imageUrl)}
+                          alt={item.name}
+                          className="h-16 w-16 rounded-lg object-cover"
+                        />
+                        <div className="flex-1">
+                          <p className="line-clamp-2 text-sm font-medium text-gray-900">
+                            {item.name}
+                          </p>
+                          <p className="text-sm text-gray-600">
+                            {item.quantity} x {formatCurrency(item.unitPrice)}
+                          </p>
+                        </div>
                       </div>
-                    </div>
-                  ))}
+                    ))
+                  )}
                 </div>
 
                 <div className="mb-4 border-t border-white/25 pt-4">
@@ -803,8 +824,8 @@ const CheckoutPage = () => {
 
                 <div className="mb-6 space-y-2 border-t border-white/25 pt-4">
                   <div className="flex justify-between text-gray-600">
-                    <span>Tạm tính</span>
-                    <span>{formatCurrency(totalPrice)}</span>
+                    <span>Tạm tính ({selectedItems.length} sản phẩm)</span>
+                    <span>{formatCurrency(selectedTotalPrice)}</span>
                   </div>
                   {appliedCoupon && (
                     <div className="flex justify-between text-green-600">
