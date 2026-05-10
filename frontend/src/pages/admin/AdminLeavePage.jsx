@@ -1,3 +1,4 @@
+/* eslint-disable no-constant-binary-expression */
 import { useEffect, useMemo, useState } from "react";
 import { Calendar, CheckCircle, Send, XCircle } from "lucide-react";
 import useAuthStore from "../../stores/useAuthStore";
@@ -563,10 +564,10 @@ const AdminLeavePage = () => {
               ) && (
                 <div className="rounded-xl border border-amber-200 bg-amber-50 p-4">
                   <p className="text-sm font-medium text-amber-900">
-                    Lo?i ngh? này c?n ch?ng t?
+                    Lo?i ngh? nï¿½y c?n ch?ng t?
                   </p>
                   <p className="mt-1 text-sm text-amber-800">
-                    B?n có th? ch?n cách b? sung ch?ng t? sau khi g?i don.
+                    B?n cï¿½ th? ch?n cï¿½ch b? sung ch?ng t? sau khi g?i don.
                   </p>
                   <div className="mt-3 flex flex-col gap-2">
                     <label className="flex items-center gap-2 text-sm text-gray-700">
