@@ -1,4 +1,4 @@
-﻿import { useEffect } from "react";
+import { useEffect, useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import { motion } from "framer-motion";
 import { ShoppingCart, Trash2, Plus, Minus, ArrowRight } from "lucide-react";
@@ -12,18 +12,98 @@ const CartPage = () => {
   const navigate = useNavigate();
   const toast = useToastStore();
   const { items, totalItems, totalPrice, isLoading, fetchCart, updateQuantity, removeFromCart } = useCartStore();
+  const [draftQuantities, setDraftQuantities] = useState({});
+  const [quantityErrors, setQuantityErrors] = useState({});
 
   useEffect(() => {
     fetchCart();
   }, [fetchCart]);
 
-  const handleUpdateQuantity = async (cartItemId, newQuantity) => {
-    if (newQuantity < 1) return;
+  useEffect(() => {
+    setDraftQuantities(
+      Object.fromEntries((items || []).map((item) => [item.id, String(item.quantity ?? 1)])),
+    );
+    setQuantityErrors({});
+  }, [items]);
+
+  const getMaxStock = (item) => {
+    const stock = Number(item?.stockQuantity);
+    return Number.isFinite(stock) && stock > 0 ? stock : null;
+  };
+
+  const validateQuantity = (value, item) => {
+    if (!value) {
+      return "Vui lòng nhập số lượng";
+    }
+
+    const quantity = Number(value);
+    if (!Number.isInteger(quantity) || quantity <= 0) {
+      return "Chỉ được nhập số nguyên dương";
+    }
+
+    const maxStock = getMaxStock(item);
+    if (maxStock !== null && quantity > maxStock) {
+      return `Chỉ còn ${maxStock} sản phẩm trong kho`;
+    }
+
+    return "";
+  };
+
+  const handleUpdateQuantity = async (item, newQuantity) => {
+    if (newQuantity < 1) {
+      return;
+    }
+
+    const maxStock = getMaxStock(item);
+    if (maxStock !== null && newQuantity > maxStock) {
+      const message = `Chỉ còn ${maxStock} sản phẩm trong kho`;
+      setQuantityErrors((prev) => ({ ...prev, [item.id]: message }));
+      toast.error(message);
+      return;
+    }
+
     try {
-      await updateQuantity(cartItemId, newQuantity);
+      await updateQuantity(item.id, newQuantity);
+      setQuantityErrors((prev) => ({ ...prev, [item.id]: "" }));
     } catch {
       toast.error("Không thể cập nhật số lượng");
     }
+  };
+
+  const handleQuantityInputChange = (item, value) => {
+    const sanitizedValue = value.replace(/\D/g, "");
+
+    setDraftQuantities((prev) => ({
+      ...prev,
+      [item.id]: sanitizedValue,
+    }));
+
+    setQuantityErrors((prev) => ({
+      ...prev,
+      [item.id]: validateQuantity(sanitizedValue, item),
+    }));
+  };
+
+  const commitQuantityInput = async (item) => {
+    const draftValue = draftQuantities[item.id] ?? String(item.quantity ?? 1);
+    const errorMessage = validateQuantity(draftValue, item);
+
+    if (errorMessage) {
+      setQuantityErrors((prev) => ({ ...prev, [item.id]: errorMessage }));
+      setDraftQuantities((prev) => ({
+        ...prev,
+        [item.id]: String(item.quantity ?? 1),
+      }));
+      toast.error(errorMessage);
+      return;
+    }
+
+    const nextQuantity = Number(draftValue);
+    if (nextQuantity === Number(item.quantity)) {
+      return;
+    }
+
+    await handleUpdateQuantity(item, nextQuantity);
   };
 
   const handleRemove = async (cartItemId) => {
@@ -74,54 +154,87 @@ const CartPage = () => {
 
         <div className="grid grid-cols-1 gap-6 lg:grid-cols-3">
           <div className="space-y-4 lg:col-span-2">
-            {items.map((item) => (
-              <motion.div
-                key={item.id}
-                initial={{ opacity: 0, y: 20 }}
-                animate={{ opacity: 1, y: 0 }}
-                className="glass-card rounded-[28px] p-6"
-              >
-                <div className="flex flex-col gap-5 md:flex-row">
-                  <Link to={`/products/${item.productId}`} className="flex-shrink-0">
-                    <img
-                      src={item.imageUrl || "https://via.placeholder.com/150"}
-                      alt={item.name}
-                      className="h-24 w-24 rounded-2xl object-cover"
-                    />
-                  </Link>
+            {items.map((item) => {
+              const maxStock = getMaxStock(item);
 
-                  <div className="min-w-0 flex-1">
-                    <Link to={`/products/${item.productId}`}>
-                      <h3 className="mb-1 text-lg font-semibold text-slate-900 transition-colors hover:text-coffee-700">
-                        {item.name || item.productName}
-                      </h3>
+              return (
+                <motion.div
+                  key={item.id}
+                  initial={{ opacity: 0, y: 20 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  className="glass-card rounded-[28px] p-6"
+                >
+                  <div className="flex flex-col gap-5 md:flex-row">
+                    <Link to={`/products/${item.productId}`} className="flex-shrink-0">
+                      <img
+                        src={item.imageUrl || "https://via.placeholder.com/150"}
+                        alt={item.name}
+                        className="h-24 w-24 rounded-2xl object-cover"
+                      />
                     </Link>
-                    <p className="mb-4 text-sm text-slate-500">{item.description}</p>
 
-                    <div className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
-                      <div className="glass-card flex w-fit items-center rounded-2xl border border-white/40">
-                        <button onClick={() => handleUpdateQuantity(item.id, item.quantity - 1)} className="rounded-l-2xl px-3 py-3 hover:bg-white/35">
-                          <Minus className="h-4 w-4" />
-                        </button>
-                        <span className="px-4 font-semibold">{item.quantity}</span>
-                        <button onClick={() => handleUpdateQuantity(item.id, item.quantity + 1)} className="rounded-r-2xl px-3 py-3 hover:bg-white/35">
-                          <Plus className="h-4 w-4" />
-                        </button>
-                      </div>
+                    <div className="min-w-0 flex-1">
+                      <Link to={`/products/${item.productId}`}>
+                        <h3 className="mb-1 text-lg font-semibold text-slate-900 transition-colors hover:text-coffee-700">
+                          {item.name || item.productName}
+                        </h3>
+                      </Link>
+                      <p className="mb-2 text-sm text-slate-500">{item.description}</p>
+                      {maxStock !== null && (
+                        <p className="mb-4 text-sm text-slate-500">Tồn kho hiện tại: {maxStock}</p>
+                      )}
 
-                      <div className="text-right">
-                        <p className="text-xl font-bold text-coffee-700">{formatCurrency(item.unitPrice * item.quantity)}</p>
-                        <p className="text-sm text-slate-500">{formatCurrency(item.unitPrice)} / sản phẩm</p>
+                      <div className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
+                        <div>
+                          <div className="glass-card flex w-fit items-center rounded-2xl border border-white/40">
+                            <button
+                              onClick={() => handleUpdateQuantity(item, item.quantity - 1)}
+                              disabled={Number(item.quantity) <= 1}
+                              className="rounded-l-2xl px-3 py-3 hover:bg-white/35 disabled:cursor-not-allowed disabled:opacity-50"
+                            >
+                              <Minus className="h-4 w-4" />
+                            </button>
+                            <input
+                              type="text"
+                              inputMode="numeric"
+                              value={draftQuantities[item.id] ?? String(item.quantity ?? 1)}
+                              onChange={(e) => handleQuantityInputChange(item, e.target.value)}
+                              onBlur={() => void commitQuantityInput(item)}
+                              onKeyDown={(e) => {
+                                if (e.key === "Enter") {
+                                  e.currentTarget.blur();
+                                }
+                              }}
+                              className="w-20 border-x border-white/40 bg-transparent px-3 py-3 text-center font-semibold outline-none"
+                              aria-label={`Số lượng ${item.name || item.productName}`}
+                            />
+                            <button
+                              onClick={() => handleUpdateQuantity(item, item.quantity + 1)}
+                              disabled={maxStock !== null && Number(item.quantity) >= maxStock}
+                              className="rounded-r-2xl px-3 py-3 hover:bg-white/35 disabled:cursor-not-allowed disabled:opacity-50"
+                            >
+                              <Plus className="h-4 w-4" />
+                            </button>
+                          </div>
+                          {quantityErrors[item.id] && (
+                            <p className="mt-2 text-sm text-red-600">{quantityErrors[item.id]}</p>
+                          )}
+                        </div>
+
+                        <div className="text-right">
+                          <p className="text-xl font-bold text-coffee-700">{formatCurrency(item.unitPrice * item.quantity)}</p>
+                          <p className="text-sm text-slate-500">{formatCurrency(item.unitPrice)} / sản phẩm</p>
+                        </div>
                       </div>
                     </div>
-                  </div>
 
-                  <button onClick={() => handleRemove(item.id)} className="glass-card h-fit rounded-2xl p-3 text-red-600 hover:bg-red-50/80">
-                    <Trash2 className="h-5 w-5" />
-                  </button>
-                </div>
-              </motion.div>
-            ))}
+                    <button onClick={() => handleRemove(item.id)} className="glass-card h-fit rounded-2xl p-3 text-red-600 hover:bg-red-50/80">
+                      <Trash2 className="h-5 w-5" />
+                    </button>
+                  </div>
+                </motion.div>
+              );
+            })}
           </div>
 
           <div>
