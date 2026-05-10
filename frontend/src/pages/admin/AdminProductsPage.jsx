@@ -19,13 +19,56 @@ import Input from "../../components/ui/Input";
 import Pagination from "../../components/ui/Pagination";
 import { exportToCsv } from "../../utils/exportCSV";
 
-const PRODUCT_IMAGE_PREFIX = "./asset/img/products/";
+const PRODUCT_IMAGE_PREFIX = "/asset/img/products/";
+const PRODUCT_IMAGE_PLACEHOLDER =
+  "data:image/svg+xml;utf8," +
+  encodeURIComponent(`
+    <svg xmlns="http://www.w3.org/2000/svg" width="128" height="128" viewBox="0 0 128 128">
+      <rect width="128" height="128" rx="18" fill="#f1e3d3" />
+      <path d="M41 36h33c9.4 0 17 7.6 17 17v5c0 9.4-7.6 17-17 17H54c-7.2 0-13-5.8-13-13V36Z" fill="#8b5e3c" />
+      <path d="M74 45h7c7.2 0 13 5.8 13 13s-5.8 13-13 13h-4" fill="none" stroke="#8b5e3c" stroke-width="6" stroke-linecap="round" />
+      <path d="M49 86c5 6 11 9 18 9s13-3 18-9" fill="none" stroke="#c08a5b" stroke-width="6" stroke-linecap="round" />
+      <text x="64" y="112" text-anchor="middle" font-family="Arial, sans-serif" font-size="14" fill="#6f4b2f">Coffee</text>
+    </svg>
+  `);
 
 const normalizeProductImagePath = (value) => {
   if (!value) return "";
   if (value.startsWith("http")) return value;
+  if (value.startsWith("/asset/")) return value;
+  if (value.startsWith("./asset/")) return value.replace(/^\./, "");
   const filename = value.split("/").pop();
   return filename ? `${PRODUCT_IMAGE_PREFIX}${filename}` : value;
+};
+
+const resolveProductImageSrc = (value) => {
+  const normalized = normalizeProductImagePath(value);
+
+  if (!normalized) {
+    return PRODUCT_IMAGE_PLACEHOLDER;
+  }
+
+  if (normalized.startsWith("http")) {
+    return normalized;
+  }
+
+  return normalized.replace(/^\.\//, "/");
+};
+
+const isDeletedProduct = (product) => {
+  const value = product?.isActive;
+
+  if (value === undefined || value === null) {
+    return false;
+  }
+
+  return value === false || Number(value) === 0;
+};
+
+const revokePreviewUrl = (value) => {
+  if (typeof value === "string" && value.startsWith("blob:")) {
+    URL.revokeObjectURL(value);
+  }
 };
 
 const AdminProductsPage = () => {
@@ -42,7 +85,7 @@ const AdminProductsPage = () => {
     stock: "all",
     priceMin: "",
     priceMax: "",
-    sort: "name-asc",
+    sort: "newest",
   });
   const [showModal, setShowModal] = useState(false);
   const [editingProduct, setEditingProduct] = useState(null);
@@ -125,11 +168,12 @@ const AdminProductsPage = () => {
       stock: "all",
       priceMin: "",
       priceMax: "",
-      sort: "name-asc",
+      sort: "newest",
     });
   };
 
   const handleOpenModal = (product = null) => {
+    revokePreviewUrl(imagePreview);
     if (product) {
       setEditingProduct(product);
       setFormData({
@@ -150,6 +194,7 @@ const AdminProductsPage = () => {
       setImagePreview(
         normalizeProductImagePath(product.imageUrl || product.image_url || ""),
       );
+      setSelectedImageFile(null);
     } else {
       setEditingProduct(null);
       setFormData({
@@ -168,8 +213,11 @@ const AdminProductsPage = () => {
   };
 
   const handleCloseModal = () => {
+    revokePreviewUrl(imagePreview);
     setShowModal(false);
     setEditingProduct(null);
+    setSelectedImageFile(null);
+    setImagePreview("");
     setFormData({
       name: "",
       description: "",
@@ -226,11 +274,17 @@ const AdminProductsPage = () => {
           return;
         }
       }
-      // Destructure costPrice out to avoid sending it to a backend that doesn't have the column
-      const { costPrice, ...apiData } = {
+      const nextFormData = {
         ...formData,
         imageUrl: resolvedImageUrl,
       };
+
+      if (!nextFormData.imageUrl?.trim()) {
+        delete nextFormData.imageUrl;
+      }
+
+      // Destructure costPrice out to avoid sending it to a backend that doesn't have the column
+      const { costPrice, ...apiData } = nextFormData;
 
       if (editingProduct) {
         const productId =
@@ -247,7 +301,11 @@ const AdminProductsPage = () => {
       fetchProducts();
     } catch (error) {
       console.error("Error saving product:", error);
-      toast.error(error.response?.data?.message || "Không thể lưu sản phẩm");
+      toast.error(
+        error?.errors?.[0]?.msg ||
+          error?.message ||
+          "Không thể lưu sản phẩm",
+      );
     }
   };
 
@@ -302,8 +360,7 @@ const AdminProductsPage = () => {
 
   const filteredProducts = products
     .filter((product) => {
-      // Frontend-only filtering for soft-deleted items
-      if (product.isActive === 0) return false;
+      if (isDeletedProduct(product)) return false;
 
       const term = searchTerm.trim().toLowerCase();
       const nameMatch = product.name?.toLowerCase().includes(term);
@@ -342,6 +399,12 @@ const AdminProductsPage = () => {
     })
     .sort((a, b) => {
       const sortKey = filters.sort;
+      if (sortKey === "newest") {
+        return Number(b.id || b.productId || 0) - Number(a.id || a.productId || 0);
+      }
+      if (sortKey === "oldest") {
+        return Number(a.id || a.productId || 0) - Number(b.id || b.productId || 0);
+      }
       if (sortKey === "name-asc") {
         return (a.name || "").localeCompare(b.name || "");
       }
@@ -526,6 +589,8 @@ const AdminProductsPage = () => {
                 }}
                 className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-coffee-500"
               >
+                <option value="newest">Mới nhất</option>
+                <option value="oldest">Cũ nhất</option>
                 <option value="name-asc">Tên (A→Z)</option>
                 <option value="name-desc">Tên (Z→A)</option>
                 <option value="price-asc">Giá tăng dần</option>
@@ -579,13 +644,12 @@ const AdminProductsPage = () => {
                       <td className="px-6 py-4">
                         <div className="flex items-center gap-3">
                           <img
-                            src={
-                              product.imageUrl?.startsWith("http")
-                                ? product.imageUrl
-                                : `..${normalizeProductImagePath(product.imageUrl)}`
-                            }
+                            src={resolveProductImageSrc(product.imageUrl || product.image_url)}
                             alt={product.name}
                             className="w-12 h-12 rounded-lg object-cover"
+                            onError={(e) => {
+                              e.target.src = PRODUCT_IMAGE_PLACEHOLDER;
+                            }}
                           />
                           <div>
                             <div className="font-medium text-gray-900">
@@ -843,9 +907,24 @@ const AdminProductsPage = () => {
                           accept="image/*"
                           onChange={(e) => {
                             const file = e.target.files?.[0] || null;
+                            revokePreviewUrl(imagePreview);
                             setSelectedImageFile(file);
                             if (file) {
                               setImagePreview(URL.createObjectURL(file));
+                              setFormData((prev) => ({
+                                ...prev,
+                                imageUrl: "",
+                              }));
+                            } else {
+                              setImagePreview(
+                                editingProduct
+                                  ? normalizeProductImagePath(
+                                      editingProduct.imageUrl ||
+                                        editingProduct.image_url ||
+                                        "",
+                                    )
+                                  : "",
+                              );
                             }
                           }}
                         />
@@ -879,7 +958,12 @@ const AdminProductsPage = () => {
                                   "Không nhận được đường dẫn ảnh từ server"
                                 );
                               } else {
-                                setFormData({ ...formData, imageUrl: imgPath });
+                                revokePreviewUrl(imagePreview);
+                                setFormData((prev) => ({
+                                  ...prev,
+                                  imageUrl: imgPath,
+                                }));
+                                setImagePreview(imgPath);
                                 toast.success("Tải ảnh lên thành công");
                               }
                             } catch (err) {
@@ -899,28 +983,23 @@ const AdminProductsPage = () => {
                         {imagePreview ? (
                           <img
                             src={
-                              imagePreview.startsWith("blob:") ||
-                              imagePreview.startsWith("http")
+                              imagePreview.startsWith("blob:")
                                 ? imagePreview
-                                : `..${normalizeProductImagePath(imagePreview)}`
+                                : resolveProductImageSrc(imagePreview)
                             }
                             alt="Preview"
                             className="w-32 h-32 object-cover rounded-lg"
                             onError={(e) => {
-                              e.target.src = "https://via.placeholder.com/128";
+                              e.target.src = PRODUCT_IMAGE_PLACEHOLDER;
                             }}
                           />
                         ) : formData.imageUrl ? (
                           <img
-                            src={
-                              formData.imageUrl.startsWith("./")
-                                ? `..${formData.imageUrl}`
-                                : formData.imageUrl
-                            }
+                            src={resolveProductImageSrc(formData.imageUrl)}
                             alt="Preview"
                             className="w-32 h-32 object-cover rounded-lg"
                             onError={(e) => {
-                              e.target.src = "https://via.placeholder.com/128";
+                              e.target.src = PRODUCT_IMAGE_PLACEHOLDER;
                             }}
                           />
                         ) : null}

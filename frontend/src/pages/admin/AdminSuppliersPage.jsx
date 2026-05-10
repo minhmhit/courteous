@@ -19,6 +19,27 @@ import Button from "../../components/ui/Button";
 import Input from "../../components/ui/Input";
 import Pagination from "../../components/ui/Pagination";
 
+const extractSupplierErrorMessage = (error, fallbackMessage) => {
+  if (typeof error === "string") {
+    const preMatch = error.match(/<pre>([\s\S]*?)<br/i);
+    if (preMatch?.[1]) {
+      return preMatch[1].replace(/^Error:\s*/i, "").trim();
+    }
+
+    return error;
+  }
+
+  if (error?.errors?.[0]?.msg) {
+    return error.errors[0].msg;
+  }
+
+  if (error?.message) {
+    return error.message;
+  }
+
+  return fallbackMessage;
+};
+
 const AdminSuppliersPage = () => {
   const toast = useToastStore();
   const [suppliers, setSuppliers] = useState([]);
@@ -37,8 +58,7 @@ const AdminSuppliersPage = () => {
     contactInfo: "",
     address: "",
   });
-  
-  // Pagination
+
   const [currentPage, setCurrentPage] = useState(1);
   const itemsPerPage = 6;
 
@@ -50,9 +70,14 @@ const AdminSuppliersPage = () => {
     setIsLoading(true);
     try {
       const response = await supplierAPI.getAllSuppliers();
-      const raw = response?.suppliers?.data || response?.suppliers || response?.data || response || [];
+      const raw =
+        response?.suppliers?.data ||
+        response?.suppliers ||
+        response?.data ||
+        response ||
+        [];
       const supplierData = Array.isArray(raw) ? raw : [];
-      setSuppliers(supplierData.filter(s => s.isActive !== 0));
+      setSuppliers(supplierData.filter((s) => s.isActive !== 0));
     } catch (error) {
       console.error("Error fetching suppliers:", error);
       toast.error("Không thể tải danh sách nhà cung cấp");
@@ -121,7 +146,7 @@ const AdminSuppliersPage = () => {
     } catch (error) {
       console.error("Error saving supplier:", error);
       toast.error(
-        error.response?.data?.message || "Không thể lưu nhà cung cấp"
+        extractSupplierErrorMessage(error, "Không thể lưu nhà cung cấp"),
       );
     }
   };
@@ -140,7 +165,9 @@ const AdminSuppliersPage = () => {
       fetchSuppliers();
     } catch (error) {
       console.error("Error deleting supplier:", error);
-      toast.error(error.response?.data?.message || "Không thể xóa nhà cung cấp");
+      toast.error(
+        extractSupplierErrorMessage(error, "Không thể xóa nhà cung cấp"),
+      );
     }
   };
 
@@ -181,7 +208,6 @@ const AdminSuppliersPage = () => {
 
   return (
     <div className="space-y-6">
-      {/* Header */}
       <div className="flex justify-between items-center">
         <div>
           <h1 className="text-3xl font-bold text-gray-900">
@@ -197,7 +223,6 @@ const AdminSuppliersPage = () => {
         </Button>
       </div>
 
-      {/* Stats Card */}
       <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
         <div className="bg-white rounded-xl shadow-sm p-6 border border-gray-100">
           <div className="flex items-center gap-4">
@@ -221,7 +246,11 @@ const AdminSuppliersPage = () => {
             <div>
               <p className="text-sm text-gray-600">Đang Hoạt Động</p>
               <p className="text-2xl font-bold text-gray-900">
-                {suppliers.filter((s) => s.isActive !== 0 && s.isActive !== false).length}
+                {
+                  suppliers.filter(
+                    (s) => s.isActive !== 0 && s.isActive !== false,
+                  ).length
+                }
               </p>
             </div>
           </div>
@@ -235,14 +264,17 @@ const AdminSuppliersPage = () => {
             <div>
               <p className="text-sm text-gray-600">Ngừng Hoạt Động</p>
               <p className="text-2xl font-bold text-gray-900">
-                {suppliers.filter((s) => s.isActive === 0 || s.isActive === false).length}
+                {
+                  suppliers.filter(
+                    (s) => s.isActive === 0 || s.isActive === false,
+                  ).length
+                }
               </p>
             </div>
           </div>
         </div>
       </div>
 
-      {/* Search & Filters */}
       <div className="bg-white rounded-lg shadow-sm p-4">
         <div className="flex flex-wrap items-center gap-3">
           <div className="flex-1 min-w-[220px]">
@@ -310,7 +342,6 @@ const AdminSuppliersPage = () => {
         )}
       </div>
 
-      {/* Suppliers Table */}
       <div className="bg-white rounded-lg shadow-sm overflow-hidden">
         {isLoading ? (
           <div className="flex items-center justify-center h-64">
@@ -323,7 +354,6 @@ const AdminSuppliersPage = () => {
                 <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">
                   Tên Công Ty
                 </th>
-                
                 <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">
                   Thông Tin Liên Lạc
                 </th>
@@ -336,57 +366,64 @@ const AdminSuppliersPage = () => {
               </tr>
             </thead>
             <tbody className="divide-y divide-gray-200">
-              {filteredSuppliers.slice((currentPage - 1) * itemsPerPage, currentPage * itemsPerPage).length > 0 ? (
-                filteredSuppliers.slice((currentPage - 1) * itemsPerPage, currentPage * itemsPerPage).map((supplier) => (
-                  <tr key={supplier.id} className="hover:bg-gray-50">
-                    <td className="px-6 py-4">
-                      <div className="flex items-center gap-3">
-                        <div className="w-10 h-10 bg-coffee-100 rounded-lg flex items-center justify-center">
-                          <Building2 className="w-5 h-5 text-coffee-600" />
-                        </div>
-                        <p className="font-bold text-gray-900">
-                          {supplier.name}
-                        </p>
-                      </div>
-                    </td>
-                    
-                    <td className="px-6 py-4">
-                      <div className="space-y-1">
-                        
-                        {supplier.contactInfo && (
-                          <div className="flex items-center gap-2 text-sm text-gray-600">
-                            <Phone className="w-4 h-4" />
-                            {supplier.contactInfo}
+              {filteredSuppliers.slice(
+                (currentPage - 1) * itemsPerPage,
+                currentPage * itemsPerPage,
+              ).length > 0 ? (
+                filteredSuppliers
+                  .slice(
+                    (currentPage - 1) * itemsPerPage,
+                    currentPage * itemsPerPage,
+                  )
+                  .map((supplier) => (
+                    <tr key={supplier.id} className="hover:bg-gray-50">
+                      <td className="px-6 py-4">
+                        <div className="flex items-center gap-3">
+                          <div className="w-10 h-10 bg-coffee-100 rounded-lg flex items-center justify-center">
+                            <Building2 className="w-5 h-5 text-coffee-600" />
                           </div>
-                        )}
-                      </div>
-                    </td>
-                    <td className="px-6 py-4">
-                      <div className="flex items-start gap-2 text-sm text-gray-600">
-                        <MapPin className="w-4 h-4 mt-0.5 flex-shrink-0" />
-                        <span className="line-clamp-2">
-                          {supplier.address || "-"}
-                        </span>
-                      </div>
-                    </td>
-                    <td className="px-6 py-4 text-right">
-                      <div className="flex items-center justify-end gap-2">
-                        <button
-                          onClick={() => handleOpenModal(supplier)}
-                          className="p-2 text-blue-600 hover:bg-blue-50 rounded-lg transition-colors"
-                        >
-                          <Edit className="w-4 h-4" />
-                        </button>
-                        <button
-                          onClick={() => handleDelete(supplier.id)}
-                          className="p-2 text-red-600 hover:bg-red-50 rounded-lg transition-colors"
-                        >
-                          <Trash2 className="w-4 h-4" />
-                        </button>
-                      </div>
-                    </td>
-                  </tr>
-                ))
+                          <p className="font-bold text-gray-900">
+                            {supplier.name}
+                          </p>
+                        </div>
+                      </td>
+
+                      <td className="px-6 py-4">
+                        <div className="space-y-1">
+                          {supplier.contactInfo && (
+                            <div className="flex items-center gap-2 text-sm text-gray-600">
+                              <Phone className="w-4 h-4" />
+                              {supplier.contactInfo}
+                            </div>
+                          )}
+                        </div>
+                      </td>
+                      <td className="px-6 py-4">
+                        <div className="flex items-start gap-2 text-sm text-gray-600">
+                          <MapPin className="w-4 h-4 mt-0.5 flex-shrink-0" />
+                          <span className="line-clamp-2">
+                            {supplier.address || "-"}
+                          </span>
+                        </div>
+                      </td>
+                      <td className="px-6 py-4 text-right">
+                        <div className="flex items-center justify-end gap-2">
+                          <button
+                            onClick={() => handleOpenModal(supplier)}
+                            className="p-2 text-blue-600 hover:bg-blue-50 rounded-lg transition-colors"
+                          >
+                            <Edit className="w-4 h-4" />
+                          </button>
+                          <button
+                            onClick={() => handleDelete(supplier.id)}
+                            className="p-2 text-red-600 hover:bg-red-50 rounded-lg transition-colors"
+                          >
+                            <Trash2 className="w-4 h-4" />
+                          </button>
+                        </div>
+                      </td>
+                    </tr>
+                  ))
               ) : (
                 <tr>
                   <td
@@ -400,8 +437,7 @@ const AdminSuppliersPage = () => {
             </tbody>
           </table>
         )}
-        
-        {/* Pagination Logic at bottom */}
+
         {!isLoading && Math.ceil(filteredSuppliers.length / itemsPerPage) > 1 && (
           <div className="p-4 border-t border-gray-200">
             <Pagination
@@ -413,7 +449,6 @@ const AdminSuppliersPage = () => {
         )}
       </div>
 
-      {/* Add/Edit Modal */}
       <AnimatePresence>
         {showModal && (
           <div className="fixed inset-0 z-50 overflow-y-auto">
@@ -472,7 +507,7 @@ const AdminSuppliersPage = () => {
                         })
                       }
                       icon={<User className="w-5 h-5" />}
-                      placeholder="VD:ABC123"
+                      placeholder="VD: ABC123"
                     />
 
                     <div className="grid grid-cols-2 gap-4">
@@ -482,14 +517,15 @@ const AdminSuppliersPage = () => {
                         type="tel"
                         value={formData.contactInfo}
                         onChange={(e) =>
-                          setFormData({ ...formData, contactInfo: e.target.value })
+                          setFormData({
+                            ...formData,
+                            contactInfo: e.target.value,
+                          })
                         }
                         required
                         icon={<Mail className="w-5 h-5" />}
                         placeholder="0123456789"
                       />
-
-                      
                     </div>
 
                     <div>

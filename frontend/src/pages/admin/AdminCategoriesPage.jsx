@@ -7,6 +7,11 @@ import Button from "../../components/ui/Button";
 import Input from "../../components/ui/Input";
 import Pagination from "../../components/ui/Pagination";
 
+const isInactiveCategory = (category) =>
+  category?.isActive === 0 ||
+  category?.isActive === "0" ||
+  category?.isActive === false;
+
 const AdminCategoriesPage = () => {
   const toast = useToastStore();
   const [categories, setCategories] = useState([]);
@@ -29,7 +34,10 @@ const AdminCategoriesPage = () => {
     setIsLoading(true);
     try {
       const response = await categoryAPI.getAllCategories();
-      setCategories(response.data || []);
+      const categoryData = Array.isArray(response.data) ? response.data : [];
+      setCategories(
+        categoryData.filter((category) => !isInactiveCategory(category)),
+      );
     } catch (error) {
       console.error("Error fetching categories:", error);
       toast.error("Không thể tải danh sách danh mục");
@@ -95,6 +103,8 @@ const AdminCategoriesPage = () => {
 
   const filteredCategories = categories
     .filter((category) => {
+      if (isInactiveCategory(category)) return false;
+
       const keyword = searchTerm.toLowerCase();
       return (
         category.name?.toLowerCase().includes(keyword) ||
