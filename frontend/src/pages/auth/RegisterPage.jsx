@@ -13,6 +13,17 @@ const RegisterPage = () => {
   const toast = useToastStore();
   const [isLoading, setIsLoading] = useState(false);
 
+  const NAME_REGEX = /^(?=.*[A-Za-zÀ-ỹĐđ])[A-Za-zÀ-ỹĐđ\s]+$/u;
+  const PHONE_REGEX = /^0\d{9}$/;
+  const EMAIL_REGEX = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+
+  const [errors, setErrors] = useState({
+    name: null,
+    email: null,
+    phone: null,
+    receiverName: null,
+  });
+
   const [formData, setFormData] = useState({
     name: "",
     email: "",
@@ -39,6 +50,12 @@ const RegisterPage = () => {
       ...formData,
       [e.target.name]: e.target.value,
     });
+    // live-validate name and email
+    const { name, value } = e.target;
+    if (name === "name" || name === "email") {
+      const fieldErr = getFieldErrorMessage(name, value);
+      setErrors((prev) => ({ ...prev, [name]: fieldErr }));
+    }
   };
 
   useEffect(() => {
@@ -61,6 +78,40 @@ const RegisterPage = () => {
       ...addressData,
       [name]: value,
     });
+    if (name === "phoneNumber") {
+      const fieldErr = getFieldErrorMessage("phone", value);
+      setErrors((prev) => ({ ...prev, phone: fieldErr }));
+    }
+
+    if (name === "receiverName") {
+      const fieldErr = getFieldErrorMessage("name", value);
+      setErrors((prev) => ({ ...prev, receiverName: fieldErr }));
+    }
+  };
+
+  const getFieldErrorMessage = (field, value) => {
+    const v = typeof value === "string" ? value.trim() : value;
+    if (field === "name") {
+      if (!v) return "Họ và tên không được để trống.";
+      if (!NAME_REGEX.test(v))
+        return "Họ và tên phải chỉ gồm chữ và khoảng trắng.";
+      return null;
+    }
+
+    if (field === "email") {
+      if (!v) return "Email không được để trống.";
+      if (!EMAIL_REGEX.test(v)) return "Email không hợp lệ.";
+      return null;
+    }
+
+    if (field === "phone") {
+      if (!v) return "Số điện thoại không được để trống.";
+      if (!PHONE_REGEX.test(v))
+        return "Số điện thoại phải bắt đầu bằng 0 và có đúng 10 chữ số.";
+      return null;
+    }
+
+    return null;
   };
 
   const handleProvinceChange = async (e) => {
@@ -74,7 +125,9 @@ const RegisterPage = () => {
       return;
     }
 
-    const province = provinces.find((p) => p.code === parseInt(provinceCode, 10));
+    const province = provinces.find(
+      (p) => p.code === parseInt(provinceCode, 10),
+    );
     setSelectedProvince(province);
     setSelectedDistrict(null);
     setSelectedWard(null);
@@ -98,7 +151,9 @@ const RegisterPage = () => {
       return;
     }
 
-    const district = districts.find((d) => d.code === parseInt(districtCode, 10));
+    const district = districts.find(
+      (d) => d.code === parseInt(districtCode, 10),
+    );
     setSelectedDistrict(district);
     setSelectedWard(null);
 
@@ -124,6 +179,34 @@ const RegisterPage = () => {
 
   const handleSubmit = async (e) => {
     e.preventDefault();
+
+    // Validate client-side fields: name, email, phone
+    const nameErr = getFieldErrorMessage("name", formData.name);
+    const emailErr = getFieldErrorMessage("email", formData.email);
+    const phoneErr = getFieldErrorMessage("phone", addressData.phoneNumber);
+    const receiverErr = getFieldErrorMessage("name", addressData.receiverName);
+
+    setErrors({ name: nameErr, email: emailErr, phone: phoneErr });
+
+    if (nameErr) {
+      toast.error(nameErr);
+      return;
+    }
+
+    if (emailErr) {
+      toast.error(emailErr);
+      return;
+    }
+
+    if (phoneErr) {
+      toast.error(phoneErr);
+      return;
+    }
+
+    if (receiverErr) {
+      toast.error(receiverErr);
+      return;
+    }
 
     if (formData.password !== formData.confirmPassword) {
       toast.error("Mật khẩu xác nhận không khớp");
@@ -166,7 +249,64 @@ const RegisterPage = () => {
       toast.success("Đăng ký thành công! Vui lòng đăng nhập");
       navigate("/login");
     } catch (error) {
-      toast.error(error.errors?.[0]?.msg || "Đăng ký thất bại");
+      // axios interceptor may reject with response.data directly, so handle both shapes
+      const resp = error?.response?.data || error || {};
+      const apiErrors =
+        resp?.errors || resp?.error || (Array.isArray(resp) ? resp : null);
+
+      let handled = false;
+      if (Array.isArray(apiErrors) && apiErrors.length) {
+        const emailErrObj = apiErrors.find(
+          (it) => it.param === "email" || it.param === "username",
+        );
+        if (emailErrObj) {
+          const msg = emailErrObj.msg || "Email đã tồn tại";
+          setErrors((prev) => ({ ...prev, email: msg }));
+          toast.error(msg);
+          handled = true;
+        } else {
+          const msg = apiErrors[0].msg || "Đăng ký thất bại";
+          toast.error(msg);
+          handled = true;
+        }
+      }
+
+      if (!handled && resp?.message) {
+        const msgLower = String(resp.message).toLowerCase();
+        if (
+          msgLower.includes("email") &&
+          (msgLower.includes("exist") ||
+            msgLower.includes("already") ||
+            msgLower.includes("tồn tại"))
+        ) {
+          setErrors((prev) => ({ ...prev, email: "Email đã tồn tại" }));
+          toast.error("Email đã tồn tại");
+          handled = true;
+        } else {
+          toast.error(resp.message || "Đăng ký thất bại");
+          handled = true;
+        }
+      }
+
+      if (!handled) {
+        // if error is a string (some interceptors reject with a string)
+        if (typeof error === "string") {
+          const s = error.toLowerCase();
+          if (
+            s.includes("email") &&
+            (s.includes("exist") ||
+              s.includes("tồn tại") ||
+              s.includes("already"))
+          ) {
+            setErrors((prev) => ({ ...prev, email: "Email đã tồn tại" }));
+            toast.error("Email đã tồn tại");
+          } else {
+            toast.error(error || "Đăng ký thất bại");
+          }
+        } else {
+          toast.error("Đăng ký thất bại");
+        }
+      }
     } finally {
       setIsLoading(false);
     }
@@ -183,24 +323,38 @@ const RegisterPage = () => {
               <p className="text-gray-600 mt-2">Tạo tài khoản mới</p>
             </div>
 
-            <form onSubmit={handleSubmit} className="space-y-4">
-              <Input
-                label="Họ và tên"
-                type="text"
-                name="name"
-                value={formData.name}
-                onChange={handleChange}
-                required
-              />
+            <form onSubmit={handleSubmit} className="space-y-4" noValidate>
+              <div>
+                <Input
+                  label="Họ và tên"
+                  type="text"
+                  name="name"
+                  value={formData.name}
+                  onChange={handleChange}
+                  required
+                />
+                {errors.name && (
+                  <p className="mt-1 text-sm text-red-600" role="alert">
+                    {errors.name}
+                  </p>
+                )}
+              </div>
 
-              <Input
-                label="Email"
-                type="email"
-                name="email"
-                value={formData.email}
-                onChange={handleChange}
-                required
-              />
+              <div>
+                <Input
+                  label="Email"
+                  type="email"
+                  name="email"
+                  value={formData.email}
+                  onChange={handleChange}
+                  required
+                />
+                {errors.email && (
+                  <p className="mt-1 text-sm text-red-600" role="alert">
+                    {errors.email}
+                  </p>
+                )}
+              </div>
 
               <Input
                 label="Mật khẩu"
@@ -252,24 +406,38 @@ const RegisterPage = () => {
             </div>
 
             <form className="space-y-4">
-              <Input
-                label="Tên người nhận"
-                type="text"
-                name="receiverName"
-                value={addressData.receiverName}
-                onChange={handleAddressChange}
-                placeholder={formData.name || "Nhập tên người nhận"}
-                required
-              />
+              <div>
+                <Input
+                  label="Tên người nhận"
+                  type="text"
+                  name="receiverName"
+                  value={addressData.receiverName}
+                  onChange={handleAddressChange}
+                  placeholder={formData.name || "Nhập tên người nhận"}
+                  required
+                />
+                {errors.receiverName && (
+                  <p className="mt-1 text-sm text-red-600" role="alert">
+                    {errors.receiverName}
+                  </p>
+                )}
+              </div>
 
-              <Input
-                label="Số điện thoại"
-                type="tel"
-                name="phoneNumber"
-                value={addressData.phoneNumber}
-                onChange={handleAddressChange}
-                required
-              />
+              <div>
+                <Input
+                  label="Số điện thoại"
+                  type="tel"
+                  name="phoneNumber"
+                  value={addressData.phoneNumber}
+                  onChange={handleAddressChange}
+                  required
+                />
+                {errors.phone && (
+                  <p className="mt-1 text-sm text-red-600" role="alert">
+                    {errors.phone}
+                  </p>
+                )}
+              </div>
 
               <Input
                 label="Địa chỉ chi tiết"
@@ -373,7 +541,8 @@ const RegisterPage = () => {
               </div>
 
               <div className="bg-blue-50 border border-blue-200 rounded-lg p-3 text-xs text-blue-700">
-                Địa chỉ này sẽ được đặt làm địa chỉ mặc định cho các đơn hàng tiếp theo!
+                Địa chỉ này sẽ được đặt làm địa chỉ mặc định cho các đơn hàng
+                tiếp theo!
               </div>
             </form>
           </div>
