@@ -814,7 +814,7 @@ const AdminProductsPage = () => {
                     </div>
 
                     <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                      <div>
+                      {/* <div>
                         <label className="block text-sm font-medium text-gray-700 mb-2">
                           Giá Nhập gần nhất
                         </label>
@@ -828,7 +828,7 @@ const AdminProductsPage = () => {
                           readOnly
                           className="w-full px-4 py-2 border border-gray-200 rounded-lg bg-gray-50 text-gray-600"
                         />
-                      </div>
+                      </div> */}
 
                       <div>
                         <label className="block text-sm font-medium text-gray-700 mb-2">Giá Bán (VNĐ) *</label>

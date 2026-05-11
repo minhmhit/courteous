@@ -135,7 +135,7 @@ const AdminOrdersPage = () => {
         "Thời Gian": formatDate(order.orderDate),
         "Tổng Tiền": order.totalAmount,
         "Trạng Thái": getStatusInfo(order.status)?.label || order.status,
-        "Thanh Toán": order.paymentStatus || "Chưa có",
+        // "Thanh Toán": order.paymentStatus || "Chưa có",
         "Người Dùng": order.customerName,
         "Số Điện Thoại": order.phoneNumber,
         Email: order.email,
@@ -231,7 +231,7 @@ const AdminOrdersPage = () => {
                   <th className="px-6 py-4 text-left text-xs font-medium uppercase tracking-wider text-gray-500">Khách Hàng</th>
                   <th className="px-6 py-4 text-left text-xs font-medium uppercase tracking-wider text-gray-500">Thời Gian</th>
                   <th className="px-6 py-4 text-left text-xs font-medium uppercase tracking-wider text-gray-500">Trạng Thái</th>
-                  <th className="px-6 py-4 text-left text-xs font-medium uppercase tracking-wider text-gray-500">Thanh Toán</th>
+                  {/* <th className="px-6 py-4 text-left text-xs font-medium uppercase tracking-wider text-gray-500">Thanh Toán</th> */}
                   <th className="px-6 py-4 text-right text-xs font-medium uppercase tracking-wider text-gray-500">Thao Tác</th>
                 </tr>
               </thead>
@@ -251,7 +251,7 @@ const AdminOrdersPage = () => {
                             {statusInfo.label}
                           </span>
                         </td>
-                        <td className="whitespace-nowrap px-6 py-4 text-sm text-gray-600">{order.paymentStatus || "Chưa có"}</td>
+                        {/* <td className="whitespace-nowrap px-6 py-4 text-sm text-gray-600">{order.paymentStatus || "Chưa có"}</td> */}
                         <td className="space-x-2 whitespace-nowrap px-6 py-4 text-right">
                           {order.status !== "COMPLETED" && order.status !== "completed" && order.status !== "CANCELLED" && order.status !== "cancelled" && (
                             <select value={order.status} onChange={(e) => handleUpdateStatus(order.id, e.target.value)} className="inline-flex rounded-lg border border-gray-300 px-3 py-2 text-sm font-medium focus:outline-none focus:ring-2 focus:ring-coffee-500">

@@ -198,7 +198,7 @@ const OrderHistoryPage = () => {
                         <Store className="h-4 w-4 sm:h-5 sm:w-5" />
                       </div>
                       <span className="text-sm font-bold tracking-tight text-gray-800 sm:text-lg">
-                        Courteous Coffee
+                        Coffee Bot
                       </span>
                       <Link
                         to="/products"
@@ -251,9 +251,9 @@ const OrderHistoryPage = () => {
                               <div className="line-clamp-2 text-sm font-semibold leading-snug text-gray-900 sm:text-lg">
                                 {item.productName || item.product?.name || "Sản phẩm"}
                               </div>
-                              <div className="mt-1 text-xs font-medium text-gray-500 opacity-90 sm:mt-1.5 sm:text-sm">
+                              {/* <div className="mt-1 text-xs font-medium text-gray-500 opacity-90 sm:mt-1.5 sm:text-sm">
                                 Ly Tiêu Chuẩn N/A
-                              </div>
+                              </div> */}
                             </div>
                           </div>
                           <div className="ml-4 flex flex-col items-end justify-center">
@@ -290,6 +290,8 @@ const OrderHistoryPage = () => {
                           ? "Đơn hàng đang được vận chuyển"
                           : logicalStatus === "CANCELLED"
                           ? "Đơn đã bị hủy do thay đổi hoặc lỗi mạng"
+                          : logicalStatus === "PENDING"
+                          ?"Đang xử lý đơn hàng"                          
                           : "Vui lòng thanh toán hoặc chờ bộ phận xử lý"}
                       </div>
                       <div className="flex flex-wrap gap-2 sm:gap-3">

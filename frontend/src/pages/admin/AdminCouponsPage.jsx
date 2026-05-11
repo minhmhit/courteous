@@ -41,7 +41,7 @@ export default function AdminCouponsPage() {
     setLoading(true);
     try {
       const res = await couponAPI.getAllCoupons();
-      setCoupons(res?.data?.data?.coupons || []);
+      setCoupons(res?.data?.coupons || []);
     } catch (err) {
       console.error(err);
       toast.error("Không thể tải danh sách mã giảm giá");
@@ -130,6 +130,7 @@ export default function AdminCouponsPage() {
       const keyword = searchTerm.toLowerCase();
       const searchMatch = !keyword || coupon.code?.toLowerCase().includes(keyword);
       const statusMatch = filters.status === "all" || filters.status === status;
+      
       const fromMatch =
         !filters.validFrom ||
         (validFrom && validFrom >= new Date(`${filters.validFrom}T00:00:00`));
